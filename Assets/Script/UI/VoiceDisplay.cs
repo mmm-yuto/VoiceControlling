@@ -9,31 +9,84 @@ public class VoiceDisplay : MonoBehaviour
     public TextMeshProUGUI pitchText;
     public Slider volumeSlider;
     public Slider pitchSlider;
-    public Image volumeBar;
-    public Image pitchBar;
     
     [Header("Display Settings")]
-    public Color lowVolumeColor = Color.green;
-    public Color highVolumeColor = Color.red;
-    public Color lowPitchColor = Color.blue;
-    public Color highPitchColor = Color.yellow;
     public float maxVolume = 1f;
+    public float minPitch = 0f;
     public float maxPitch = 1000f;
+    
+    // 動的な最大値設定（後方互換性のため残す）
+    public void SetMaxValues(float newMaxVolume, float newMaxPitch)
+    {
+        SetMaxVolume(newMaxVolume);
+        SetPitchRange(0f, newMaxPitch);
+    }
+    
+    // 音量の最大値設定
+    public void SetMaxVolume(float newMaxVolume)
+    {
+        maxVolume = newMaxVolume;
+        
+        if (volumeSlider != null)
+        {
+            volumeSlider.maxValue = maxVolume;
+        }
+        
+        Debug.Log($"Max volume updated: {maxVolume:F3}");
+    }
+    
+    // ピッチの範囲設定
+    public void SetPitchRange(float newMinPitch, float newMaxPitch)
+    {
+        minPitch = newMinPitch;
+        maxPitch = newMaxPitch;
+        
+        if (pitchSlider != null)
+        {
+            pitchSlider.minValue = minPitch;
+            pitchSlider.maxValue = maxPitch;
+        }
+        
+        Debug.Log($"Pitch range updated: {minPitch:F1} - {maxPitch:F1} Hz");
+    }
     
     private VolumeAnalyzer volumeAnalyzer;
     private PitchAnalyzer pitchAnalyzer;
+    private ImprovedPitchAnalyzer improvedPitchAnalyzer;
+    private FixedPitchAnalyzer fixedPitchAnalyzer;
     
     void Start()
     {
         // 音声分析コンポーネントを取得
         volumeAnalyzer = FindObjectOfType<VolumeAnalyzer>();
         pitchAnalyzer = FindObjectOfType<PitchAnalyzer>();
+        improvedPitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
+        fixedPitchAnalyzer = FindObjectOfType<FixedPitchAnalyzer>();
         
         // イベント購読
         if (volumeAnalyzer != null)
             volumeAnalyzer.OnVolumeDetected += UpdateVolumeDisplay;
-        if (pitchAnalyzer != null)
+        
+        // FixedPitchAnalyzerを最優先で使用
+        if (fixedPitchAnalyzer != null)
+        {
+            fixedPitchAnalyzer.OnPitchDetected += UpdatePitchDisplay;
+            Debug.Log("Using FixedPitchAnalyzer for pitch detection");
+        }
+        else if (improvedPitchAnalyzer != null)
+        {
+            improvedPitchAnalyzer.OnPitchDetected += UpdatePitchDisplay;
+            Debug.Log("Using ImprovedPitchAnalyzer for pitch detection");
+        }
+        else if (pitchAnalyzer != null)
+        {
             pitchAnalyzer.OnPitchDetected += UpdatePitchDisplay;
+            Debug.Log("Using PitchAnalyzer for pitch detection");
+        }
+        else
+        {
+            Debug.LogWarning("No pitch analyzer found!");
+        }
         
         // UI初期化
         InitializeUI();
@@ -51,9 +104,9 @@ public class VoiceDisplay : MonoBehaviour
         
         if (pitchSlider != null)
         {
-            pitchSlider.minValue = 0f;
+            pitchSlider.minValue = minPitch;
             pitchSlider.maxValue = maxPitch;
-            pitchSlider.value = 0f;
+            pitchSlider.value = minPitch;
         }
         
         // テキストの初期化
@@ -76,14 +129,6 @@ public class VoiceDisplay : MonoBehaviour
         {
             volumeSlider.value = Mathf.Clamp(volume, 0f, maxVolume);
         }
-        
-        // バー表示更新
-        if (volumeBar != null)
-        {
-            float normalizedVolume = Mathf.Clamp01(volume / maxVolume);
-            volumeBar.fillAmount = normalizedVolume;
-            volumeBar.color = Color.Lerp(lowVolumeColor, highVolumeColor, normalizedVolume);
-        }
     }
     
     void UpdatePitchDisplay(float pitch)
@@ -97,15 +142,7 @@ public class VoiceDisplay : MonoBehaviour
         // スライダー更新
         if (pitchSlider != null)
         {
-            pitchSlider.value = Mathf.Clamp(pitch, 0f, maxPitch);
-        }
-        
-        // バー表示更新
-        if (pitchBar != null)
-        {
-            float normalizedPitch = Mathf.Clamp01(pitch / maxPitch);
-            pitchBar.fillAmount = normalizedPitch;
-            pitchBar.color = Color.Lerp(lowPitchColor, highPitchColor, normalizedPitch);
+            pitchSlider.value = Mathf.Clamp(pitch, minPitch, maxPitch);
         }
     }
     
@@ -116,5 +153,9 @@ public class VoiceDisplay : MonoBehaviour
             volumeAnalyzer.OnVolumeDetected -= UpdateVolumeDisplay;
         if (pitchAnalyzer != null)
             pitchAnalyzer.OnPitchDetected -= UpdatePitchDisplay;
+        if (improvedPitchAnalyzer != null)
+            improvedPitchAnalyzer.OnPitchDetected -= UpdatePitchDisplay;
+        if (fixedPitchAnalyzer != null)
+            fixedPitchAnalyzer.OnPitchDetected -= UpdatePitchDisplay;
     }
 }

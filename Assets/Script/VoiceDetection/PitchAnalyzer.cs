@@ -6,6 +6,8 @@ public class PitchAnalyzer : MonoBehaviour
     public float pitchSensitivity = 1.0f;
     public float minFrequency = 80f;  // 最低周波数
     public float maxFrequency = 1000f; // 最高周波数
+    public float volumeThreshold = 0.01f; // ピッチ検知の音量閾値
+    public float smoothingFactor = 0.1f; // ピッチのスムージング係数
     
     [Header("Movement Pitch Settings")]
     public float leftPitch = 200f;    // 左移動用のピッチ
@@ -17,12 +19,16 @@ public class PitchAnalyzer : MonoBehaviour
     public float testPitch = 400f;   // テスト用の固定音程
     
     private VoiceDetector voiceDetector;
+    private VolumeAnalyzer volumeAnalyzer;
     private float[] fftBuffer;
     public float lastDetectedPitch = 0f;
+    private float smoothedPitch = 0f;
+    private bool hasValidPitch = false;
     
     void Start()
     {
         voiceDetector = FindObjectOfType<VoiceDetector>();
+        volumeAnalyzer = FindObjectOfType<VolumeAnalyzer>();
         int bufferSize = voiceDetector.bufferSize;
         fftBuffer = new float[bufferSize];
     }
@@ -40,10 +46,32 @@ public class PitchAnalyzer : MonoBehaviour
             float[] samples = voiceDetector.GetAudioSamples();
             if (samples != null)
             {
-                float pitch = CalculatePitch(samples);
-                ProcessPitch(pitch);
+                // 音量をチェックしてピッチ検知の信頼性を判断
+                float currentVolume = CalculateVolume(samples);
+                
+                if (currentVolume > volumeThreshold)
+                {
+                    // 音量が閾値以上の場合のみピッチを検知
+                    float pitch = CalculatePitch(samples);
+                    ProcessPitch(pitch);
+                }
+                else
+                {
+                    // 音量が低い場合はピッチ検知を停止
+                    ProcessPitch(0f);
+                }
             }
         }
+    }
+    
+    float CalculateVolume(float[] samples)
+    {
+        float sum = 0;
+        for (int i = 0; i < samples.Length; i++)
+        {
+            sum += samples[i] * samples[i];
+        }
+        return Mathf.Sqrt(sum / samples.Length);
     }
     
     // インスペクター用のテストボタン
@@ -149,15 +177,41 @@ public class PitchAnalyzer : MonoBehaviour
     {
         if (pitch > 0)
         {
-            lastDetectedPitch = pitch;  // 最後に検知された音程を保存
-            Debug.Log($"Pitch: {pitch:F1} Hz");
+            // ピッチのスムージング処理
+            if (hasValidPitch)
+            {
+                smoothedPitch = Mathf.Lerp(smoothedPitch, pitch, smoothingFactor);
+            }
+            else
+            {
+                smoothedPitch = pitch;
+                hasValidPitch = true;
+            }
+            
+            lastDetectedPitch = smoothedPitch;  // スムージングされた音程を保存
+            Debug.Log($"Pitch: {smoothedPitch:F1} Hz (Raw: {pitch:F1} Hz)");
             
             // イベント発火
-            OnPitchDetected?.Invoke(pitch);
+            OnPitchDetected?.Invoke(smoothedPitch);
         }
         else
         {
-            Debug.Log("Pitch: No pitch detected");
+            // ピッチが検知されない場合は、スムージングされた値を徐々にリセット
+            if (hasValidPitch)
+            {
+                smoothedPitch = Mathf.Lerp(smoothedPitch, 0f, smoothingFactor * 2f);
+                lastDetectedPitch = smoothedPitch;
+                
+                // 値が十分に小さくなったらリセット
+                if (smoothedPitch < 1f)
+                {
+                    hasValidPitch = false;
+                    smoothedPitch = 0f;
+                    lastDetectedPitch = 0f;
+                }
+            }
+            
+            Debug.Log("Pitch: No pitch detected (volume too low)");
         }
     }
     

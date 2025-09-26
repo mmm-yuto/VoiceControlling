@@ -7,18 +7,28 @@ public class VoiceController : MonoBehaviour
     
     private VolumeAnalyzer volumeAnalyzer;
     private PitchAnalyzer pitchAnalyzer;
+    private ImprovedPitchAnalyzer improvedPitchAnalyzer;
+    private FixedPitchAnalyzer fixedPitchAnalyzer;
     
     void Start()
     {
         volumeAnalyzer = FindObjectOfType<VolumeAnalyzer>();
         pitchAnalyzer = FindObjectOfType<PitchAnalyzer>();
+        improvedPitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
+        fixedPitchAnalyzer = FindObjectOfType<FixedPitchAnalyzer>();
         
         // イベント購読（デバッグ用）
         if (enableDebugLog)
         {
             if (volumeAnalyzer != null)
                 volumeAnalyzer.OnVolumeDetected += OnVolumeDetected;
-            if (pitchAnalyzer != null)
+            
+            // FixedPitchAnalyzerを最優先で使用
+            if (fixedPitchAnalyzer != null)
+                fixedPitchAnalyzer.OnPitchDetected += OnPitchDetected;
+            else if (improvedPitchAnalyzer != null)
+                improvedPitchAnalyzer.OnPitchDetected += OnPitchDetected;
+            else if (pitchAnalyzer != null)
                 pitchAnalyzer.OnPitchDetected += OnPitchDetected;
         }
     }
@@ -42,5 +52,9 @@ public class VoiceController : MonoBehaviour
             volumeAnalyzer.OnVolumeDetected -= OnVolumeDetected;
         if (pitchAnalyzer != null)
             pitchAnalyzer.OnPitchDetected -= OnPitchDetected;
+        if (improvedPitchAnalyzer != null)
+            improvedPitchAnalyzer.OnPitchDetected -= OnPitchDetected;
+        if (fixedPitchAnalyzer != null)
+            fixedPitchAnalyzer.OnPitchDetected -= OnPitchDetected;
     }
 }
