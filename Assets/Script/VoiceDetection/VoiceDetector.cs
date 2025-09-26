@@ -25,22 +25,66 @@ public class VoiceDetector : MonoBehaviour
             return;
         }
         
-        // マイク開始
-        microphoneClip = Microphone.Start(devices[0], true, 1, sampleRate);
-        samples = new float[bufferSize];
-        isRecording = true;
-        
-        Debug.Log($"マイク開始: {devices[0]}");
+        try
+        {
+            // マイク開始
+            microphoneClip = Microphone.Start(devices[0], true, 1, sampleRate);
+            
+            // マイクが正常に開始されたかチェック
+            if (microphoneClip == null)
+            {
+                Debug.LogError("マイクの開始に失敗しました");
+                return;
+            }
+            
+            // バッファサイズをマイクのサンプル数に合わせて調整
+            if (bufferSize > microphoneClip.samples)
+            {
+                bufferSize = microphoneClip.samples;
+                Debug.LogWarning($"バッファサイズを{microphoneClip.samples}に調整しました");
+            }
+            
+            samples = new float[bufferSize];
+            isRecording = true;
+            
+            Debug.Log($"マイク開始: {devices[0]}, サンプル数: {microphoneClip.samples}, バッファサイズ: {bufferSize}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"マイク初期化エラー: {e.Message}");
+            isRecording = false;
+        }
     }
     
     public float[] GetAudioSamples()
     {
-        if (!isRecording) return null;
+        if (!isRecording || microphoneClip == null) return null;
         
         int position = Microphone.GetPosition(null);
-        microphoneClip.GetData(samples, position - bufferSize);
+        int startPosition = position - bufferSize;
         
-        return samples;
+        // 位置が負の値にならないように調整
+        if (startPosition < 0)
+        {
+            startPosition = microphoneClip.samples - bufferSize + position;
+        }
+        
+        // 位置が有効な範囲内かチェック
+        if (startPosition < 0 || startPosition >= microphoneClip.samples)
+        {
+            return null;
+        }
+        
+        try
+        {
+            microphoneClip.GetData(samples, startPosition);
+            return samples;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"GetData failed: {e.Message}");
+            return null;
+        }
     }
     
     void OnDestroy()
