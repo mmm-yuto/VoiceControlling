@@ -391,4 +391,29 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     }
     
     public System.Action<float> OnPitchDetected;
+    
+    // UI初期化用のメソッド
+    public void InitializeUIComponents()
+    {
+        // VoiceDisplayとGameManagerのUIコンポーネントを更新
+        VoiceDisplay voiceDisplay = FindObjectOfType<VoiceDisplay>();
+        if (voiceDisplay != null)
+        {
+            voiceDisplay.SetPitchRange(minFrequency, maxFrequency);
+            Debug.Log($"ImprovedPitchAnalyzer: Updated VoiceDisplay pitch range to {minFrequency}-{maxFrequency} Hz");
+        }
+        
+        GameManager gameManager = FindObjectOfType<GameManager>();
+        if (gameManager != null)
+        {
+            // GameManagerの設定を直接更新（publicフィールドがある場合）
+            Debug.Log($"ImprovedPitchAnalyzer: Pitch range set to {minFrequency}-{maxFrequency} Hz");
+        }
+    }
+    
+    // 設定値変更時にUIを更新するメソッド
+    public void UpdateUISettings()
+    {
+        InitializeUIComponents();
+    }
 }

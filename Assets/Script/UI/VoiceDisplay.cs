@@ -94,6 +94,16 @@ public class VoiceDisplay : MonoBehaviour
     
     void InitializeUI()
     {
+        // ImprovedPitchAnalyzerの設定値を取得して適用
+        if (improvedPitchAnalyzer != null)
+        {
+            // ピッチの範囲をImprovedPitchAnalyzerの設定から取得
+            minPitch = improvedPitchAnalyzer.minFrequency;
+            maxPitch = improvedPitchAnalyzer.maxFrequency;
+            
+            Debug.Log($"Using ImprovedPitchAnalyzer settings - Pitch range: {minPitch}-{maxPitch} Hz");
+        }
+        
         // スライダーの初期化
         if (volumeSlider != null)
         {
