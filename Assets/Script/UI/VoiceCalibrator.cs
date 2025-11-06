@@ -31,6 +31,8 @@ public class VoiceCalibrator : MonoBehaviour
     private float calibrationStartTime;
     private List<float> volumeSamples = new List<float>();
     private List<float> pitchSamples = new List<float>();
+    private List<float> noiseSamples = new List<float>();
+    private float noiseSampleDuration = 0.5f; // 開始直後のノイズを計測
     
     void Start()
     {
@@ -136,6 +138,10 @@ public class VoiceCalibrator : MonoBehaviour
         if (isCalibrating)
         {
             volumeSamples.Add(volume);
+            if (Time.time - calibrationStartTime <= noiseSampleDuration)
+            {
+                noiseSamples.Add(volume);
+            }
         }
     }
     
@@ -182,6 +188,15 @@ public class VoiceCalibrator : MonoBehaviour
         {
             voiceDisplay.SetPitchRange(newMinPitch, newMaxPitch);
             voiceDisplay.SetMaxVolume(newMaxVolume);
+        }
+
+        // ノイズ平均から動的な音量しきい値を設定
+        float noiseAvg = CalculateAverage(noiseSamples);
+        float dynamicThreshold = Mathf.Clamp(noiseAvg * 2f, 0.005f, 0.05f);
+        if (improvedPitchAnalyzer != null)
+        {
+            improvedPitchAnalyzer.volumeThreshold = dynamicThreshold;
+            improvedPitchAnalyzer.InitializeUIComponents();
         }
         
         // 公開用の平均値を更新（グラフ等が利用）
