@@ -5,6 +5,11 @@ using System.Collections.Generic;
 
 public class VoiceCalibrator : MonoBehaviour
 {
+    // 直近のキャリブレーション平均を他コンポーネントに提供
+    public static float LastAverageVolume { get; private set; } = 0f;
+    public static float LastAveragePitch { get; private set; } = 0f;
+    public static System.Action<float, float> OnCalibrationAveragesUpdated; // (avgVolume, avgPitch)
+
     [Header("Calibration Settings")]
     public float calibrationDuration = 3f; // キャリブレーション時間（秒）
     public float volumeMultiplier = 1.5f;  // 音量の倍率
@@ -162,6 +167,15 @@ public class VoiceCalibrator : MonoBehaviour
         
         // 最小値を設定（平均値の半分）
         float newMinPitch = averagePitch * 0.5f;
+
+        // ピッチが0付近で検出できなかった場合は安全なデフォルトにフォールバック
+        if (averagePitch <= 0f || newMaxPitch <= newMinPitch)
+        {
+            float fallbackMin = improvedPitchAnalyzer != null ? improvedPitchAnalyzer.minFrequency : 80f;
+            float fallbackMax = improvedPitchAnalyzer != null ? improvedPitchAnalyzer.maxFrequency : 1000f;
+            newMinPitch = fallbackMin;
+            newMaxPitch = fallbackMax;
+        }
         
         // VoiceDisplayの設定を更新
         if (voiceDisplay != null)
@@ -170,6 +184,11 @@ public class VoiceCalibrator : MonoBehaviour
             voiceDisplay.SetMaxVolume(newMaxVolume);
         }
         
+        // 公開用の平均値を更新（グラフ等が利用）
+        LastAverageVolume = averageVolume;
+        LastAveragePitch = averagePitch;
+        OnCalibrationAveragesUpdated?.Invoke(LastAverageVolume, LastAveragePitch);
+
         // 結果を表示
         string result = $"Calibration Complete!\n" +
                        $"Average Volume: {averageVolume:F3}\n" +
