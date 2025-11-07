@@ -20,6 +20,10 @@ public class VoiceScatterPlot : MonoBehaviour
 	[Tooltip("この時間ピッチ更新が無ければ無音とみなす（秒）")]
 	public float pitchStaleTimeout = 0.25f;
 
+	[Header("Mapping Options")]
+	[Tooltip("有声時、Y軸をスライダーと同じ(minPitch..maxPitch)で正規化する（原点センタリング無効）。無音時は中心表示を維持します。")]
+	public bool matchSliderYAxis = true;
+
 	private VolumeAnalyzer volumeAnalyzer;
 	private ImprovedPitchAnalyzer improvedPitchAnalyzer;
 	private PitchAnalyzer pitchAnalyzer;
@@ -133,7 +137,7 @@ public class VoiceScatterPlot : MonoBehaviour
 			return;
 		}
 
-		// b) 原点を中心に負側も表示（左右/上下で非対称レンジ対応）
+		// X軸は原点(キャリブ平均)を中心に非対称レンジでマッピング
 		float leftExtent = Mathf.Max(0.0001f, zeroVolume - 0f);
 		float rightExtent = Mathf.Max(0.0001f, maxVolume - zeroVolume);
 		float downExtent = Mathf.Max(0.0001f, zeroPitch - minPitch);
@@ -152,15 +156,24 @@ public class VoiceScatterPlot : MonoBehaviour
 		}
 
 		float y01;
-		if (pitch >= zeroPitch)
+		if (matchSliderYAxis)
 		{
-			float frac = (pitch - zeroPitch) / upExtent;
-			y01 = 0.5f + 0.5f * Mathf.Clamp01(frac);
+			// スライダーと同じ基準（minPitch..maxPitch）で正規化
+			y01 = Mathf.InverseLerp(minPitch, Mathf.Max(minPitch + 0.0001f, maxPitch), pitch);
 		}
 		else
 		{
-			float frac = (zeroPitch - pitch) / downExtent;
-			y01 = 0.5f - 0.5f * Mathf.Clamp01(frac);
+			// 原点センタリング
+			if (pitch >= zeroPitch)
+			{
+				float frac = (pitch - zeroPitch) / upExtent;
+				y01 = 0.5f + 0.5f * Mathf.Clamp01(frac);
+			}
+			else
+			{
+				float frac = (zeroPitch - pitch) / downExtent;
+				y01 = 0.5f - 0.5f * Mathf.Clamp01(frac);
+			}
 		}
 
 		Vector2 size = plotArea.rect.size;
@@ -229,7 +242,7 @@ public class VoiceScatterPlot : MonoBehaviour
 			GameObject markerGo = new GameObject("VoiceMarker", typeof(RectTransform), typeof(Image));
 			markerGo.transform.SetParent(plotArea, false);
 			marker = markerGo.GetComponent<RectTransform>();
-			marker.sizeDelta = new Vector2(12f, 12f);
+			marker.sizeDelta = new Vector2(36f, 36f);
 			var img = markerGo.GetComponent<Image>();
 			img.color = markerColor;
 		}
