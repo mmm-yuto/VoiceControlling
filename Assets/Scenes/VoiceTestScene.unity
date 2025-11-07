@@ -2364,6 +2364,8 @@ MonoBehaviour:
   smoothing: 0.2
   silenceVolumeThreshold: 0.01
   pitchStaleTimeout: 0.25
+  matchSliderYAxis: 1
+  axes: 0
 --- !u!4 &1874041547
 Transform:
   m_ObjectHideFlags: 0

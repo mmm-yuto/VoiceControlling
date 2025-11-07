@@ -3,6 +3,11 @@ using UnityEngine.UI;
 
 public class VoiceScatterPlot : MonoBehaviour
 {
+	public enum AxisMapping
+	{
+		VolumeX_PitchY,
+		VolumeY_PitchX
+	}
 	[Header("Plot References")]
 	public RectTransform plotArea; // プロット範囲（x=Volume, y=Pitch）
 	public RectTransform marker;   // 現在位置を示すマーカー
@@ -23,6 +28,8 @@ public class VoiceScatterPlot : MonoBehaviour
 	[Header("Mapping Options")]
 	[Tooltip("有声時、Y軸をスライダーと同じ(minPitch..maxPitch)で正規化する（原点センタリング無効）。無音時は中心表示を維持します。")]
 	public bool matchSliderYAxis = true;
+	[Tooltip("Volume を X軸にするか Y軸にするかを選択します。")]
+	public AxisMapping axes = AxisMapping.VolumeX_PitchY;
 
 	private VolumeAnalyzer volumeAnalyzer;
 	private ImprovedPitchAnalyzer improvedPitchAnalyzer;
@@ -137,43 +144,20 @@ public class VoiceScatterPlot : MonoBehaviour
 			return;
 		}
 
-		// X軸は原点(キャリブ平均)を中心に非対称レンジでマッピング
-		float leftExtent = Mathf.Max(0.0001f, zeroVolume - 0f);
-		float rightExtent = Mathf.Max(0.0001f, maxVolume - zeroVolume);
-		float downExtent = Mathf.Max(0.0001f, zeroPitch - minPitch);
-		float upExtent = Mathf.Max(0.0001f, maxPitch - zeroPitch);
 
-		float x01;
-		if (volume >= zeroVolume)
+		float x01, y01;
+		// 値を0..1へマッピング
+		float vol01 = MapVolumeTo01(volume);
+		float pit01 = MapPitchTo01(pitch);
+		if (axes == AxisMapping.VolumeX_PitchY)
 		{
-			float frac = (volume - zeroVolume) / rightExtent;
-			x01 = 0.5f + 0.5f * Mathf.Clamp01(frac);
+			x01 = vol01;
+			y01 = pit01;
 		}
 		else
 		{
-			float frac = (zeroVolume - volume) / leftExtent;
-			x01 = 0.5f - 0.5f * Mathf.Clamp01(frac);
-		}
-
-		float y01;
-		if (matchSliderYAxis)
-		{
-			// スライダーと同じ基準（minPitch..maxPitch）で正規化
-			y01 = Mathf.InverseLerp(minPitch, Mathf.Max(minPitch + 0.0001f, maxPitch), pitch);
-		}
-		else
-		{
-			// 原点センタリング
-			if (pitch >= zeroPitch)
-			{
-				float frac = (pitch - zeroPitch) / upExtent;
-				y01 = 0.5f + 0.5f * Mathf.Clamp01(frac);
-			}
-			else
-			{
-				float frac = (zeroPitch - pitch) / downExtent;
-				y01 = 0.5f - 0.5f * Mathf.Clamp01(frac);
-			}
+			x01 = pit01;
+			y01 = vol01;
 		}
 
 		Vector2 size = plotArea.rect.size;
@@ -182,6 +166,43 @@ public class VoiceScatterPlot : MonoBehaviour
 		Vector2 target = bottomLeft + new Vector2(x01 * size.x, y01 * size.y);
 		smoothedPos = Vector2.Lerp(smoothedPos, target, Mathf.Clamp01(smoothing));
 		marker.anchoredPosition = smoothedPos;
+	}
+
+	float MapVolumeTo01(float volume)
+	{
+		// 原点(キャリブ平均)を中心に非対称レンジでマッピング
+		float leftExtent = Mathf.Max(0.0001f, zeroVolume - 0f);
+		float rightExtent = Mathf.Max(0.0001f, maxVolume - zeroVolume);
+		if (volume >= zeroVolume)
+		{
+			float frac = (volume - zeroVolume) / rightExtent;
+			return 0.5f + 0.5f * Mathf.Clamp01(frac);
+		}
+		else
+		{
+			float frac = (zeroVolume - volume) / leftExtent;
+			return 0.5f - 0.5f * Mathf.Clamp01(frac);
+		}
+	}
+
+	float MapPitchTo01(float pitch)
+	{
+		float downExtent = Mathf.Max(0.0001f, zeroPitch - minPitch);
+		float upExtent = Mathf.Max(0.0001f, maxPitch - zeroPitch);
+		if (matchSliderYAxis)
+		{
+			return Mathf.InverseLerp(minPitch, Mathf.Max(minPitch + 0.0001f, maxPitch), pitch);
+		}
+		if (pitch >= zeroPitch)
+		{
+			float frac = (pitch - zeroPitch) / upExtent;
+			return 0.5f + 0.5f * Mathf.Clamp01(frac);
+		}
+		else
+		{
+			float frac = (zeroPitch - pitch) / downExtent;
+			return 0.5f - 0.5f * Mathf.Clamp01(frac);
+		}
 	}
 
 	void CenterMarker()
