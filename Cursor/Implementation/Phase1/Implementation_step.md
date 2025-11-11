@@ -32,10 +32,15 @@
 - 2D配列で塗り状態を管理（最初はシンプルに）
 - イベント発火（既存の`OnVolumeDetected`パターンを参考）
 - 上塗り機能は後から追加（最初は単純に塗るだけ）
+- **将来の拡張性**: Phase 2（クリエイティブモード）で使用するため、`ResetCanvas()`メソッドを実装することを推奨（Phase 1では必須ではない）
 
 **参考**: 
 - `VoiceScatterPlot`のイベント購読パターン
 - `GameManager`の`FindObjectOfType`の使い方（ただし、Inspector接続を推奨）
+
+**Phase 2との関係**:
+- Phase 2のクリエイティブモードは、Phase 1で実装する`PaintCanvas`をそのまま使用します
+- クリエイティブモードでクリアボタンを使うため、`ResetCanvas()`メソッドがあると便利です（Phase 1では必須ではありませんが、実装しておくとPhase 2でスムーズに進められます）
 
 ---
 
@@ -414,7 +419,9 @@ void Start()
 - [ ] `PaintSettings.cs`を作成（ScriptableObject）
 - [ ] `PaintCanvas.cs`を作成（基本実装）
 - [ ] `PaintSettings.asset`を作成（Inspectorで設定）
+- [ ] （推奨）`PaintCanvas.ResetCanvas()`メソッドを実装（Phase 2のクリエイティブモードで使用）
 - [ ] テスト：`PaintCanvas.PaintAt()`で指定位置に塗れることを確認
+- [ ] テスト：`PaintCanvas.ResetCanvas()`でキャンバスがクリアされることを確認（Phase 2用）
 
 ### Step 2: 座標変換システム
 - [ ] `VoiceToScreenMapper.cs`を作成
@@ -454,8 +461,10 @@ void Start()
 2. キャリブレーション平均を原点として使用（既存の実装を活用）
 3. 塗り位置にパーティクルエフェクトが表示される
 4. （オプション）デバッグモードでマウス操作で音声入力をシミュレートできる
+5. （推奨）`PaintCanvas.ResetCanvas()`でキャンバスをクリアできる（Phase 2のクリエイティブモードで使用）
 
 **この状態が完成したら**:
+- **Phase 2**: クリエイティブモード（声で絵を描くモード）に進むことができます
 - 攻撃タイプシステム（Step 1.2）を追加
 - 上塗り機能を追加
 - より高度なエフェクトを追加

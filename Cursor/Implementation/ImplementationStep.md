@@ -178,6 +178,7 @@ Assets/
 │   │   ├── VoiceScatterPlot.cs   // グラフ表示（既存）
 │   │   ├── GameHUD.cs            // ゲームHUD
 │   │   ├── AttackTypeSelectionUI.cs // 攻撃タイプ選択UI
+│   │   ├── CreativeModeUI.cs     // クリエイティブモードUI
 │   │   ├── MainMenuManager.cs    // メインメニュー
 │   │   ├── SettingsPanel.cs     // 設定パネル
 │   │   ├── CustomizationPanel.cs // カスタマイズパネル
@@ -212,6 +213,8 @@ Assets/
 │       ├── Scene/
 │       │   ├── SceneReference.cs
 │       │   └── GameData.cs
+│       ├── Creative/
+│       │   └── CreativeModeSettings.cs
 │       └── SinglePlayer/
 │           ├── MonsterSettings.cs
 │           ├── SpawnSettings.cs
@@ -366,34 +369,40 @@ UI/
    - `Interfaces/` - 主要なインターフェース
    - **目標**: 声で画面に色を塗れる基本機能を完成
 
-2. **Phase 2: シングルプレイモード（優先実装）**
+2. **Phase 2: クリエイティブモード（声で絵を描くモード）【実装難易度：低】**
+   - `Creative/` - クリエイティブモード（塗りシステムのみ使用）
+   - `UI/` - クリエイティブモード用の基本UI（クリアボタン、色選択など）
+   - **目標**: 声で自由に絵を描ける状態にする
+   - **特徴**: ゲーム要素（モンスター、スコア、タイマー）は不要、塗りシステムのみ使用
+
+3. **Phase 3: シングルプレイモード（優先実装）**
    - `SinglePlayer/` - モンスター撃破モード
    - `UI/` - シングルモード用の基本UI（スコア、タイマー）
    - **目標**: シングルプレイで遊べる状態にする
 
-3. **Phase 3: オンラインマルチ（シングルプレイの次）**
+4. **Phase 4: オンラインマルチ（シングルプレイの次）**
    - `Network/` - ネットワーク実装
    - ネットワーク同期システム
    - マッチメイキング
    - **目標**: オンライン対戦が可能になる
 
-4. **Phase 4: UI/UX実装**
+5. **Phase 5: UI/UX実装**
    - `UI/GameHUD` - ゲーム画面UI
    - `UI/MenuSystem` - メニューシステム
    - `SceneManagement/` - シーン管理
    - **目標**: メニューから各モードに遷移できる
 
-5. **Phase 5: カスタマイズシステム**
+6. **Phase 6: カスタマイズシステム**
    - `Customization/` - インクカスタマイズ、サウンドカスタマイズ
    - **目標**: ユーザーが見た目をカスタマイズできる
 
-6. **Phase 6: 最適化とバグ修正**
+7. **Phase 7: 最適化とバグ修正**
    - パフォーマンス最適化
    - バランス調整
    - バグ修正
    - **目標**: リリース準備完了
 
-7. **Phase 7: オフラインマルチ（ローカル対戦）（最も低い優先順位）**
+8. **Phase 8: オフラインマルチ（ローカル対戦）（最も低い優先順位）**
    - `GameLogic/PlayerManager` - プレイヤー管理
    - `GameLogic/VictoryCondition` - 勝利条件判定
    - `UI/` - 対戦用UI（塗り面積表示、タイマー）
@@ -521,7 +530,8 @@ public class MainMenuManager : MonoBehaviour
 ```csharp
 public enum GameMode
 {
-    SinglePlayer,   // CPU対戦
+    Creative,       // クリエイティブモード（声で絵を描く）
+    SinglePlayer,   // モンスター撃破モード
     OfflineMulti,   // オフラインマルチ（ローカル）
     OnlineMulti     // オンラインマルチ（ネットワーク）
 }
@@ -532,6 +542,7 @@ public class GameplayManager : MonoBehaviour
     [SerializeField] private GameMode currentMode = GameMode.OfflineMulti;
     
     [Header("Mode-Specific Components")]
+    [SerializeField] private CreativeModeManager creativeModeManager; // クリエイティブモード用
     [SerializeField] private MonsterSpawner monsterSpawner; // シングルモード用
     [SerializeField] private NetworkManager networkManager; // オンラインモード用
     [SerializeField] private LocalPlayerManager localPlayerManager; // オフラインモード用
@@ -549,6 +560,7 @@ public class GameplayManager : MonoBehaviour
     private void InitializeGameMode()
     {
         // 全てのモード固有コンポーネントを無効化
+        if (creativeModeManager != null) creativeModeManager.gameObject.SetActive(false);
         if (monsterSpawner != null) monsterSpawner.gameObject.SetActive(false);
         if (networkManager != null) networkManager.gameObject.SetActive(false);
         if (localPlayerManager != null) localPlayerManager.gameObject.SetActive(false);
@@ -556,6 +568,9 @@ public class GameplayManager : MonoBehaviour
         // モードに応じて初期化
         switch (currentMode)
         {
+            case GameMode.Creative:
+                InitializeCreative();
+                break;
             case GameMode.SinglePlayer:
                 InitializeSinglePlayer();
                 break;
@@ -566,6 +581,19 @@ public class GameplayManager : MonoBehaviour
                 InitializeOnlineMulti();
                 break;
         }
+    }
+    
+    private void InitializeCreative()
+    {
+        // クリエイティブモードマネージャーを有効化
+        if (creativeModeManager != null)
+        {
+            creativeModeManager.gameObject.SetActive(true);
+            creativeModeManager.Initialize();
+        }
+        // ゲーム要素（モンスター、スコアなど）は無効化
+        if (monsterSpawner != null)
+            monsterSpawner.gameObject.SetActive(false);
     }
     
     private void InitializeSinglePlayer()
@@ -1669,11 +1697,229 @@ public class PaintBattleGameManager : MonoBehaviour
 
 ---
 
-## 🎯 Phase 2: シングルプレイモード（モンスター撃破モード）（優先実装）（1月）
+## 🎨 Phase 2: クリエイティブモード（声で絵を描くモード）【実装難易度：低】
+
+**目標**: 声で自由に絵を描ける状態にする
+
+**特徴**:
+- Phase 1の塗りシステムをそのまま使用
+- ゲーム要素（モンスター、スコア、タイマー、勝利条件）は不要
+- シンプルなUI（クリアボタン、色選択など）のみ
+- 実装難易度が低い（塗りシステムが完成していれば実装可能）
+
+### Step 2.1: クリエイティブモードマネージャー
+
+**ファイル**: `Assets/Script/Creative/CreativeModeManager.cs`
+
+**実装内容**:
+- Phase 1の`PaintCanvas`と`PaintBattleGameManager`をそのまま使用
+- ゲーム要素（モンスター、スコア、タイマー）は無効化
+- 塗りシステムのみ有効化
+
+**変更しやすさの考慮事項**:
+- **ScriptableObject設定**: クリエイティブモード用の設定（色、塗り強度など）を管理
+- **モード切り替え**: `GameMode`enumに`Creative`を追加
+- **シンプルな実装**: 既存のシステムを再利用し、最小限の追加のみ
+
+**主要メソッド**:
+```csharp
+[CreateAssetMenu(fileName = "CreativeModeSettings", menuName = "Game/Creative Mode Settings")]
+public class CreativeModeSettings : ScriptableObject
+{
+    [Header("Paint Settings")]
+    public PaintSettings paintSettings; // Phase 1のPaintSettingsを参照
+    
+    [Header("Color Selection")]
+    public Color[] availableColors = new Color[] 
+    { 
+        Color.red, Color.blue, Color.green, Color.yellow, 
+        Color.cyan, Color.magenta, Color.white, Color.black 
+    };
+    [Range(0.1f, 2f)] public float paintIntensity = 1f;
+}
+
+public class CreativeModeManager : MonoBehaviour
+{
+    [Header("Settings")]
+    [SerializeField] private CreativeModeSettings settings;
+    
+    [Header("References")]
+    [SerializeField] private PaintCanvas paintCanvas;
+    [SerializeField] private PaintBattleGameManager paintGameManager;
+    
+    [Header("UI References")]
+    [SerializeField] private Button clearButton;
+    [SerializeField] private Button[] colorButtons; // 色選択ボタン
+    
+    private int currentColorIndex = 0;
+    private int currentPlayerId = 1; // クリエイティブモードは1プレイヤーのみ
+    
+    void Start()
+    {
+        InitializeCreativeMode();
+    }
+    
+    private void InitializeCreativeMode()
+    {
+        // 塗りシステムを有効化
+        if (paintCanvas != null)
+            paintCanvas.gameObject.SetActive(true);
+        if (paintGameManager != null)
+            paintGameManager.gameObject.SetActive(true);
+        
+        // 色選択ボタンの設定
+        if (colorButtons != null)
+        {
+            for (int i = 0; i < colorButtons.Length && i < settings.availableColors.Length; i++)
+            {
+                int colorIndex = i; // クロージャ対策
+                colorButtons[i].onClick.AddListener(() => SelectColor(colorIndex));
+                
+                // ボタンの色を設定
+                var colors = colorButtons[i].colors;
+                colors.normalColor = settings.availableColors[i];
+                colorButtons[i].colors = colors;
+            }
+        }
+        
+        // クリアボタンの設定
+        if (clearButton != null)
+            clearButton.onClick.AddListener(ClearCanvas);
+    }
+    
+    private void SelectColor(int colorIndex)
+    {
+        currentColorIndex = colorIndex;
+        // インクエフェクトの色を変更（Phase 4のInkEffectを使用）
+        // InkEffect.SetColor(settings.availableColors[colorIndex]);
+    }
+    
+    private void ClearCanvas()
+    {
+        if (paintCanvas != null)
+            paintCanvas.ResetCanvas();
+    }
+    
+    // 現在選択中の色を取得
+    public Color GetCurrentColor()
+    {
+        return settings.availableColors[currentColorIndex];
+    }
+    
+    public CreativeModeSettings GetSettings()
+    {
+        return settings;
+    }
+}
+```
+
+### Step 2.2: クリエイティブモード用UI
+
+**ファイル**: `Assets/Script/UI/CreativeModeUI.cs`
+
+**実装内容**:
+- クリアボタン
+- 色選択ボタン（8色程度）
+- シンプルなUI（ゲーム要素は不要）
+
+**変更しやすさの考慮事項**:
+- **Inspector設定**: UI要素はInspectorで接続可能に
+- **ScriptableObject設定**: 色のリストは`CreativeModeSettings`で管理
+- **最小限の実装**: 必要最小限のUIのみ
+
+**主要メソッド**:
+```csharp
+public class CreativeModeUI : MonoBehaviour
+{
+    [Header("UI Elements")]
+    [SerializeField] private Button clearButton;
+    [SerializeField] private Transform colorButtonParent;
+    [SerializeField] private GameObject colorButtonPrefab;
+    
+    [Header("References")]
+    [SerializeField] private CreativeModeManager creativeManager;
+    
+    void Start()
+    {
+        InitializeUI();
+    }
+    
+    private void InitializeUI()
+    {
+        // クリアボタンの設定
+        if (clearButton != null && creativeManager != null)
+        {
+            clearButton.onClick.AddListener(() => creativeManager.ClearCanvas());
+        }
+        
+        // 色選択ボタンの生成（CreativeModeSettingsから色を取得）
+        if (creativeManager != null && colorButtonPrefab != null && colorButtonParent != null)
+        {
+            var settings = creativeManager.GetSettings();
+            if (settings != null)
+            {
+                foreach (Color color in settings.availableColors)
+                {
+                    GameObject buttonObj = Instantiate(colorButtonPrefab, colorButtonParent);
+                    Button button = buttonObj.GetComponent<Button>();
+                    
+                    // ボタンの色を設定
+                    var colors = button.colors;
+                    colors.normalColor = color;
+                    button.colors = colors;
+                }
+            }
+        }
+    }
+}
+```
+
+### Step 2.3: 保存機能（オプション）
+
+**ファイル**: `Assets/Script/Creative/CreativeModeSaveSystem.cs`
+
+**実装内容**:
+- 描いた絵を画像として保存（Texture2DをPNGに変換）
+- 保存した絵を読み込んで表示（オプション）
+
+**変更しやすさの考慮事項**:
+- **ScriptableObject設定**: 保存先パス、ファイル名形式を設定可能に
+- **オプション機能**: 最初は実装せず、後から追加可能
+
+**主要メソッド**:
+```csharp
+public class CreativeModeSaveSystem : MonoBehaviour
+{
+    [Header("Save Settings")]
+    [SerializeField] private string saveDirectory = "Screenshots";
+    [SerializeField] private string fileNameFormat = "Creative_{0:yyyyMMdd_HHmmss}.png";
+    
+    [Header("References")]
+    [SerializeField] private PaintCanvas paintCanvas;
+    [SerializeField] private Button saveButton;
+    
+    void Start()
+    {
+        if (saveButton != null)
+            saveButton.onClick.AddListener(SaveCanvas);
+    }
+    
+    public void SaveCanvas()
+    {
+        // PaintCanvasのデータをTexture2Dに変換
+        // Texture2DをPNGとして保存
+        // 実装は後から追加（Phase 2ではオプション）
+    }
+}
+```
+
+---
+
+## 🎯 Phase 3: シングルプレイモード（モンスター撃破モード）（優先実装）（1月）
 
 **目標**: シングルプレイで遊べる状態にする（オンライン実装は不要）
 
-### Step 2.1: モンスターシステムの実装
+### Step 3.1: モンスターシステムの実装
 
 **ファイル**: `Assets/Script/SinglePlayer/Monster.cs`
 
@@ -1761,7 +2007,7 @@ public class Monster : MonoBehaviour
 
 ---
 
-### Step 2.2: モンスター生成・管理システム
+### Step 3.2: モンスター生成・管理システム
 
 **ファイル**: `Assets/Script/SinglePlayer/MonsterSpawner.cs`
 
@@ -1773,7 +2019,7 @@ public class Monster : MonoBehaviour
 
 ---
 
-### Step 2.3: 当たり判定システム
+### Step 3.3: 当たり判定システム
 
 **ファイル**: `Assets/Script/SinglePlayer/MonsterHitDetector.cs`
 
@@ -1784,7 +2030,7 @@ public class Monster : MonoBehaviour
 
 ---
 
-### Step 2.4: スコアシステム
+### Step 3.4: スコアシステム
 
 **ファイル**: `Assets/Script/SinglePlayer/ScoreManager.cs`
 
@@ -1796,11 +2042,11 @@ public class Monster : MonoBehaviour
 
 ---
 
-## 🌐 Phase 3: オンラインマルチ（シングルプレイの次）（1～2月）
+## 🌐 Phase 4: オンラインマルチ（シングルプレイの次）（1～2月）
 
 **目標**: オンライン対戦が可能になる
 
-### Step 3.1: オンラインマルチプレイの実装
+### Step 4.1: オンラインマルチプレイの実装
 
 **実装内容**:
 - ネットワーク同期（Unity Netcode for GameObjects または Mirror を使用）
@@ -1814,11 +2060,11 @@ public class Monster : MonoBehaviour
 
 ---
 
-## 🎨 Phase 4: UI/UX実装（1～2月）
+## 🎨 Phase 5: UI/UX実装（1～2月）
 
 **目標**: メニューから各モードに遷移できる
 
-### Step 4.1: ゲーム画面UI
+### Step 5.1: ゲーム画面UI
 
 **ファイル**: `Assets/Script/UI/GameHUD.cs`
 
@@ -1950,7 +2196,7 @@ public class AttackTypeSelectionUI : MonoBehaviour
 
 ---
 
-### Step 4.2: メニューシステム
+### Step 5.2: メニューシステム
 
 **ファイル**: `Assets/Script/UI/MenuSystem.cs`
 
@@ -1961,11 +2207,11 @@ public class AttackTypeSelectionUI : MonoBehaviour
 
 ---
 
-## 🎨 Phase 5: カスタマイズシステム（2月：高優先度）
+## 🎨 Phase 6: カスタマイズシステム（2月：高優先度）
 
 **目標**: ユーザーが見た目をカスタマイズできる
 
-### Step 5.1: インクカスタマイズ
+### Step 6.1: インクカスタマイズ
 
 **ファイル**: `Assets/Script/Customization/InkCustomizer.cs`
 
@@ -2065,7 +2311,7 @@ public class InkCustomizer : MonoBehaviour
 
 ---
 
-### Step 5.2: サウンドエフェクトカスタマイズ
+### Step 6.2: サウンドエフェクトカスタマイズ
 
 **ファイル**: `Assets/Script/Customization/SoundCustomizer.cs`
 
@@ -2146,7 +2392,7 @@ public class MonsterSpawner : MonoBehaviour
 
 ---
 
-### Step 2.3: 当たり判定システム
+### Step 3.3: 当たり判定システム
 
 **ファイル**: `Assets/Script/SinglePlayer/MonsterHitDetector.cs`
 
@@ -2188,7 +2434,7 @@ public class MonsterHitDetector : MonoBehaviour
 
 ---
 
-### Step 2.4: スコアシステム
+### Step 3.4: スコアシステム
 
 **ファイル**: `Assets/Script/SinglePlayer/ScoreManager.cs`
 
@@ -2247,34 +2493,34 @@ public class ScoreManager : MonoBehaviour
 
 ---
 
-## 🐛 Phase 6: 最適化とバグ修正（3月）
+## 🐛 Phase 7: 最適化とバグ修正（3月）
 
 **目標**: リリース準備完了
 
-### Step 6.1: パフォーマンス最適化
+### Step 7.1: パフォーマンス最適化
 - 塗りデータの更新頻度の最適化
 - テクスチャ更新の効率化
 - メモリ使用量の削減
 
-### Step 6.2: バランス調整
+### Step 7.2: バランス調整
 - 攻撃タイプの強度調整
 - 塗り速度の調整
 - マッチ時間の調整
 
-### Step 6.3: アクセシビリティ改善
+### Step 7.3: アクセシビリティ改善
 - UIの文字サイズ調整
 - 色覚多様性への配慮（色だけでなく形状でも区別）
 - 操作説明の明確化
 
 ---
 
-## 🎮 Phase 7: オフラインマルチ（ローカル対戦）（最も低い優先順位）（3月以降）
+## 🎮 Phase 8: オフラインマルチ（ローカル対戦）（最も低い優先順位）（3月以降）
 
 **目標**: 同一端末での2人対戦が可能になる
 
 **注意**: 他の機能が完成してから実装する。優先順位は最も低い。
 
-### Step 7.1: プレイヤー管理システム
+### Step 8.1: プレイヤー管理システム
 
 **ファイル**: `Assets/Script/GameLogic/PlayerManager.cs`
 
@@ -2303,7 +2549,7 @@ public class PlayerManager : MonoBehaviour
 
 ---
 
-### Step 7.2: 勝利条件判定システム
+### Step 8.2: 勝利条件判定システム
 
 **ファイル**: `Assets/Script/GameLogic/VictoryCondition.cs`
 
@@ -2337,7 +2583,7 @@ public class VictoryCondition : MonoBehaviour
 
 ---
 
-### Step 7.3: オフラインマルチプレイの実装
+### Step 8.3: オフラインマルチプレイの実装
 
 **実装内容**:
 - 同一端末での複数プレイヤー管理
@@ -2362,38 +2608,43 @@ public class VictoryCondition : MonoBehaviour
 7. 攻撃タイプ別塗りロジック（Step 1.2.4）
 8. ゲームマネージャー統合（Step 1.3）
 
-### 🟡 Phase 2: シングルプレイモード（優先実装）
-9. モンスターシステム（Step 5.1）
-10. モンスター生成・管理システム（Step 5.2）
-11. 当たり判定システム（Step 5.3）
-12. スコアシステム（Step 5.4）
-13. シングルモード用UI（スコア、タイマー表示）
+### 🟢 Phase 2: クリエイティブモード（実装難易度：低）
+9. クリエイティブモードマネージャー（塗りシステムのみ使用）
+10. クリエイティブモード用UI（クリアボタン、色選択など）
+11. 保存機能（オプション）
 
-### 🟢 Phase 3: オンラインマルチ（シングルプレイの次）
-14. ネットワーク実装（Step 3.1）
-15. ネットワーク同期システム
-16. マッチメイキング
+### 🟡 Phase 3: シングルプレイモード（優先実装）
+12. モンスターシステム（Step 5.1）
+13. モンスター生成・管理システム（Step 5.2）
+14. 当たり判定システム（Step 5.3）
+15. スコアシステム（Step 5.4）
+16. シングルモード用UI（スコア、タイマー表示）
 
-### 🔵 Phase 4: UI/UX実装
-17. ゲーム画面UI（Step 4.1）
-18. 攻撃タイプ選択UI（Step 4.1.1）
-19. メニューシステム（Step 4.2）
-20. シーン管理システム
+### 🟢 Phase 4: オンラインマルチ（シングルプレイの次）
+17. ネットワーク実装（Step 3.1）
+18. ネットワーク同期システム
+19. マッチメイキング
 
-### 🟣 Phase 5: カスタマイズシステム
-21. インクカスタマイズ（Step 5.1）
-22. サウンドカスタマイズ（Step 5.2）
+### 🔵 Phase 5: UI/UX実装
+20. ゲーム画面UI（Step 4.1）
+21. 攻撃タイプ選択UI（Step 4.1.1）
+22. メニューシステム（Step 4.2）
+23. シーン管理システム
 
-### ⚪ Phase 6: 最適化とバグ修正
-23. パフォーマンス最適化
-24. バランス調整
-25. バグ修正
+### 🟣 Phase 6: カスタマイズシステム
+24. インクカスタマイズ（Step 5.1）
+25. サウンドカスタマイズ（Step 5.2）
 
-### 🔴 Phase 7: オフラインマルチ（ローカル対戦）（最も低い優先順位）
-26. プレイヤー管理システム（Step 3.1）
-27. 勝利条件判定（Step 3.2）
-28. オフラインマルチ実装（Step 3.3）
-29. 対戦用UI（塗り面積表示、タイマー）
+### ⚪ Phase 7: 最適化とバグ修正
+26. パフォーマンス最適化
+27. バランス調整
+28. バグ修正
+
+### 🔴 Phase 8: オフラインマルチ（ローカル対戦）（最も低い優先順位）
+29. プレイヤー管理システム（Step 3.1）
+30. 勝利条件判定（Step 3.2）
+31. オフラインマルチ実装（Step 3.3）
+32. 対戦用UI（塗り面積表示、タイマー）
 
 ---
 
@@ -2473,33 +2724,39 @@ public class VictoryCondition : MonoBehaviour
 - [ ] 2種類の攻撃タイプで異なる塗り方が実装されている
 - [ ] 基本的なゲームループが動作する
 
-### Phase 2 完了条件
+### Phase 2 完了条件（クリエイティブモード）
+- [ ] 声で自由に絵を描ける
+- [ ] キャンバスをクリアできる
+- [ ] インクの色を選択できる（オプション）
+- [ ] クリエイティブモードで遊べる状態になる
+
+### Phase 3 完了条件
 - [ ] モンスターが画面を移動する
 - [ ] インクがモンスターに当たるとダメージを与える
 - [ ] モンスター撃破時にスコアが加算される
 - [ ] シングルモードで遊べる状態になる
 
-### Phase 3 完了条件
+### Phase 4 完了条件
 - [ ] オンライン対戦が可能になる
 - [ ] 塗りデータが同期される
 - [ ] マッチメイキングが動作する
 
-### Phase 4 完了条件
+### Phase 5 完了条件
 - [ ] ゲーム画面に必要なUIが表示される
 - [ ] メニューから各モードに遷移できる
 - [ ] 設定が保存・読み込まれる
 
-### Phase 5 完了条件
+### Phase 6 完了条件
 - [ ] インクの色をカスタマイズできる
 - [ ] サウンドエフェクトを変更できる
 - [ ] カスタマイズ設定が保存される
 
-### Phase 6 完了条件
+### Phase 7 完了条件
 - [ ] パフォーマンスが最適化されている
 - [ ] バランス調整が完了している
 - [ ] バグが修正されている
 
-### Phase 7 完了条件（最も低い優先順位）
+### Phase 8 完了条件（最も低い優先順位）
 - [ ] 複数プレイヤーで対戦できる
 - [ ] 塗り面積が正しく計算される
 - [ ] 制限時間終了時に勝利判定が行われる
