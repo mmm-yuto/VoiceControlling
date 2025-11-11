@@ -78,18 +78,51 @@ public class VoiceDebugSimulator : MonoBehaviour
             // マウス位置を取得
             Vector2 mouseScreenPos = Input.mousePosition;
             
-            // VoiceScatterPlotのplotArea内の座標に変換
+            // 画面座標を0-1に正規化
+            float normalizedX = mouseScreenPos.x / Screen.width;
+            float normalizedY = mouseScreenPos.y / Screen.height;
+            
+            // VoiceScatterPlotのplotArea内の座標に変換（利用可能な場合）
+            Vector2 plotAreaPos;
             if (scatterPlot != null && scatterPlot.plotArea != null)
             {
-                Vector2 plotAreaPos = ConvertMouseToPlotArea(mouseScreenPos);
-                
-                // plotArea内の位置（0-1正規化）からピッチ・ボリュームに逆変換
-                float volume = ConvertPlotPositionToVolume(plotAreaPos);
-                float pitch = ConvertPlotPositionToPitch(plotAreaPos);
-                
-                // イベントを発火（既存のシステムと同じ）
-                OnVolumeDetected?.Invoke(volume);
-                OnPitchDetected?.Invoke(pitch);
+                plotAreaPos = ConvertMouseToPlotArea(mouseScreenPos);
+            }
+            else
+            {
+                // scatterPlotがない場合は画面全体を0-1として使用
+                plotAreaPos = new Vector2(normalizedX, normalizedY);
+            }
+            
+            // plotArea内の位置（0-1正規化）からピッチ・ボリュームに逆変換
+            float volume = ConvertPlotPositionToVolume(plotAreaPos);
+            float pitch = ConvertPlotPositionToPitch(plotAreaPos);
+            
+            // デバッグログ（開発時のみ）
+            #if UNITY_EDITOR
+            if (Time.frameCount % 30 == 0) // 30フレームごとにログ出力（パフォーマンス考慮）
+            {
+                Debug.Log($"VoiceDebugSimulator: Volume={volume:F3}, Pitch={pitch:F1}, MousePos=({normalizedX:F2}, {normalizedY:F2})");
+            }
+            #endif
+            
+            // イベントを発火（既存のシステムと同じ）
+            if (OnVolumeDetected != null)
+            {
+                OnVolumeDetected.Invoke(volume);
+            }
+            else
+            {
+                Debug.LogWarning("VoiceDebugSimulator: OnVolumeDetectedイベントが購読されていません。PaintBattleGameManagerのVoice Debug Simulatorフィールドを確認してください。");
+            }
+            
+            if (OnPitchDetected != null)
+            {
+                OnPitchDetected.Invoke(pitch);
+            }
+            else
+            {
+                Debug.LogWarning("VoiceDebugSimulator: OnPitchDetectedイベントが購読されていません。PaintBattleGameManagerのVoice Debug Simulatorフィールドを確認してください。");
             }
         }
     }
@@ -115,41 +148,68 @@ public class VoiceDebugSimulator : MonoBehaviour
     
     float ConvertPlotPositionToVolume(Vector2 plotPos)
     {
-        // VoiceScatterPlot.MapVolumeTo01の逆変換
-        float x01 = scatterPlot.axes == VoiceScatterPlot.AxisMapping.VolumeX_PitchY 
-            ? plotPos.x 
-            : plotPos.y;
+        // scatterPlotがない場合は、画面全体を0-1として使用
+        float x01;
+        if (scatterPlot != null)
+        {
+            x01 = scatterPlot.axes == VoiceScatterPlot.AxisMapping.VolumeX_PitchY 
+                ? plotPos.x 
+                : plotPos.y;
+        }
+        else
+        {
+            // scatterPlotがない場合は、X座標を使用
+            x01 = plotPos.x;
+        }
         
         // 0-1から実際のボリューム値に変換
         float leftExtent = Mathf.Max(0.0001f, zeroVolume - 0f);
         float rightExtent = Mathf.Max(0.0001f, maxVolume - zeroVolume);
         
+        float volume;
         if (x01 >= 0.5f)
         {
             // 右側（原点より大きい）
             float frac = (x01 - 0.5f) * 2f; // 0.5-1.0 -> 0-1
-            return zeroVolume + frac * rightExtent;
+            volume = zeroVolume + frac * rightExtent;
         }
         else
         {
             // 左側（原点より小さい）
             float frac = (0.5f - x01) * 2f; // 0-0.5 -> 1-0
-            return zeroVolume - frac * leftExtent;
+            volume = zeroVolume - frac * leftExtent;
         }
+        
+        // デバッグモード時は最小値を保証（無音判定を回避）
+        float minVolumeForDebug = 0.05f; // 無音判定の閾値より大きい値
+        return Mathf.Max(volume, minVolumeForDebug);
     }
     
     float ConvertPlotPositionToPitch(Vector2 plotPos)
     {
-        // VoiceScatterPlot.MapPitchTo01の逆変換
-        float y01 = scatterPlot.axes == VoiceScatterPlot.AxisMapping.VolumeX_PitchY 
-            ? plotPos.y 
-            : plotPos.x;
+        // scatterPlotがない場合は、画面全体を0-1として使用
+        float y01;
+        bool useMatchSliderYAxis = false;
         
-        // matchSliderYAxisの設定を確認
-        if (scatterPlot.matchSliderYAxis)
+        if (scatterPlot != null)
+        {
+            y01 = scatterPlot.axes == VoiceScatterPlot.AxisMapping.VolumeX_PitchY 
+                ? plotPos.y 
+                : plotPos.x;
+            useMatchSliderYAxis = scatterPlot.matchSliderYAxis;
+        }
+        else
+        {
+            // scatterPlotがない場合は、Y座標を使用
+            y01 = plotPos.y;
+            useMatchSliderYAxis = true; // デフォルトでスライダーと同じ正規化を使用
+        }
+        
+        float pitch;
+        if (useMatchSliderYAxis)
         {
             // スライダーと同じ正規化（原点センタリングなし）
-            return Mathf.Lerp(minPitch, maxPitch, y01);
+            pitch = Mathf.Lerp(minPitch, maxPitch, y01);
         }
         else
         {
@@ -161,15 +221,18 @@ public class VoiceDebugSimulator : MonoBehaviour
             {
                 // 上側（原点より大きい）
                 float frac = (y01 - 0.5f) * 2f; // 0.5-1.0 -> 0-1
-                return zeroPitch + frac * upExtent;
+                pitch = zeroPitch + frac * upExtent;
             }
             else
             {
                 // 下側（原点より小さい）
                 float frac = (0.5f - y01) * 2f; // 0-0.5 -> 1-0
-                return zeroPitch - frac * downExtent;
+                pitch = zeroPitch - frac * downExtent;
             }
         }
+        
+        // デバッグモード時は最小値を保証（無音判定を回避）
+        return Mathf.Max(pitch, minPitch + 10f); // 最小ピッチより少し大きい値
     }
     
     void OnCalibrationAveragesUpdated(float avgVol, float avgPitch)

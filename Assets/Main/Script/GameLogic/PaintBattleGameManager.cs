@@ -14,6 +14,10 @@ public class PaintBattleGameManager : MonoBehaviour
     [Tooltip("ピッチ分析コンポーネント（Inspectorで接続）")]
     public ImprovedPitchAnalyzer improvedPitchAnalyzer;
     
+    [Header("Debug Mode (Optional)")]
+    [Tooltip("デバッグモード（VoiceDebugSimulatorを使用する場合）")]
+    public VoiceDebugSimulator voiceDebugSimulator;
+    
     [Header("Game Logic References")]
     [Tooltip("座標変換コンポーネント（Inspectorで接続）")]
     public VoiceToScreenMapper voiceToScreenMapper;
@@ -77,21 +81,72 @@ public class PaintBattleGameManager : MonoBehaviour
             }
         }
         
-        // イベント購読
-        if (volumeAnalyzer != null)
+        // VoiceDebugSimulatorの自動検索（Inspectorで接続されていない場合）
+        if (voiceDebugSimulator == null)
         {
-            volumeAnalyzer.OnVolumeDetected += OnVolumeDetected;
+            voiceDebugSimulator = FindObjectOfType<VoiceDebugSimulator>();
+            if (voiceDebugSimulator != null)
+            {
+                Debug.Log("PaintBattleGameManager: VoiceDebugSimulatorを自動検索しました。Inspectorで接続することを推奨します。");
+            }
         }
         
-        if (improvedPitchAnalyzer != null)
-        {
-            improvedPitchAnalyzer.OnPitchDetected += OnPitchDetected;
-        }
+        // イベント購読
+        // デバッグモード時はVoiceDebugSimulatorのイベントを優先
+        SubscribeToEvents();
     }
     
     void OnDestroy()
     {
+        UnsubscribeFromEvents();
+    }
+    
+    void SubscribeToEvents()
+    {
+        // 既存の購読を解除してから再購読
+        UnsubscribeFromEvents();
+        
+        // デバッグモード時はVoiceDebugSimulatorのイベントを優先
+        if (voiceDebugSimulator != null && voiceDebugSimulator.enableDebugMode)
+        {
+            voiceDebugSimulator.OnVolumeDetected += OnVolumeDetected;
+            voiceDebugSimulator.OnPitchDetected += OnPitchDetected;
+            Debug.Log("PaintBattleGameManager: デバッグモードを使用します（VoiceDebugSimulator）");
+        }
+        else
+        {
+            // デバッグモードが有効になっているが、接続されていない場合の警告
+            if (voiceDebugSimulator != null && !voiceDebugSimulator.enableDebugMode)
+            {
+                Debug.LogWarning("PaintBattleGameManager: VoiceDebugSimulatorが接続されていますが、Enable Debug ModeがOFFです。通常モードを使用します。");
+            }
+            else if (voiceDebugSimulator == null)
+            {
+                // voiceDebugSimulatorがnullの場合は通常モード（警告なし）
+            }
+            
+            // 通常モード：既存のイベント購読
+            if (volumeAnalyzer != null)
+            {
+                volumeAnalyzer.OnVolumeDetected += OnVolumeDetected;
+            }
+            
+            if (improvedPitchAnalyzer != null)
+            {
+                improvedPitchAnalyzer.OnPitchDetected += OnPitchDetected;
+            }
+        }
+    }
+    
+    void UnsubscribeFromEvents()
+    {
         // イベント購読解除
+        if (voiceDebugSimulator != null)
+        {
+            voiceDebugSimulator.OnVolumeDetected -= OnVolumeDetected;
+            voiceDebugSimulator.OnPitchDetected -= OnPitchDetected;
+        }
+        
         if (volumeAnalyzer != null)
         {
             volumeAnalyzer.OnVolumeDetected -= OnVolumeDetected;
@@ -105,12 +160,54 @@ public class PaintBattleGameManager : MonoBehaviour
     
     void Update()
     {
+        // 実行中にデバッグモードが変更された場合に対応
+        if (voiceDebugSimulator != null)
+        {
+            bool shouldUseDebug = voiceDebugSimulator.enableDebugMode;
+            
+            // 現在デバッグモードを使用しているかチェック（より確実な方法）
+            bool currentlyUsingDebug = false;
+            if (voiceDebugSimulator.OnVolumeDetected != null)
+            {
+                var invocationList = voiceDebugSimulator.OnVolumeDetected.GetInvocationList();
+                foreach (var handler in invocationList)
+                {
+                    if (handler.Target == this && handler.Method.Name == "OnVolumeDetected")
+                    {
+                        currentlyUsingDebug = true;
+                        break;
+                    }
+                }
+            }
+            
+            // デバッグモードの状態が変わった場合は再購読
+            if (shouldUseDebug != currentlyUsingDebug)
+            {
+                SubscribeToEvents();
+            }
+        }
+        
         if (!isGameActive)
         {
             return;
         }
         
-        // 無音判定
+        // デバッグモード時はマウス位置を直接使用
+        if (voiceDebugSimulator != null && voiceDebugSimulator.enableDebugMode && Input.GetMouseButton(0))
+        {
+            if (paintCanvas != null)
+            {
+                // マウス位置を直接画面座標として使用
+                Vector2 mouseScreenPos = Input.mousePosition;
+                
+                // 塗り処理（デバッグモード時は固定の強度を使用）
+                float intensity = 0.5f * paintSpeedMultiplier; // デバッグモード時の固定強度
+                paintCanvas.PaintAt(mouseScreenPos, playerId, intensity);
+            }
+            return; // デバッグモード時は通常の処理をスキップ
+        }
+        
+        // 通常モード：無音判定
         float threshold = improvedPitchAnalyzer != null 
             ? improvedPitchAnalyzer.volumeThreshold 
             : silenceVolumeThreshold;

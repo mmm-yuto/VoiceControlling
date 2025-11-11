@@ -11,10 +11,20 @@ public class VolumeAnalyzer : MonoBehaviour
     void Start()
     {
         voiceDetector = FindObjectOfType<VoiceDetector>();
+        if (voiceDetector == null)
+        {
+            Debug.LogError("VolumeAnalyzer: VoiceDetectorが見つかりません。シーンにVoiceDetectorコンポーネントを追加してください。");
+        }
     }
     
     void Update()
     {
+        // voiceDetectorがnullでないかチェック
+        if (voiceDetector == null)
+        {
+            return;
+        }
+        
         float[] samples = voiceDetector.GetAudioSamples();
         if (samples != null)
         {
