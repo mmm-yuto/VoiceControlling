@@ -1697,15 +1697,15 @@ public class PaintBattleGameManager : MonoBehaviour
 
 ---
 
-## 🎨 Phase 2: クリエイティブモード（声で絵を描くモード）【実装難易度：低】
+## 🎨 Phase 2: クリエイティブモード（声で絵を描くモード）【実装難易度：中】
 
 **目標**: 声で自由に絵を描ける状態にする
 
 **特徴**:
 - Phase 1の塗りシステムをそのまま使用
 - ゲーム要素（モンスター、スコア、タイマー、勝利条件）は不要
-- シンプルなUI（クリアボタン、色選択など）のみ
-- 実装難易度が低い（塗りシステムが完成していれば実装可能）
+- クリエイティブツールとしての機能（色選択、消しゴム、巻き戻し、保存・共有）
+- 実装難易度は中程度（塗りシステムが完成していれば実装可能）
 
 ### Step 2.1: クリエイティブモードマネージャー
 
@@ -1715,14 +1715,23 @@ public class PaintBattleGameManager : MonoBehaviour
 - Phase 1の`PaintCanvas`と`PaintBattleGameManager`をそのまま使用
 - ゲーム要素（モンスター、スコア、タイマー）は無効化
 - 塗りシステムのみ有効化
+- **ツールモード管理**: 塗りモード、消しゴムモードの切り替え
+- **履歴管理**: 巻き戻し機能のための状態履歴
 
 **変更しやすさの考慮事項**:
 - **ScriptableObject設定**: クリエイティブモード用の設定（色、塗り強度など）を管理
 - **モード切り替え**: `GameMode`enumに`Creative`を追加
-- **シンプルな実装**: 既存のシステムを再利用し、最小限の追加のみ
+- **ツールモード**: `CreativeToolMode`enumで塗り/消しゴムを切り替え
+- **履歴システム**: 状態のスナップショットを保存し、巻き戻しを可能に
 
 **主要メソッド**:
 ```csharp
+public enum CreativeToolMode
+{
+    Paint,      // 塗りモード
+    Eraser      // 消しゴムモード
+}
+
 [CreateAssetMenu(fileName = "CreativeModeSettings", menuName = "Game/Creative Mode Settings")]
 public class CreativeModeSettings : ScriptableObject
 {
@@ -1736,6 +1745,36 @@ public class CreativeModeSettings : ScriptableObject
         Color.cyan, Color.magenta, Color.white, Color.black 
     };
     [Range(0.1f, 2f)] public float paintIntensity = 1f;
+    
+    [Header("Eraser Settings")]
+    [Range(10f, 200f)] public float eraserRadius = 50f;
+    [Range(0.1f, 5f)] public float eraserIntensity = 2f; // 消去強度
+    
+    [Header("History Settings")]
+    public enum HistorySaveMode
+    {
+        OnOperation,    // 操作ごとに保存（推奨）
+        TimeBased       // 時間ベースで自動保存
+    }
+    
+    [Tooltip("履歴保存方法")]
+    public HistorySaveMode historySaveMode = HistorySaveMode.OnOperation;
+    
+    [Range(10, 100)] public int maxHistorySize = 50; // 履歴の最大数
+    
+    [Tooltip("時間ベース保存時の間隔（秒）")]
+    [Range(0.1f, 5f)] public float autoSaveHistoryInterval = 0.5f;
+    
+    [Tooltip("無音判定の音量閾値（この値以下で無音と判定）")]
+    [Tooltip("注意: ImprovedPitchAnalyzerのvolumeThresholdと同じ値を使用することを推奨")]
+    [Range(0.001f, 0.1f)] public float silenceVolumeThreshold = 0.01f;
+    
+    [Tooltip("操作終了判定の無音継続時間（秒）")]
+    [Range(0.1f, 2f)] public float silenceDurationForOperationEnd = 0.3f;
+    
+    [Header("References (Optional)")]
+    [Tooltip("ImprovedPitchAnalyzerを参照すると、そのvolumeThresholdを自動的に使用")]
+    public ImprovedPitchAnalyzer improvedPitchAnalyzer;
 }
 
 public class CreativeModeManager : MonoBehaviour
@@ -1750,13 +1789,85 @@ public class CreativeModeManager : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private Button clearButton;
     [SerializeField] private Button[] colorButtons; // 色選択ボタン
+    [SerializeField] private Button eraserButton; // 消しゴムボタン
+    [SerializeField] private Button undoButton; // 巻き戻しボタン
     
     private int currentColorIndex = 0;
     private int currentPlayerId = 1; // クリエイティブモードは1プレイヤーのみ
+    private CreativeToolMode currentToolMode = CreativeToolMode.Paint;
+    
+    // 履歴管理
+    private Stack<CanvasState> historyStack = new Stack<CanvasState>();
+    private float lastHistorySaveTime = 0f;
+    private float lastOperationTime = 0f;
+    private bool isOperationInProgress = false;
+    
+    // 無音判定
+    private float silenceStartTime = 0f;
+    private bool wasSilent = false;
+    
+    public static event Action<CreativeToolMode> OnToolModeChanged;
+    public static event Action<Color> OnColorChanged;
     
     void Start()
     {
         InitializeCreativeMode();
+    }
+    
+    void Update()
+    {
+        // 時間ベースの履歴保存（設定で有効な場合）
+        if (settings.historySaveMode == CreativeModeSettings.HistorySaveMode.TimeBased)
+        {
+            if (Time.time - lastHistorySaveTime >= settings.autoSaveHistoryInterval)
+            {
+                SaveHistoryState();
+                lastHistorySaveTime = Time.time;
+            }
+        }
+    }
+    
+    // 無音判定（PaintBattleGameManagerから呼ばれる、またはVolumeAnalyzerのイベントを購読）
+    public void OnVolumeDetected(float volume)
+    {
+        if (settings.historySaveMode != CreativeModeSettings.HistorySaveMode.OnOperation)
+            return;
+        
+        // 無音判定: ImprovedPitchAnalyzerのvolumeThresholdを優先的に使用
+        // VoiceScatterPlotと同じロジック（音量0と判断する値と同じ）
+        float threshold = settings.improvedPitchAnalyzer != null 
+            ? settings.improvedPitchAnalyzer.volumeThreshold 
+            : settings.silenceVolumeThreshold;
+        
+        bool isSilent = volume <= threshold;
+        
+        if (isSilent)
+        {
+            // 無音状態
+            if (!wasSilent)
+            {
+                // 無音が始まった時点を記録
+                silenceStartTime = Time.time;
+                wasSilent = true;
+            }
+            else
+            {
+                // 無音が一定時間続いたら操作終了と判定
+                if (isOperationInProgress && 
+                    Time.time - silenceStartTime >= settings.silenceDurationForOperationEnd)
+                {
+                    // 操作終了: 現在の状態を履歴に保存
+                    SaveHistoryState();
+                    isOperationInProgress = false;
+                }
+            }
+        }
+        else
+        {
+            // 音声が検出された
+            wasSilent = false;
+            lastOperationTime = Time.time;
+        }
     }
     
     private void InitializeCreativeMode()
@@ -1782,22 +1893,153 @@ public class CreativeModeManager : MonoBehaviour
             }
         }
         
+        // 消しゴムボタンの設定
+        if (eraserButton != null)
+            eraserButton.onClick.AddListener(() => SetToolMode(CreativeToolMode.Eraser));
+        
+        // 巻き戻しボタンの設定
+        if (undoButton != null)
+            undoButton.onClick.AddListener(Undo);
+        
         // クリアボタンの設定
         if (clearButton != null)
             clearButton.onClick.AddListener(ClearCanvas);
+        
+        // 初期状態を履歴に保存
+        SaveHistoryState();
     }
     
     private void SelectColor(int colorIndex)
     {
         currentColorIndex = colorIndex;
-        // インクエフェクトの色を変更（Phase 4のInkEffectを使用）
-        // InkEffect.SetColor(settings.availableColors[colorIndex]);
+        currentToolMode = CreativeToolMode.Paint; // 色選択時は塗りモードに
+        OnColorChanged?.Invoke(settings.availableColors[colorIndex]);
+        OnToolModeChanged?.Invoke(CreativeToolMode.Paint);
+    }
+    
+    public void SetToolMode(CreativeToolMode mode)
+    {
+        currentToolMode = mode;
+        OnToolModeChanged?.Invoke(mode);
+    }
+    
+    public CreativeToolMode GetCurrentToolMode() => currentToolMode;
+    
+    // 塗り処理（PaintBattleGameManagerから呼ばれる）
+    public void PaintAt(Vector2 screenPos, float intensity)
+    {
+        // 操作ベース保存時: 操作開始時に履歴を保存（初回のみ）
+        if (settings.historySaveMode == CreativeModeSettings.HistorySaveMode.OnOperation)
+        {
+            if (!isOperationInProgress)
+            {
+                // 操作開始時点の状態を保存（「一回前」の状態）
+                // これにより、Undo時には「声を出し始める前の状態」に戻る
+                SaveHistoryState();
+                isOperationInProgress = true;
+            }
+            lastOperationTime = Time.time;
+            wasSilent = false; // 音声が検出されたので無音フラグをリセット
+        }
+        
+        if (currentToolMode == CreativeToolMode.Paint)
+        {
+            // 通常の塗り処理
+            Color paintColor = settings.availableColors[currentColorIndex];
+            paintCanvas.PaintAt(screenPos, currentPlayerId, intensity * settings.paintIntensity, AttackType.StreamPaint);
+        }
+        else if (currentToolMode == CreativeToolMode.Eraser)
+        {
+            // 消しゴム処理
+            EraseAt(screenPos, intensity);
+        }
+    }
+    
+    private void EraseAt(Vector2 screenPos, float intensity)
+    {
+        // 消しゴム処理: 指定位置の周囲を消去
+        float eraseIntensity = intensity * settings.eraserIntensity;
+        int radius = Mathf.RoundToInt(settings.eraserRadius);
+        
+        for (int x = -radius; x <= radius; x++)
+        {
+            for (int y = -radius; y <= radius; y++)
+            {
+                float distance = Mathf.Sqrt(x * x + y * y);
+                if (distance <= radius)
+                {
+                    Vector2 erasePos = screenPos + new Vector2(x, y);
+                    // PaintCanvasに消去処理を追加する必要がある
+                    // paintCanvas.EraseAt(erasePos, eraseIntensity);
+                }
+            }
+        }
     }
     
     private void ClearCanvas()
     {
         if (paintCanvas != null)
+        {
             paintCanvas.ResetCanvas();
+            SaveHistoryState(); // クリア後も履歴に保存
+        }
+    }
+    
+    // 履歴管理
+    private void SaveHistoryState()
+    {
+        if (paintCanvas == null) return;
+        
+        CanvasState state = paintCanvas.GetState(); // PaintCanvasにGetState()メソッドを追加する必要がある
+        historyStack.Push(state);
+        
+        // 履歴サイズ制限
+        if (historyStack.Count > settings.maxHistorySize)
+        {
+            var tempStack = new Stack<CanvasState>();
+            for (int i = 0; i < settings.maxHistorySize; i++)
+            {
+                tempStack.Push(historyStack.Pop());
+            }
+            historyStack.Clear();
+            while (tempStack.Count > 0)
+            {
+                historyStack.Push(tempStack.Pop());
+            }
+        }
+    }
+    
+    public void Undo()
+    {
+        if (historyStack.Count <= 1) return; // 初期状態は残す
+        
+        // 操作ベース保存時: 現在の操作を中断
+        if (settings.historySaveMode == CreativeModeSettings.HistorySaveMode.OnOperation)
+        {
+            isOperationInProgress = false;
+        }
+        
+        // 現在の状態を破棄（Stackの最上部 = 最新の状態）
+        historyStack.Pop();
+        
+        // 一つ前の状態を復元（Stackの最上部 = 「一回前」の状態）
+        if (historyStack.Count > 0)
+        {
+            CanvasState previousState = historyStack.Peek();
+            paintCanvas.RestoreState(previousState); // PaintCanvasにRestoreState()メソッドを追加する必要がある
+        }
+    }
+    
+    /// <summary>
+    /// 「一回前の状態」の定義:
+    /// - 操作ベース保存時: 最後の操作（塗り/消しゴム）の直前の状態
+    ///   → 具体的には「声を出し始める前の状態」
+    ///   → 声が聞こえなくなった時点で操作終了と判定し、その時点の状態を履歴に保存
+    /// - 時間ベース保存時: 最後の自動保存時点の状態
+    /// </summary>
+    public bool CanUndo()
+    {
+        return historyStack.Count > 1; // 初期状態以外があればUndo可能
     }
     
     // 現在選択中の色を取得
@@ -1811,21 +2053,199 @@ public class CreativeModeManager : MonoBehaviour
         return settings;
     }
 }
+
+// キャンバスの状態を保存するクラス
+[System.Serializable]
+public class CanvasState
+{
+    public int[,] playerIdData;
+    public float[,] intensityData;
+    public int width;
+    public int height;
+    
+    public CanvasState(int width, int height)
+    {
+        this.width = width;
+        this.height = height;
+        playerIdData = new int[width, height];
+        intensityData = new float[width, height];
+    }
+}
 ```
 
-### Step 2.2: クリエイティブモード用UI
+### Step 2.2: 色選択システム
+
+**ファイル**: `Assets/Script/Creative/ColorSelectionSystem.cs`
+
+**実装内容**:
+- 複数の色選択方法をサポート
+- 色選択方法の切り替え機能
+
+**色選択の方法**:
+
+#### 方法1: ボタン選択（基本）
+- **実装**: UIボタンのクリックで色を選択
+- **メリット**: シンプル、直感的
+- **デメリット**: 色数が増えるとUIが複雑になる
+
+#### 方法2: カラーピッカー（推奨）
+- **実装**: UnityのColorPickerコンポーネントまたはカスタム実装
+- **メリット**: 任意の色を選択可能、柔軟性が高い
+- **デメリット**: 実装がやや複雑
+
+#### 方法3: 音声による色選択（オプション）
+- **実装**: 特定の音声パターン（例: 特定のピッチ範囲）で色を選択
+- **メリット**: 声だけで操作可能、ユニークな体験
+- **デメリット**: 学習曲線がある、誤認識の可能性
+
+#### 方法4: プリセット色パレット（推奨）
+- **実装**: よく使う色をプリセットとして保存
+- **メリット**: 素早い選択、カスタマイズ可能
+- **デメリット**: 色数に制限がある
+
+**推奨実装**: 方法2（カラーピッカー）+ 方法4（プリセット）の組み合わせ
+
+**変更しやすさの考慮事項**:
+- **ScriptableObject設定**: 色選択方法を設定で切り替え可能に
+- **インターフェース化**: `IColorSelector`インターフェースで選択方法を差し替え可能に
+- **プリセット管理**: プリセット色をScriptableObjectで管理
+
+**主要メソッド**:
+```csharp
+public enum ColorSelectionMethod
+{
+    ButtonSelection,      // ボタン選択
+    ColorPicker,          // カラーピッカー
+    VoiceSelection,      // 音声選択（オプション）
+    PresetPalette        // プリセットパレット
+}
+
+public interface IColorSelector
+{
+    Color GetSelectedColor();
+    void Initialize(CreativeModeSettings settings);
+    void Update();
+}
+
+[CreateAssetMenu(fileName = "ColorSelectionSettings", menuName = "Game/Creative/Color Selection Settings")]
+public class ColorSelectionSettings : ScriptableObject
+{
+    [Header("Selection Method")]
+    public ColorSelectionMethod method = ColorSelectionMethod.ColorPicker;
+    
+    [Header("Preset Colors")]
+    public Color[] presetColors = new Color[]
+    {
+        Color.red, Color.blue, Color.green, Color.yellow,
+        Color.cyan, Color.magenta, Color.white, Color.black,
+        new Color(1f, 0.5f, 0f), // オレンジ
+        new Color(0.5f, 0f, 1f)  // 紫
+    };
+    
+    [Header("Voice Selection (Optional)")]
+    [Range(100f, 1000f)] public float[] voicePitchRanges = new float[] { 200f, 300f, 400f }; // 各色に対応するピッチ範囲
+}
+
+public class ColorSelectionSystem : MonoBehaviour
+{
+    [SerializeField] private ColorSelectionSettings settings;
+    [SerializeField] private IColorSelector colorSelector;
+    
+    private Color currentColor = Color.red;
+    
+    public static event Action<Color> OnColorSelected;
+    
+    void Start()
+    {
+        InitializeSelector();
+    }
+    
+    void Update()
+    {
+        if (colorSelector != null)
+        {
+            Color newColor = colorSelector.GetSelectedColor();
+            if (newColor != currentColor)
+            {
+                currentColor = newColor;
+                OnColorSelected?.Invoke(currentColor);
+            }
+        }
+    }
+    
+    private void InitializeSelector()
+    {
+        switch (settings.method)
+        {
+            case ColorSelectionMethod.ButtonSelection:
+                colorSelector = gameObject.AddComponent<ButtonColorSelector>();
+                break;
+            case ColorSelectionMethod.ColorPicker:
+                colorSelector = gameObject.AddComponent<ColorPickerSelector>();
+                break;
+            case ColorSelectionMethod.VoiceSelection:
+                colorSelector = gameObject.AddComponent<VoiceColorSelector>();
+                break;
+            case ColorSelectionMethod.PresetPalette:
+                colorSelector = gameObject.AddComponent<PresetPaletteSelector>();
+                break;
+        }
+        
+        if (colorSelector != null)
+        {
+            colorSelector.Initialize(settings);
+        }
+    }
+    
+    public Color GetCurrentColor() => currentColor;
+}
+
+// カラーピッカー実装例
+public class ColorPickerSelector : MonoBehaviour, IColorSelector
+{
+    [SerializeField] private ColorPicker colorPicker; // Unity Asset StoreのColorPickerまたはカスタム実装
+    private ColorSelectionSettings settings;
+    
+    public void Initialize(ColorSelectionSettings settings)
+    {
+        this.settings = settings;
+        if (colorPicker != null)
+        {
+            colorPicker.onValueChanged.AddListener(OnColorChanged);
+        }
+    }
+    
+    public Color GetSelectedColor()
+    {
+        return colorPicker != null ? colorPicker.CurrentColor : Color.red;
+    }
+    
+    public void Update() { }
+    
+    private void OnColorChanged(Color color)
+    {
+        ColorSelectionSystem.OnColorSelected?.Invoke(color);
+    }
+}
+```
+
+### Step 2.3: クリエイティブモード用UI
 
 **ファイル**: `Assets/Script/UI/CreativeModeUI.cs`
 
 **実装内容**:
 - クリアボタン
-- 色選択ボタン（8色程度）
-- シンプルなUI（ゲーム要素は不要）
+- 色選択UI（ボタン、カラーピッカー、プリセットパレット）
+- 消しゴムボタン
+- 巻き戻しボタン
+- 保存ボタン
+- 共有ボタン
+- ツールモード表示
 
 **変更しやすさの考慮事項**:
 - **Inspector設定**: UI要素はInspectorで接続可能に
 - **ScriptableObject設定**: 色のリストは`CreativeModeSettings`で管理
-- **最小限の実装**: 必要最小限のUIのみ
+- **UIレイアウト**: レイアウトを変更しやすい構造
 
 **主要メソッド**:
 ```csharp
@@ -1833,26 +2253,79 @@ public class CreativeModeUI : MonoBehaviour
 {
     [Header("UI Elements")]
     [SerializeField] private Button clearButton;
+    [SerializeField] private Button eraserButton;
+    [SerializeField] private Button undoButton;
+    [SerializeField] private Button saveButton;
+    [SerializeField] private Button shareButton;
+    
+    [Header("Color Selection UI")]
     [SerializeField] private Transform colorButtonParent;
     [SerializeField] private GameObject colorButtonPrefab;
+    [SerializeField] private GameObject colorPickerPanel; // カラーピッカーパネル
+    [SerializeField] private Button colorPickerToggleButton;
+    
+    [Header("Tool Mode Display")]
+    [SerializeField] private TextMeshProUGUI toolModeText;
+    [SerializeField] private Image currentColorDisplay; // 現在選択中の色を表示
     
     [Header("References")]
     [SerializeField] private CreativeModeManager creativeManager;
+    [SerializeField] private ColorSelectionSystem colorSelectionSystem;
+    [SerializeField] private CreativeModeSaveSystem saveSystem;
     
     void Start()
     {
         InitializeUI();
+        SubscribeToEvents();
+    }
+    
+    void OnDestroy()
+    {
+        UnsubscribeFromEvents();
     }
     
     private void InitializeUI()
     {
-        // クリアボタンの設定
+        // クリアボタン
         if (clearButton != null && creativeManager != null)
         {
             clearButton.onClick.AddListener(() => creativeManager.ClearCanvas());
         }
         
-        // 色選択ボタンの生成（CreativeModeSettingsから色を取得）
+        // 消しゴムボタン
+        if (eraserButton != null && creativeManager != null)
+        {
+            eraserButton.onClick.AddListener(() => creativeManager.SetToolMode(CreativeToolMode.Eraser));
+        }
+        
+        // 巻き戻しボタン
+        if (undoButton != null && creativeManager != null)
+        {
+            undoButton.onClick.AddListener(() => creativeManager.Undo());
+        }
+        
+        // 保存ボタン
+        if (saveButton != null && saveSystem != null)
+        {
+            saveButton.onClick.AddListener(() => saveSystem.SaveCanvas());
+        }
+        
+        // 共有ボタン
+        if (shareButton != null && saveSystem != null)
+        {
+            shareButton.onClick.AddListener(() => saveSystem.ShareImage());
+        }
+        
+        // カラーピッカートグル
+        if (colorPickerToggleButton != null && colorPickerPanel != null)
+        {
+            colorPickerToggleButton.onClick.AddListener(() => 
+            {
+                colorPickerPanel.SetActive(!colorPickerPanel.activeSelf);
+            });
+        }
+        
+        // 色選択ボタンの生成（プリセット色用）
         if (creativeManager != null && colorButtonPrefab != null && colorButtonParent != null)
         {
             var settings = creativeManager.GetSettings();
@@ -1867,48 +2340,405 @@ public class CreativeModeUI : MonoBehaviour
                     var colors = button.colors;
                     colors.normalColor = color;
                     button.colors = colors;
+                    
+                    // クリックで色を選択
+                    Color selectedColor = color; // クロージャ対策
+                    button.onClick.AddListener(() => 
+                    {
+                        if (colorSelectionSystem != null)
+                        {
+                            // 色選択システムに通知（実装方法に応じて調整）
+                        }
+                    });
                 }
             }
+        }
+        
+        // 初期表示
+        UpdateToolModeDisplay(CreativeToolMode.Paint);
+        UpdateColorDisplay(Color.red);
+    }
+    
+    private void SubscribeToEvents()
+    {
+        CreativeModeManager.OnToolModeChanged += UpdateToolModeDisplay;
+        ColorSelectionSystem.OnColorSelected += UpdateColorDisplay;
+    }
+    
+    private void UnsubscribeFromEvents()
+    {
+        CreativeModeManager.OnToolModeChanged -= UpdateToolModeDisplay;
+        ColorSelectionSystem.OnColorSelected -= UpdateColorDisplay;
+    }
+    
+    private void UpdateToolModeDisplay(CreativeToolMode mode)
+    {
+        if (toolModeText != null)
+        {
+            toolModeText.text = mode == CreativeToolMode.Paint ? "塗りモード" : "消しゴムモード";
+        }
+    }
+    
+    private void UpdateColorDisplay(Color color)
+    {
+        if (currentColorDisplay != null)
+        {
+            currentColorDisplay.color = color;
         }
     }
 }
 ```
 
-### Step 2.3: 保存機能（オプション）
+### Step 2.4: 消しゴム機能の実装
+
+**ファイル**: `Assets/Script/GameLogic/PaintCanvas.cs`（拡張）
+
+**実装内容**:
+- `PaintCanvas`に消去メソッドを追加
+- 指定位置の周囲を消去（playerIdを0に設定、強度を0に）
+
+**変更しやすさの考慮事項**:
+- **ScriptableObject設定**: 消しゴムの半径、強度を設定可能に
+- **既存システムの拡張**: Phase 1の`PaintCanvas`を拡張する形で実装
+
+**主要メソッド**:
+```csharp
+// PaintCanvas.csに追加
+public void EraseAt(Vector2 screenPos, float intensity, float radius)
+{
+    int x = Mathf.RoundToInt(screenPos.x);
+    int y = Mathf.RoundToInt(screenPos.y);
+    
+    int radiusInt = Mathf.RoundToInt(radius);
+    
+    for (int dx = -radiusInt; dx <= radiusInt; dx++)
+    {
+        for (int dy = -radiusInt; dy <= radiusInt; dy++)
+        {
+            float distance = Mathf.Sqrt(dx * dx + dy * dy);
+            if (distance <= radius)
+            {
+                int px = x + dx;
+                int py = y + dy;
+                
+                // 範囲チェック
+                if (px >= 0 && px < settings.textureWidth && py >= 0 && py < settings.textureHeight)
+                {
+                    // 消去処理: playerIdを0（空白）に、強度を0に
+                    playerIdData[px, py] = 0;
+                    intensityData[px, py] = 0f;
+                }
+            }
+        }
+    }
+    
+    // 消去完了イベント
+    OnPaintCompleted?.Invoke(screenPos, 0, 0f);
+}
+```
+
+### Step 2.5: 巻き戻し機能の実装
+
+**ファイル**: `Assets/Script/GameLogic/PaintCanvas.cs`（拡張）
+
+**実装内容**:
+- キャンバスの状態を保存・復元するメソッドを追加
+- `GetState()`: 現在の状態を`CanvasState`として取得
+- `RestoreState()`: 保存された状態を復元
+
+**「一回前の状態」の定義**:
+
+巻き戻し機能における「一回前の状態」は、以下の2つの方法から選択可能です：
+
+#### 方法1: 操作ベースの履歴保存（推奨）
+- **定義**: 「一回前」= 最後の操作（塗り/消しゴム）の**直前**の状態
+- **実装**: 
+  - 操作開始時: 操作前の状態を履歴に保存（初回のみ）
+  - 操作中: 声を出し続けて塗る/消す
+  - 操作終了時: **声が聞こえなくなった時点**で操作終了と判定し、その時点の状態を履歴に保存
+- **無音判定**: 
+  - 音量が閾値以下になった時点で無音と判定
+  - 無音が一定時間（例: 0.3秒）続いたら操作終了とみなす
+- **メリット**: 
+  - 直感的（声を出し続ける = 1つの操作）
+  - 自然な操作感（声が止まったら操作終了）
+  - ユーザーの期待に一致
+- **デメリット**: 
+  - 無音判定の閾値調整が必要
+
+#### 方法2: 時間ベースの履歴保存
+- **定義**: 「一回前」= 一定時間（例: 0.5秒）前の状態
+- **実装**: 一定間隔で自動的に履歴を保存
+- **メリット**: 
+  - 履歴数が予測可能
+  - 連続操作でも履歴が増えすぎない
+- **デメリット**: 
+  - 操作と履歴のタイミングが一致しない可能性
+  - 直感的でない場合がある
+
+**推奨実装**: 方法1（操作ベース）+ 設定で方法2も選択可能にする
+
+**動作例（操作ベース保存時）**:
+
+1. **初期状態**: キャンバスは空白
+   - 履歴: [初期状態]
+
+2. **操作1: 声を出して赤で塗る**
+   - 声を出し始める: 操作開始 → 履歴に「操作前の状態（空白）」を保存
+   - 履歴: [初期状態, 操作前の状態（空白）]
+   - 声を出し続けて塗る: 赤で塗り続ける
+   - 声が止まる（無音が0.3秒続く）: 操作終了 → 履歴に「操作後の状態（赤で塗られた状態）」を保存
+   - 履歴: [初期状態, 操作前の状態（空白）, 操作後の状態（赤）]
+
+3. **操作2: 声を出して青で塗る**
+   - 声を出し始める: 操作開始 → 履歴に「操作前の状態（赤）」を保存
+   - 履歴: [初期状態, 操作前の状態（空白）, 操作後の状態（赤）, 操作前の状態（赤）]
+   - 声を出し続けて塗る: 青で塗り続ける
+   - 声が止まる（無音が0.3秒続く）: 操作終了 → 履歴に「操作後の状態（赤+青）」を保存
+   - 履歴: [初期状態, 操作前の状態（空白）, 操作後の状態（赤）, 操作前の状態（赤）, 操作後の状態（赤+青）]
+
+4. **Undoボタンを押す**
+   - 現在の状態（赤+青）を破棄
+   - 「一回前の状態（操作前の状態（赤））」を復元
+   - 結果: キャンバスは「赤で塗られた状態」に戻る（声を出し始める前の状態）
+
+**無音判定の仕組み**:
+
+- **音量閾値**: 
+  - `ImprovedPitchAnalyzer.volumeThreshold`を優先的に使用（推奨）
+  - これにより、`VoiceScatterPlot`で使用されている「音量0と判断する値」と同じになる
+  - `ImprovedPitchAnalyzer`が参照されていない場合は、`silenceVolumeThreshold`（デフォルト: 0.01）を使用
+- **操作終了判定**: 無音が`silenceDurationForOperationEnd`（デフォルト: 0.3秒）続いたら操作終了
+- **メリット**: 
+  - 声を出し続ける = 1つの操作として扱われる
+  - 声が止まったら操作終了 = 自然な操作感
+  - 短い無音（息継ぎなど）は操作継続として扱われる
+  - 既存の音声検出システムと一貫性がある
+- **設定**: 
+  - 閾値は`ImprovedPitchAnalyzer`の設定に連動（推奨）
+  - または`silenceVolumeThreshold`で個別に設定可能
+  - 継続時間は`silenceDurationForOperationEnd`で調整可能
+
+**変更しやすさの考慮事項**:
+- **メモリ管理**: 履歴サイズを制限し、メモリ使用量を管理
+- **パフォーマンス**: 状態のコピーは必要最小限に
+- **設定可能**: 履歴保存方法をScriptableObjectで選択可能に
+
+**主要メソッド**:
+```csharp
+// PaintCanvas.csに追加
+public CanvasState GetState()
+{
+    CanvasState state = new CanvasState(settings.textureWidth, settings.textureHeight);
+    
+    // データをコピー
+    for (int x = 0; x < settings.textureWidth; x++)
+    {
+        for (int y = 0; y < settings.textureHeight; y++)
+        {
+            state.playerIdData[x, y] = playerIdData[x, y];
+            state.intensityData[x, y] = intensityData[x, y];
+        }
+    }
+    
+    return state;
+}
+
+public void RestoreState(CanvasState state)
+{
+    if (state.width != settings.textureWidth || state.height != settings.textureHeight)
+    {
+        Debug.LogError("CanvasStateのサイズが一致しません");
+        return;
+    }
+    
+    // データを復元
+    for (int x = 0; x < settings.textureWidth; x++)
+    {
+        for (int y = 0; y < settings.textureHeight; y++)
+        {
+            playerIdData[x, y] = state.playerIdData[x, y];
+            intensityData[x, y] = state.intensityData[x, y];
+        }
+    }
+    
+    // テクスチャを更新（可視化用）
+    UpdateTexture();
+}
+```
+
+### Step 2.6: 保存・共有機能の実装
 
 **ファイル**: `Assets/Script/Creative/CreativeModeSaveSystem.cs`
 
 **実装内容**:
-- 描いた絵を画像として保存（Texture2DをPNGに変換）
-- 保存した絵を読み込んで表示（オプション）
+- 描いた絵をPNG画像として保存
+- 画像を共有（SNS、メール、クリップボードなど）
+- 保存先の管理
 
 **変更しやすさの考慮事項**:
 - **ScriptableObject設定**: 保存先パス、ファイル名形式を設定可能に
-- **オプション機能**: 最初は実装せず、後から追加可能
+- **プラットフォーム対応**: PC、モバイル（Android/iOS）に対応
+- **共有方法**: 複数の共有方法をサポート
 
 **主要メソッド**:
 ```csharp
+[CreateAssetMenu(fileName = "SaveSettings", menuName = "Game/Creative/Save Settings")]
+public class SaveSettings : ScriptableObject
+{
+    [Header("Save Path")]
+    [Tooltip("保存先ディレクトリ（相対パス）")]
+    public string saveDirectory = "Screenshots";
+    
+    [Header("File Naming")]
+    [Tooltip("ファイル名の形式（{0}に日時が入る）")]
+    public string fileNameFormat = "Creative_{0:yyyyMMdd_HHmmss}.png";
+    
+    [Header("Image Settings")]
+    [Range(0.5f, 2f)] public float imageScale = 1f; // 画像のスケール
+    public bool includeTimestamp = true;
+}
+
 public class CreativeModeSaveSystem : MonoBehaviour
 {
-    [Header("Save Settings")]
-    [SerializeField] private string saveDirectory = "Screenshots";
-    [SerializeField] private string fileNameFormat = "Creative_{0:yyyyMMdd_HHmmss}.png";
+    [Header("Settings")]
+    [SerializeField] private SaveSettings settings;
     
     [Header("References")]
     [SerializeField] private PaintCanvas paintCanvas;
     [SerializeField] private Button saveButton;
+    [SerializeField] private Button shareButton;
+    
+    public static event Action<string> OnImageSaved;
+    public static event Action<bool> OnShareCompleted;
     
     void Start()
     {
         if (saveButton != null)
             saveButton.onClick.AddListener(SaveCanvas);
+        
+        if (shareButton != null)
+            shareButton.onClick.AddListener(ShareImage);
     }
     
     public void SaveCanvas()
     {
+        if (paintCanvas == null) return;
+        
         // PaintCanvasのデータをTexture2Dに変換
-        // Texture2DをPNGとして保存
-        // 実装は後から追加（Phase 2ではオプション）
+        Texture2D texture = paintCanvas.GetTexture(); // PaintCanvasにGetTexture()メソッドを追加する必要がある
+        
+        if (texture == null)
+        {
+            Debug.LogError("テクスチャの取得に失敗しました");
+            return;
+        }
+        
+        // PNGに変換
+        byte[] pngData = texture.EncodeToPNG();
+        
+        // 保存先パスを取得
+        string directory = GetSaveDirectory();
+        if (!System.IO.Directory.Exists(directory))
+        {
+            System.IO.Directory.CreateDirectory(directory);
+        }
+        
+        // ファイル名を生成
+        string fileName = GetFileName();
+        string filePath = System.IO.Path.Combine(directory, fileName);
+        
+        // ファイルに保存
+        System.IO.File.WriteAllBytes(filePath, pngData);
+        
+        Debug.Log($"画像を保存しました: {filePath}");
+        OnImageSaved?.Invoke(filePath);
+    }
+    
+    public void ShareImage()
+    {
+        if (paintCanvas == null) return;
+        
+        // 一時ファイルとして保存
+        Texture2D texture = paintCanvas.GetTexture();
+        if (texture == null) return;
+        
+        byte[] pngData = texture.EncodeToPNG();
+        string tempPath = System.IO.Path.Combine(Application.temporaryCachePath, "share_temp.png");
+        System.IO.File.WriteAllBytes(tempPath, pngData);
+        
+        // プラットフォーム別の共有処理
+        #if UNITY_ANDROID
+            ShareImageAndroid(tempPath);
+        #elif UNITY_IOS
+            ShareImageIOS(tempPath);
+        #elif UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX
+            ShareImageDesktop(tempPath);
+        #endif
+    }
+    
+    private void ShareImageAndroid(string imagePath)
+    {
+        // Android Native Share Plugin または UnityのShare機能を使用
+        // 実装例:
+        /*
+        AndroidJavaClass intentClass = new AndroidJavaClass("android.content.Intent");
+        AndroidJavaObject intentObject = new AndroidJavaObject("android.content.Intent");
+        intentObject.Call<AndroidJavaObject>("setAction", intentClass.GetStatic<string>("ACTION_SEND"));
+        // ... Android共有処理
+        */
+        OnShareCompleted?.Invoke(true);
+    }
+    
+    private void ShareImageIOS(string imagePath)
+    {
+        // iOS Native Share Plugin を使用
+        // 実装例:
+        /*
+        NativeShare.ShareOptions options = new NativeShare.ShareOptions();
+        options.AddFile(imagePath);
+        NativeShare.Share(options);
+        */
+        OnShareCompleted?.Invoke(true);
+    }
+    
+    private void ShareImageDesktop(string imagePath)
+    {
+        // デスクトップではクリップボードにコピーまたはファイルを開く
+        // 実装例:
+        /*
+        GUIUtility.systemCopyBuffer = imagePath;
+        Debug.Log("画像パスをクリップボードにコピーしました");
+        */
+        OnShareCompleted?.Invoke(true);
+    }
+    
+    private string GetSaveDirectory()
+    {
+        string directory = settings.saveDirectory;
+        
+        // プラットフォーム別のパス処理
+        #if UNITY_ANDROID
+            directory = System.IO.Path.Combine(Application.persistentDataPath, directory);
+        #elif UNITY_IOS
+            directory = System.IO.Path.Combine(Application.persistentDataPath, directory);
+        #elif UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX
+            directory = System.IO.Path.Combine(Application.dataPath, "..", directory);
+        #endif
+        
+        return directory;
+    }
+    
+    private string GetFileName()
+    {
+        if (settings.includeTimestamp)
+        {
+            return string.Format(settings.fileNameFormat, System.DateTime.Now);
+        }
+        else
+        {
+            return "Creative.png";
+        }
     }
 }
 ```
@@ -2727,7 +3557,11 @@ public class VictoryCondition : MonoBehaviour
 ### Phase 2 完了条件（クリエイティブモード）
 - [ ] 声で自由に絵を描ける
 - [ ] キャンバスをクリアできる
-- [ ] インクの色を選択できる（オプション）
+- [ ] インクの色を選択できる（ボタン、カラーピッカー、プリセットパレットのいずれか）
+- [ ] 消しゴム機能が動作する（声で消去位置を指定）
+- [ ] 巻き戻し機能が動作する（一回前の状態に戻る）
+- [ ] 画像を保存できる（PNG形式）
+- [ ] 画像を共有できる（プラットフォーム別の共有機能）
 - [ ] クリエイティブモードで遊べる状態になる
 
 ### Phase 3 完了条件
