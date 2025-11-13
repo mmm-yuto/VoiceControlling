@@ -10,6 +10,9 @@ public class InkEffect : MonoBehaviour
     [Tooltip("パーティクルシステム（Inspectorで接続、または自動生成）")]
     public ParticleSystem particleSystem;
     
+    [Header("Mapping")]
+    [SerializeField] private VoiceToScreenMapper voiceToScreenMapper;
+    
     [Header("Effect Settings")]
     [Tooltip("パーティクルの色")]
     public Color particleColor = Color.cyan;
@@ -37,6 +40,10 @@ public class InkEffect : MonoBehaviour
         {
             paintCanvas = FindObjectOfType<PaintCanvas>();
         }
+        if (voiceToScreenMapper == null)
+        {
+            voiceToScreenMapper = FindObjectOfType<VoiceToScreenMapper>();
+        }
         
         // パーティクルシステムが設定されていない場合は自動生成
         if (particleSystem == null)
@@ -48,6 +55,7 @@ public class InkEffect : MonoBehaviour
         if (paintCanvas != null)
         {
             paintCanvas.OnPaintCompleted += OnPaintCompleted;
+            paintCanvas.OnPaintingSuppressed += OnPaintingSuppressed;
         }
     }
     
@@ -57,6 +65,7 @@ public class InkEffect : MonoBehaviour
         if (paintCanvas != null)
         {
             paintCanvas.OnPaintCompleted -= OnPaintCompleted;
+            paintCanvas.OnPaintingSuppressed -= OnPaintingSuppressed;
         }
     }
     
@@ -109,6 +118,46 @@ public class InkEffect : MonoBehaviour
             // パーティクルを発射
             particleSystem.Emit(particleCount);
         }
+    }
+
+    void OnPaintingSuppressed()
+    {
+        if (particleSystem == null)
+        {
+            return;
+        }
+
+        Vector2 screenPosition = voiceToScreenMapper != null
+            ? voiceToScreenMapper.MapToCenter()
+            : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+
+        particleSystem.Clear(true);
+        PositionParticleSystem(screenPosition, anchorToTarget: true);
+    }
+
+    void PositionParticleSystem(Vector2 screenPosition, bool anchorToTarget = false)
+    {
+        if (anchorToTarget && voiceToScreenMapper != null && voiceToScreenMapper.TargetRectTransform != null)
+        {
+            particleSystem.transform.position = voiceToScreenMapper.TargetRectTransform.position;
+            return;
+        }
+
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            mainCamera = FindObjectOfType<Camera>();
+        }
+
+        if (mainCamera == null)
+        {
+            return;
+        }
+
+        Vector3 worldPos = mainCamera.ScreenToWorldPoint(
+            new Vector3(screenPosition.x, screenPosition.y, mainCamera.nearClipPlane + 1f)
+        );
+        particleSystem.transform.position = worldPos;
     }
 }
 

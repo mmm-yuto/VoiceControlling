@@ -22,6 +22,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     
     // イベント
     public event System.Action<Vector2, int, float> OnPaintCompleted;
+    public event System.Action OnPaintingSuppressed;
     
     // 内部状態
     private int frameCount = 0;
@@ -97,6 +98,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         // 画面座標をキャンバス座標に変換
         if (!TryGetCanvasCoordinate(screenPosition, out int canvasX, out int canvasY))
         {
+            NotifyPaintingSuppressed();
             return;
         }
         
@@ -104,6 +106,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
         if (effectiveIntensity < settings.minVolumeThreshold)
         {
+            NotifyPaintingSuppressed();
             return;
         }
         
@@ -169,11 +172,13 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     {
         if (!isInitialized || playerIdData == null)
         {
+            NotifyPaintingSuppressed();
             return;
         }
         
         if (!TryGetCanvasCoordinate(screenPosition, out int centerX, out int centerY))
         {
+            NotifyPaintingSuppressed();
             return;
         }
         
@@ -214,6 +219,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         if (changed)
         {
             paintTexture.Apply();
+        }
+        else
+        {
+            NotifyPaintingSuppressed();
         }
     }
     
@@ -308,6 +317,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         
         // デバッグ表示（簡易版：塗られた位置を表示）
         // 実際の可視化はPhase 1後、Texture2D + UI Imageで実装
+    }
+
+    public void NotifyPaintingSuppressed()
+    {
+        OnPaintingSuppressed?.Invoke();
     }
 }
 

@@ -153,5 +153,10 @@ public class VoiceToScreenMapper : MonoBehaviour
 
         return new Vector2(screenX, screenY);
     }
+
+    public Vector2 MapToCenter()
+    {
+        return MapVoiceToScreen(zeroVolume, zeroPitch);
+    }
 }
 

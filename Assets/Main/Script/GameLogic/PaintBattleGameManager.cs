@@ -217,6 +217,7 @@ public class PaintBattleGameManager : MonoBehaviour
         if (isSilent)
         {
             // 無音時は塗らない（実装手順書の推奨：Option A）
+            paintCanvas?.NotifyPaintingSuppressed();
             return;
         }
         
