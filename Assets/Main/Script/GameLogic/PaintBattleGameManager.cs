@@ -224,7 +224,7 @@ public class PaintBattleGameManager : MonoBehaviour
         if (voiceToScreenMapper != null && paintCanvas != null)
         {
             Vector2 screenPos = voiceToScreenMapper.MapVoiceToScreen(latestVolume, latestPitch);
-            
+
             // 塗り処理
             float intensity = latestVolume * paintSpeedMultiplier;
             paintCanvas.PaintAt(screenPos, playerId, intensity, Color.white);

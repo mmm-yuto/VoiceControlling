@@ -51,37 +51,22 @@ public class VoiceDisplay : MonoBehaviour
     }
     
     private VolumeAnalyzer volumeAnalyzer;
-    private PitchAnalyzer pitchAnalyzer;
     private ImprovedPitchAnalyzer improvedPitchAnalyzer;
-    private FixedPitchAnalyzer fixedPitchAnalyzer;
     
     void Start()
     {
         // 音声分析コンポーネントを取得
         volumeAnalyzer = FindObjectOfType<VolumeAnalyzer>();
-        pitchAnalyzer = FindObjectOfType<PitchAnalyzer>();
         improvedPitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
-        fixedPitchAnalyzer = FindObjectOfType<FixedPitchAnalyzer>();
         
         // イベント購読
         if (volumeAnalyzer != null)
             volumeAnalyzer.OnVolumeDetected += UpdateVolumeDisplay;
         
-        // FixedPitchAnalyzerを最優先で使用
-        if (fixedPitchAnalyzer != null)
-        {
-            fixedPitchAnalyzer.OnPitchDetected += UpdatePitchDisplay;
-            Debug.Log("Using FixedPitchAnalyzer for pitch detection");
-        }
-        else if (improvedPitchAnalyzer != null)
+        if (improvedPitchAnalyzer != null)
         {
             improvedPitchAnalyzer.OnPitchDetected += UpdatePitchDisplay;
             Debug.Log("Using ImprovedPitchAnalyzer for pitch detection");
-        }
-        else if (pitchAnalyzer != null)
-        {
-            pitchAnalyzer.OnPitchDetected += UpdatePitchDisplay;
-            Debug.Log("Using PitchAnalyzer for pitch detection");
         }
         else
         {
@@ -161,11 +146,7 @@ public class VoiceDisplay : MonoBehaviour
         // イベント購読解除
         if (volumeAnalyzer != null)
             volumeAnalyzer.OnVolumeDetected -= UpdateVolumeDisplay;
-        if (pitchAnalyzer != null)
-            pitchAnalyzer.OnPitchDetected -= UpdatePitchDisplay;
         if (improvedPitchAnalyzer != null)
             improvedPitchAnalyzer.OnPitchDetected -= UpdatePitchDisplay;
-        if (fixedPitchAnalyzer != null)
-            fixedPitchAnalyzer.OnPitchDetected -= UpdatePitchDisplay;
     }
 }

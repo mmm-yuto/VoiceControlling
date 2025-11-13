@@ -21,7 +21,7 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     public float rightPitch = 600f;   // 右移動用のピッチ
     
     [Header("Test Settings")]
-    public bool useTestMode = true;  // テストモードを使用
+    public bool useTestMode = false;  // テストモードを使用
     public float testPitch = 400f;   // テスト用の固定音程
     
     private VoiceDetector voiceDetector;

@@ -20,6 +20,11 @@ public class VoiceToScreenMapper : MonoBehaviour
     [Tooltip("有声時、Y軸をスライダーと同じ(minPitch..maxPitch)で正規化する（原点センタリング無効）")]
     public bool matchSliderYAxis = true;
     
+    [Header("Target")]
+    [Tooltip("値をマッピングするRectTransform。未指定の場合は画面全体を使用")]
+    [SerializeField] private RectTransform targetRectTransform;
+    public RectTransform TargetRectTransform => targetRectTransform;
+    
     // キャリブレーション平均（原点）
     private float zeroVolume = 0f;
     private float zeroPitch = 80f;
@@ -128,11 +133,27 @@ public class VoiceToScreenMapper : MonoBehaviour
         float vol01 = MapVolumeTo01(volume);
         float pit01 = MapPitchTo01(pitch);
         
-        // 0-1を画面座標に変換
-        // Screen座標系：左下が(0,0)、右上が(Screen.width, Screen.height)
-        float screenX = vol01 * Screen.width;
-        float screenY = pit01 * Screen.height;
-        
+        Vector2 bottomLeft = new Vector2(0f, 0f);
+        Vector2 topRight = new Vector2(Screen.width, Screen.height);
+
+        if (targetRectTransform != null)
+        {
+            Vector3[] worldCorners = new Vector3[4];
+            targetRectTransform.GetWorldCorners(worldCorners);
+
+            Canvas canvas = targetRectTransform.GetComponentInParent<Canvas>();
+            Camera canvasCamera = (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay) ? canvas.worldCamera : null;
+
+            Vector2 bl = RectTransformUtility.WorldToScreenPoint(canvasCamera, worldCorners[0]);
+            Vector2 tr = RectTransformUtility.WorldToScreenPoint(canvasCamera, worldCorners[2]);
+
+            bottomLeft = bl;
+            topRight = tr;
+        }
+
+        float screenX = Mathf.Lerp(bottomLeft.x, topRight.x, vol01);
+        float screenY = Mathf.Lerp(bottomLeft.y, topRight.y, pit01);
+
         return new Vector2(screenX, screenY);
     }
 }
