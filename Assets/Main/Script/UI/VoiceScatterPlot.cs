@@ -137,7 +137,11 @@ public class VoiceScatterPlot : MonoBehaviour
 		// 無音判定: ImprovedPitchAnalyzerの閾値があればそれを優先、無ければローカル閾値を使用
 		float threshold = improvedPitchAnalyzer != null ? improvedPitchAnalyzer.volumeThreshold : silenceVolumeThreshold;
 		bool pitchStale = (Time.time - lastPitchUpdateTime) > pitchStaleTimeout;
-		bool isSilent = (volume < threshold) || (pitch <= 0f) || pitchStale;
+        float timeSincePitch = Time.time - lastPitchUpdateTime;
+        bool pitchTimeout = timeSincePitch > pitchStaleTimeout;
+        bool volumeSilent = volume < threshold;
+        bool pitchSilent = pitch <= 0f;
+        bool isSilent = volumeSilent || pitchSilent || pitchTimeout;
 		if (isSilent)
 		{
 			CenterMarker();

@@ -38,6 +38,7 @@ public class CreativeModeManager : MonoBehaviour
     private bool isOperationInProgress = false;
     private bool wasSilent = false;
     private float silenceStartTime = 0f;
+    private float lastVolumeDetectedTime = float.NegativeInfinity;
     
     void Awake()
     {
@@ -73,7 +74,18 @@ public class CreativeModeManager : MonoBehaviour
         }
         
         float silenceThreshold = GetSilenceThreshold();
-        bool isSilent = latestVolume <= silenceThreshold || latestPitch <= 0f;
+        float timeSinceVolume = Time.time - lastVolumeDetectedTime;
+        bool timeoutSilent = false;
+        if (settings != null)
+        {
+            timeoutSilent = timeSinceVolume >= settings.silenceDurationForOperationEnd;
+        }
+        else
+        {
+            timeoutSilent = timeSinceVolume >= 0.3f;
+        }
+        
+        bool isSilent = latestVolume <= silenceThreshold || latestPitch <= 0f || timeoutSilent;
         
         if (isSilent)
         {
@@ -356,6 +368,7 @@ public class CreativeModeManager : MonoBehaviour
     {
         latestVolume = volume;
         lastHistorySaveTime = Time.time;
+        lastVolumeDetectedTime = Time.time;
     }
     
     void OnPitchDetected(float pitch)
