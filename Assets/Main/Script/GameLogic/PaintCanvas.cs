@@ -301,7 +301,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     
     void OnDrawGizmos()
     {
-        if (!showDebugGizmos || !isInitialized || paintData == null)
+        if (!showDebugGizmos || !isInitialized || playerIdData == null)
         {
             return;
         }
