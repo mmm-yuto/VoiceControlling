@@ -202,7 +202,7 @@ public class PaintBattleGameManager : MonoBehaviour
                 
                 // 塗り処理（デバッグモード時は固定の強度を使用）
                 float intensity = 0.5f * paintSpeedMultiplier; // デバッグモード時の固定強度
-                paintCanvas.PaintAt(mouseScreenPos, playerId, intensity);
+                paintCanvas.PaintAt(mouseScreenPos, playerId, intensity, Color.white);
             }
             return; // デバッグモード時は通常の処理をスキップ
         }
@@ -227,7 +227,7 @@ public class PaintBattleGameManager : MonoBehaviour
             
             // 塗り処理
             float intensity = latestVolume * paintSpeedMultiplier;
-            paintCanvas.PaintAt(screenPos, playerId, intensity);
+            paintCanvas.PaintAt(screenPos, playerId, intensity, Color.white);
         }
     }
     
