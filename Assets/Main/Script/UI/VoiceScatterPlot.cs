@@ -12,6 +12,7 @@ public class VoiceScatterPlot : MonoBehaviour
 	public RectTransform plotArea; // プロット範囲（x=Volume, y=Pitch）
 	public RectTransform marker;   // 現在位置を示すマーカー
 	public Color markerColor = Color.red;
+	private PaintCanvas paintCanvas;
 
 	[Header("Ranges")] 
 	public float maxVolume = 1f;     // x 範囲: 0..maxVolume
@@ -57,6 +58,7 @@ public class VoiceScatterPlot : MonoBehaviour
 		improvedPitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
 		pitchAnalyzer = FindObjectOfType<PitchAnalyzer>();
 		fixedPitchAnalyzer = FindObjectOfType<FixedPitchAnalyzer>();
+		paintCanvas = FindObjectOfType<PaintCanvas>();
 
 		// 範囲同期（存在すれば優先）
 		voiceDisplay = FindObjectOfType<VoiceDisplay>();
@@ -96,6 +98,11 @@ public class VoiceScatterPlot : MonoBehaviour
 			pitchAnalyzer.OnPitchDetected += OnPitch;
 		}
 
+		if (paintCanvas != null)
+		{
+			paintCanvas.OnPaintingSuppressed += HandlePaintingSuppressed;
+		}
+
 		// 初期位置は中心に配置
 		smoothedPos = Vector2.zero;
 		CenterMarker();
@@ -112,6 +119,8 @@ public class VoiceScatterPlot : MonoBehaviour
 		if (pitchAnalyzer != null)
 			pitchAnalyzer.OnPitchDetected -= OnPitch;
 		VoiceCalibrator.OnCalibrationAveragesUpdated -= OnCalibrationAveragesUpdated;
+		if (paintCanvas != null)
+			paintCanvas.OnPaintingSuppressed -= HandlePaintingSuppressed;
 	}
 
 	void OnVolume(float v)
@@ -216,6 +225,15 @@ public class VoiceScatterPlot : MonoBehaviour
 		Vector2 center = Vector2.zero;
 		smoothedPos = Vector2.Lerp(smoothedPos, center, Mathf.Clamp01(smoothing));
 		marker.anchoredPosition = smoothedPos;
+	}
+
+	void HandlePaintingSuppressed()
+	{
+		smoothedPos = Vector2.zero;
+		if (marker != null)
+		{
+			marker.anchoredPosition = Vector2.zero;
+		}
 	}
 
 	void OnCalibrationAveragesUpdated(float avgVol, float avgPitch)
