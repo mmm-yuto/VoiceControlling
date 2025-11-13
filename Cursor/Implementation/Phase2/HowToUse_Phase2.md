@@ -89,17 +89,21 @@ Phase 2 では、Phase 1 で構築した音声入力ベースの塗り機能を�
 
 ### 2-3. CreativeModeUI
 1. UI Canvas 内に UI 管理用 GameObject（例：`CreativeModeUI`）を作成し `CreativeModeUI` を追加  
-2. Inspector で以下の参照を接続  
-   - **Creative Mode Manager** / **Color Selection System**  
-   - **Paint Tool Button / Eraser Tool Button**  
-   - **Clear Button / Undo Button**  
-   - **Next Color Button / Previous Color Button**（不要なら未設定でも可）  
-   - **Save Button / Share Button**（保存・共有機能を使う場合）  
-   - **Color Picker Toggle Button / Color Picker Panel**  
-   - **Preset Color Container / Preset Color Button Prefab**（色ボタンを自動生成）  
-   - **Current Color Preview** (`Image`)  
-   - **Tool State Label / Undo State Label / Save Status Label** (`TextMeshProUGUI`)  
-3. プレイ時に `ColorSelectionSystem` が持つプリセット色からボタンが生成され、選択状態に応じてハイライト（スケール変更）されます  
+2. 次の UI 要素を配置し、Inspector で `CreativeModeUI` の各フィールドへ割り当てます。配置レイアウトは自由ですが、以下の役割を満たすオブジェクトが必要です。  
+   - **Creative Mode Manager / Color Selection System**: それぞれ該当する GameObject (`CreativeModeManager`, `ColorSelectionSystem`) をドラッグ  
+   - **Paint Tool Button**: 「塗りモード」へ切り替える UIButton。`Button` コンポーネント付きの UI 要素  
+   - **Eraser Tool Button**: 「消しゴムモード」へ切り替える UIButton  
+   - **Clear Button**: キャンバス全体をリセットする UIButton  
+   - **Undo Button**: 履歴を 1 つ戻す UIButton  
+   - **Next Color Button / Previous Color Button**: プリセット色を前後に移動する UIButton（不要なら空欄で可）  
+   - **Save Button / Share Button**: 画像保存・共有用 UIButton（機能を使用しない場合は未設定可）  
+   - **Color Picker Toggle Button**: カラーピッカーパネルの表示/非表示を切り替える UIButton  
+   - **Color Picker Panel**: 任意のカラーピッカー UI（`Image` + スライダーなど）。`ColorSelectionSettings` で `ColorPicker` を使う場合に有効  
+   - **Preset Color Container**: プリセット色ボタンを並べるための `RectTransform`（例: Horizontal Layout Group を持つ空の GameObject）  
+   - **Preset Color Button Prefab**: 単色ボタンのプレハブ (`Button` + `Image`)。プレイ時に複製され、`Preset Color Container` の子として生成されます  
+   - **Current Color Preview**: 現在の色を表示する `Image`  
+   - **Tool State Label / Undo State Label / Save Status Label**: `TextMeshProUGUI` 等のテキスト表示オブジェクト（ツール名／Undo 可否／保存状況を表示）  
+3. プレイ時に `ColorSelectionSystem` が持つプリセット色からボタンが自動生成され、選択された色のボタンだけがスケールアップしてハイライトされます。  
 
 ### 2-4. CreativeModeSaveSystem
 1. 空の GameObject に `CreativeModeSaveSystem` を追加  
