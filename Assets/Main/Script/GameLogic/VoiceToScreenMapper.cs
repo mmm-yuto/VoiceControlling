@@ -47,7 +47,7 @@ public class VoiceToScreenMapper : MonoBehaviour
         VoiceCalibrator.OnCalibrationAveragesUpdated -= OnCalibrationAveragesUpdated;
     }
     
-    void SyncRanges()
+    public void SyncRanges()
     {
         // VoiceDisplayから範囲を取得
         VoiceDisplay voiceDisplay = FindObjectOfType<VoiceDisplay>();
@@ -57,15 +57,12 @@ public class VoiceToScreenMapper : MonoBehaviour
             minPitch = voiceDisplay.minPitch;
             maxPitch = voiceDisplay.maxPitch;
         }
-        // ImprovedPitchAnalyzerからも取得可能
-        else
+
+        ImprovedPitchAnalyzer pitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
+        if (pitchAnalyzer != null)
         {
-            ImprovedPitchAnalyzer pitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
-            if (pitchAnalyzer != null)
-            {
-                minPitch = pitchAnalyzer.minFrequency;
-                maxPitch = pitchAnalyzer.maxFrequency;
-            }
+            minPitch = pitchAnalyzer.minFrequency;
+            maxPitch = pitchAnalyzer.maxFrequency;
         }
     }
     

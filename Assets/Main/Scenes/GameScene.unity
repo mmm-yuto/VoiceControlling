@@ -2693,7 +2693,7 @@ MonoBehaviour:
   smoothingFactor: 0.1
   autocorrelationThreshold: 0.3
   frameHistorySize: 5
-  useAdvancedFiltering: 1
+  useAdvancedFiltering: 0
   leftPitch: 200
   centerPitch: 400
   rightPitch: 600

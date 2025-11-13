@@ -26,22 +26,16 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     
     private VoiceDetector voiceDetector;
     private VolumeAnalyzer volumeAnalyzer;
-    private float[] fftBuffer;
     public float lastDetectedPitch = 0f;
     private float smoothedPitch = 0f;
     private bool hasValidPitch = false;
-    private float lastFrameRms = 0f;
     
-    // フレーム履歴
     private Queue<float> pitchHistory = new Queue<float>();
-    private Queue<float> volumeHistory = new Queue<float>();
     
     void Start()
     {
         voiceDetector = FindObjectOfType<VoiceDetector>();
         volumeAnalyzer = FindObjectOfType<VolumeAnalyzer>();
-        int bufferSize = voiceDetector.bufferSize;
-        fftBuffer = new float[bufferSize];
     }
     
     void Update()
@@ -54,24 +48,22 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         else
         {
             // 通常モード：実際の音声を解析
-            float[] samples = voiceDetector.GetAudioSamples();
-            if (samples != null)
+            float[] samples = voiceDetector != null ? voiceDetector.GetAudioSamples() : null;
+            if (samples == null)
             {
-                // 音量をチェックしてピッチ検知の信頼性を判断
-                float currentVolume = CalculateVolume(samples);
-                lastFrameRms = currentVolume;
-                
-                if (currentVolume > volumeThreshold)
-                {
-                    // 音量が閾値以上の場合のみピッチを検知
-                    float pitch = CalculatePitchAdvanced(samples);
-                    ProcessPitch(pitch);
-                }
-                else
-                {
-                    // 音量が低い場合はピッチ検知を停止
-                    ProcessPitch(0f);
-                }
+                ProcessPitch(0f);
+                return;
+            }
+
+            float currentVolume = CalculateVolume(samples);
+            if (currentVolume > volumeThreshold)
+            {
+                float pitch = CalculatePitchFixed(samples);
+                ProcessPitch(pitch);
+            }
+            else
+            {
+                ProcessPitch(0f);
             }
         }
     }
@@ -86,32 +78,22 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         return Mathf.Sqrt(sum / samples.Length);
     }
     
-    float CalculatePitchAdvanced(float[] samples)
+    float CalculatePitchFixed(float[] samples)
     {
-        // 1. 音量正規化 + DC除去 + プリエンファシス
         float[] normalizedSamples = NormalizeSamples(samples);
-        
-        // 2. バンドパスフィルタリング
         float[] filteredSamples = ApplyBandpassFilter(normalizedSamples);
-        
-        // 3. オートコリレーション法
-        float acConfidence;
-        float autocorrelationPitch = CalculatePitchAutocorrelation(filteredSamples, out acConfidence);
-        
-        // 4. ハーモニック検出
-        float harmonicPitch = CalculatePitchHarmonic(filteredSamples);
-        
-        // 5. 結果の統合と検証
-        float finalPitch = CombinePitchResults(autocorrelationPitch, acConfidence, harmonicPitch);
-        
-        // 6. フレーム履歴による安定化
+
+        float autocorrelationPitch = CalculatePitchAutocorrelation(filteredSamples);
+        float harmonicPitch = CalculatePitchHarmonicSimple(filteredSamples);
+        float finalPitch = CombinePitchResults(autocorrelationPitch, harmonicPitch);
+
         if (useAdvancedFiltering)
         {
             finalPitch = StabilizeWithHistory(finalPitch);
         }
-        
+
         Debug.Log($"AutoCorr: {autocorrelationPitch:F1} Hz, Harmonic: {harmonicPitch:F1} Hz, Final: {finalPitch:F1} Hz");
-        
+
         return finalPitch;
     }
     
@@ -173,30 +155,29 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         return highPassFiltered;
     }
     
-    float CalculatePitchAutocorrelation(float[] samples, out float confidence)
+    float CalculatePitchAutocorrelation(float[] samples)
     {
-        // オートコリレーション法による基本周波数検出
         int minPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / maxFrequency);
         int maxPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / minFrequency);
-        
+
         float maxCorrelation = 0f;
         int bestPeriod = 0;
-        
+
         for (int period = minPeriod; period <= maxPeriod && period < samples.Length / 2; period++)
         {
             float correlation = 0f;
             int count = 0;
-            
+
             for (int i = 0; i < samples.Length - period; i++)
             {
                 correlation += samples[i] * samples[i + period];
                 count++;
             }
-            
+
             if (count > 0)
             {
                 correlation /= count;
-                
+
                 if (correlation > maxCorrelation)
                 {
                     maxCorrelation = correlation;
@@ -204,103 +185,55 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
                 }
             }
         }
-        
-        confidence = maxCorrelation;
-        if (bestPeriod > 1 && maxCorrelation > autocorrelationThreshold)
+
+        if (bestPeriod > 0 && maxCorrelation > autocorrelationThreshold)
         {
-            int p0 = bestPeriod - 1;
-            int p1 = bestPeriod;
-            int p2 = bestPeriod + 1;
-            float r0 = ComputeAutocorrAt(samples, p0);
-            float r1 = ComputeAutocorrAt(samples, p1);
-            float r2 = ComputeAutocorrAt(samples, p2);
-            float denom = 2f * (r0 - 2f * r1 + r2);
-            float delta = denom != 0f ? (r0 - r2) / denom : 0f; // -1..1
-            float refined = Mathf.Clamp(p1 + delta, minPeriod, maxPeriod);
-            float frequency = (float)voiceDetector.sampleRate / refined;
-            return frequency;
+            float frequency = (float)voiceDetector.sampleRate / bestPeriod;
+            if (frequency >= minFrequency && frequency <= maxFrequency)
+            {
+                return frequency;
+            }
         }
-        
+
         return 0f;
     }
 
-    float ComputeAutocorrAt(float[] samples, int period)
+    float CalculatePitchHarmonicSimple(float[] samples)
     {
-        if (period <= 0 || period >= samples.Length) return 0f;
-        float c = 0f; int n = 0;
-        for (int i = 0; i < samples.Length - period; i++) { c += samples[i] * samples[i + period]; n++; }
-        return n > 0 ? c / n : 0f;
-    }
-    
-    float CalculatePitchHarmonic(float[] samples)
-    {
-        // ハーモニック検出によるピッチ推定
-        float[] windowedSamples = new float[samples.Length];
-        
-        // ハミング窓を適用
-        for (int i = 0; i < samples.Length; i++)
+        int zeroCrossings = CountZeroCrossings(samples);
+        if (zeroCrossings == 0) return 0f;
+
+        float frequency = (zeroCrossings * voiceDetector.sampleRate) / (2f * samples.Length);
+        if (frequency >= minFrequency && frequency <= maxFrequency)
         {
-            float window = 0.54f - 0.46f * Mathf.Cos(2f * Mathf.PI * i / (samples.Length - 1));
-            windowedSamples[i] = samples[i] * window;
-        }
-        
-        // 簡易FFT（実際のプロジェクトでは外部ライブラリを使用推奨）
-        float[] fft = new float[samples.Length];
-        PerformSimpleFFT(windowedSamples, fft);
-        
-        // ピーク検出
-        float maxMagnitude = 0f;
-        int peakIndex = 0;
-        
-        for (int i = 1; i < fft.Length / 2; i++)
-        {
-            float magnitude = Mathf.Abs(fft[i]);
-            if (magnitude > maxMagnitude)
-            {
-                maxMagnitude = magnitude;
-                peakIndex = i;
-            }
-        }
-        
-        if (maxMagnitude > 0.01f)
-        {
-            float frequency = (float)peakIndex * voiceDetector.sampleRate / fft.Length;
             return frequency;
         }
-        
+
         return 0f;
     }
     
-    void PerformSimpleFFT(float[] input, float[] output)
+    int CountZeroCrossings(float[] samples)
     {
-        // 簡易FFT実装（実際のプロジェクトでは外部ライブラリを使用推奨）
-        for (int i = 0; i < input.Length; i++)
+        if (samples == null || samples.Length < 2) return 0;
+
+        int crossings = 0;
+        for (int i = 1; i < samples.Length; i++)
         {
-            output[i] = input[i];
+            if ((samples[i] >= 0) != (samples[i - 1] >= 0))
+            {
+                crossings++;
+            }
         }
-        
-        // ここでFFTアルゴリズムを実装
-        // 実際にはUnity.MathematicsのFFT関数や外部ライブラリを使用
+        return crossings;
     }
     
-    float CombinePitchResults(float autocorrelationPitch, float acConfidence, float harmonicPitch)
+    float CombinePitchResults(float autocorrelationPitch, float harmonicPitch)
     {
-        // 結果の統合と検証
         if (autocorrelationPitch > 0 && harmonicPitch > 0)
         {
-            // 両方の結果が有効な場合、信頼度とSNRで重み付け
-            float snrWeight = Mathf.Clamp01(lastFrameRms * 10f);
-            float weight1 = Mathf.Clamp01(0.4f + 0.6f * Mathf.Clamp01(acConfidence));
-            weight1 = Mathf.Lerp(weight1, 0.85f, snrWeight);
-            float weight2 = 1f - weight1;
-            
-            float combinedPitch = (autocorrelationPitch * weight1 + harmonicPitch * weight2) / (weight1 + weight2);
-            
-            // 結果の妥当性をチェック
-            if (combinedPitch >= minFrequency && combinedPitch <= maxFrequency)
-            {
-                return combinedPitch;
-            }
+            float weight1 = 0.7f;
+            float weight2 = 0.3f;
+            return (autocorrelationPitch * weight1 + harmonicPitch * weight2) / (weight1 + weight2);
         }
         else if (autocorrelationPitch > 0)
         {
@@ -310,7 +243,7 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         {
             return harmonicPitch;
         }
-        
+
         return 0f;
     }
     

@@ -203,6 +203,12 @@ public class VoiceCalibrator : MonoBehaviour
             voiceDisplay.SetMaxVolume(newMaxVolume);
         }
 
+        if (improvedPitchAnalyzer != null)
+        {
+            improvedPitchAnalyzer.minFrequency = newMinPitch;
+            improvedPitchAnalyzer.maxFrequency = newMaxPitch;
+        }
+
         float noiseAverage = CalculateAverage(noiseSamples);
         float dynamicThreshold = Mathf.Clamp(
             noiseAverage * RuntimeSettings.dynamicThresholdMultiplier,
@@ -219,6 +225,8 @@ public class VoiceCalibrator : MonoBehaviour
         LastAverageVolume = averageVolume;
         LastAveragePitch = averagePitch;
         OnCalibrationAveragesUpdated?.Invoke(LastAverageVolume, LastAveragePitch);
+        VoiceToScreenMapper mapper = FindObjectOfType<VoiceToScreenMapper>();
+        mapper?.SyncRanges();
 
         BroadcastProgress(1f);
         BroadcastStatus(
