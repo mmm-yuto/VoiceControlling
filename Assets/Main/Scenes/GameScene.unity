@@ -119,6 +119,69 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &53238292
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 53238294}
+  - component: {fileID: 53238293}
+  m_Layer: 0
+  m_Name: CreativeModeUI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &53238293
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 53238292}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 486c67a0325800f4a8996f5b92521298, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CreativeModeUI
+  creativeModeManager: {fileID: 2001492378}
+  colorSelectionSystem: {fileID: 387066110}
+  colorSelectionSettings: {fileID: 11400000, guid: 20728ef94bb852f4691cdf9885626c45, type: 2}
+  paintToolButton: {fileID: 0}
+  eraserToolButton: {fileID: 0}
+  clearButton: {fileID: 0}
+  undoButton: {fileID: 0}
+  nextColorButton: {fileID: 0}
+  previousColorButton: {fileID: 0}
+  saveButton: {fileID: 0}
+  shareButton: {fileID: 0}
+  colorPickerToggleButton: {fileID: 0}
+  colorPickerPanel: {fileID: 0}
+  presetColorContainer: {fileID: 0}
+  presetColorButtonPrefab: {fileID: 0}
+  currentColorPreview: {fileID: 0}
+  toolStateLabel: {fileID: 0}
+  undoStateLabel: {fileID: 0}
+  saveStatusLabel: {fileID: 0}
+--- !u!4 &53238294
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 53238292}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1056.6796, y: 459.7015, z: -9.61738}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &189020325
 GameObject:
   m_ObjectHideFlags: 0
@@ -3574,4 +3637,5 @@ SceneRoots:
   - {fileID: 1403482791}
   - {fileID: 2001492377}
   - {fileID: 387066111}
+  - {fileID: 53238294}
   - {fileID: 2095115910}
