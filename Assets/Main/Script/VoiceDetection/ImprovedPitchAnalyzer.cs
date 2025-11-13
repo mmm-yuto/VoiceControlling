@@ -301,43 +301,20 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     
     void ProcessPitch(float pitch)
     {
-        if (pitch > 0)
+        float targetPitch = Mathf.Max(0f, pitch);
+
+        if (!hasValidPitch)
         {
-            // ピッチのスムージング処理
-            if (hasValidPitch)
-            {
-                smoothedPitch = Mathf.Lerp(smoothedPitch, pitch, smoothingFactor);
-            }
-            else
-            {
-                smoothedPitch = pitch;
-                hasValidPitch = true;
-            }
-            
-            lastDetectedPitch = smoothedPitch;
-            Debug.Log($"Pitch: {smoothedPitch:F1} Hz (Raw: {pitch:F1} Hz)");
-            
-            // イベント発火
-            OnPitchDetected?.Invoke(smoothedPitch);
+            smoothedPitch = targetPitch;
+            hasValidPitch = targetPitch > 0f;
         }
         else
         {
-            // ピッチが検知されない場合は、スムージングされた値を徐々にリセット
-            if (hasValidPitch)
-            {
-                smoothedPitch = Mathf.Lerp(smoothedPitch, 0f, smoothingFactor * 2f);
-                lastDetectedPitch = smoothedPitch;
-                
-                if (smoothedPitch < 1f)
-                {
-                    hasValidPitch = false;
-                    smoothedPitch = 0f;
-                    lastDetectedPitch = 0f;
-                }
-            }
-            
-            Debug.Log("Pitch: No pitch detected (volume too low)");
+            smoothedPitch = Mathf.Lerp(smoothedPitch, targetPitch, smoothingFactor);
         }
+
+        lastDetectedPitch = smoothedPitch;
+        OnPitchDetected?.Invoke(smoothedPitch);
     }
     
     // インスペクター用のテストボタン
