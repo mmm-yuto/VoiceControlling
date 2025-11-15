@@ -135,5 +135,19 @@ public class VoiceToScreenMapper : MonoBehaviour
         
         return new Vector2(screenX, screenY);
     }
+    
+    /// <summary>
+    /// マッピング領域の中心座標を取得
+    /// </summary>
+    /// <returns>画面座標（Screen座標系）</returns>
+    public Vector2 MapToCenter()
+    {
+        // 中心は音量・ピッチの原点（キャリブ平均）に対応
+        // 0.5, 0.5の位置が中心
+        float screenX = 0.5f * Screen.width;
+        float screenY = 0.5f * Screen.height;
+        
+        return new Vector2(screenX, screenY);
+    }
 }
 

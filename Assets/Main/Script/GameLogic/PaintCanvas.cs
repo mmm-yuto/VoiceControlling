@@ -18,6 +18,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     
     // イベント
     public event System.Action<Vector2, int, float> OnPaintCompleted;
+    public event System.Action OnPaintingSuppressed;
     
     // 内部状態
     private int frameCount = 0;
@@ -107,6 +108,14 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         }
         
         Debug.Log("PaintCanvas: キャンバスをリセットしました");
+    }
+    
+    /// <summary>
+    /// 塗りが抑制されたときに呼び出す（無音時など）
+    /// </summary>
+    public void NotifyPaintingSuppressed()
+    {
+        OnPaintingSuppressed?.Invoke();
     }
     
     /// <summary>

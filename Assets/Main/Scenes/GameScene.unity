@@ -469,6 +469,10 @@ MonoBehaviour:
   particleSize: 0.5
   particleLifetime: 1
   particleCount: 10
+  showMarker: 1
+  markerColor: {r: 0, g: 0, b: 0, a: 1}
+  markerSize: 50
+  markerRectTransform: {fileID: 0}
   paintCanvas: {fileID: 1098085713}
 --- !u!4 &612787507
 Transform:
