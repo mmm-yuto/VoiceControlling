@@ -153,15 +153,13 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     
     float CalculatePitchAdvanced(float[] samples)
     {
-        // 1. 音量正規化 + DC除去 + プリエンファシス
-        float[] normalizedSamples = NormalizeSamples(samples);
+        // FromGeneと同じ：最小限のDC除去のみ（フィルタリングは行わない）
+        // DCオフセットがあると相関値が大きくなりすぎるため、最小限の除去のみ
+        float[] processedSamples = RemoveDCOffsetOnly(samples);
         
-        // 2. バンドパスフィルタリング
-        float[] filteredSamples = ApplyBandpassFilter(normalizedSamples);
-        
-        // 3. オートコリレーション法のみでピッチ検出
+        // オートコリレーション法のみでピッチ検出
         float acConfidence;
-        float autocorrelationPitch = CalculatePitchAutocorrelation(filteredSamples, out acConfidence);
+        float autocorrelationPitch = CalculatePitchAutocorrelation(processedSamples, out acConfidence);
         
         // 4. 周波数範囲のチェック
         float finalPitch = 0f;
@@ -201,69 +199,34 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         return finalPitch;
     }
     
-    float[] NormalizeSamples(float[] samples)
+    float[] RemoveDCOffsetOnly(float[] samples)
     {
-        // 音量正規化（音量に依存しないように）
-        float maxAmplitude = 0f;
-        for (int i = 0; i < samples.Length; i++)
-        {
-            maxAmplitude = Mathf.Max(maxAmplitude, Mathf.Abs(samples[i]));
-        }
-        
-        if (maxAmplitude == 0f) return samples;
-        
-        float[] normalized = new float[samples.Length];
-        for (int i = 0; i < samples.Length; i++)
-        {
-            normalized[i] = samples[i] / maxAmplitude;
-        }
-        // DCオフセット除去
+        // 最小限のDCオフセット除去のみ（FromGeneでは行っていないが、DCオフセットがあると相関値が大きくなりすぎる）
+        float[] processed = new float[samples.Length];
         float mean = 0f;
-        for (int i = 0; i < normalized.Length; i++) mean += normalized[i];
-        mean /= normalized.Length;
-        for (int i = 0; i < normalized.Length; i++) normalized[i] -= mean;
-
-        // プリエンファシス（高域強調）
-        const float pre = 0.97f;
-        for (int i = normalized.Length - 1; i >= 1; i--)
-        {
-            normalized[i] = normalized[i] - pre * normalized[i - 1];
-        }
-        normalized[0] *= 0.5f;
-
-        return normalized;
-    }
-    
-    float[] ApplyBandpassFilter(float[] samples)
-    {
-        // 簡易バンドパスフィルタ（人間の声の周波数帯域のみを通過）
-        float[] filtered = new float[samples.Length];
         
-        // ローパスフィルタ（高周波ノイズ除去）
-        float alpha = 0.1f;
-        filtered[0] = samples[0];
-        for (int i = 1; i < samples.Length; i++)
+        for (int i = 0; i < samples.Length; i++)
         {
-            filtered[i] = alpha * samples[i] + (1f - alpha) * filtered[i - 1];
+            mean += samples[i];
+        }
+        mean /= samples.Length;
+        
+        for (int i = 0; i < samples.Length; i++)
+        {
+            processed[i] = samples[i] - mean;
         }
         
-        // ハイパスフィルタ（低周波ノイズ除去）
-        float[] highPassFiltered = new float[samples.Length];
-        float beta = 0.9f;
-        highPassFiltered[0] = filtered[0];
-        for (int i = 1; i < filtered.Length; i++)
-        {
-            highPassFiltered[i] = beta * (highPassFiltered[i - 1] + filtered[i] - filtered[i - 1]);
-        }
-        
-        return highPassFiltered;
+        return processed;
     }
     
     float CalculatePitchAutocorrelation(float[] samples, out float confidence)
     {
-        // オートコリレーション法による基本周波数検出
-        int minPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / maxFrequency);
-        int maxPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / minFrequency);
+        // オートコリレーション法による基本周波数検出（FromGeneプロジェクトの実装を参考）
+        int sampleRate = voiceDetector.sampleRate;
+        
+        // 検索範囲を設定（FromGeneと同じ方法）
+        int minPeriod = Mathf.FloorToInt((float)sampleRate / maxFrequency); // 高周波数に対応する最小周期
+        int maxPeriod = Mathf.FloorToInt((float)sampleRate / minFrequency); // 低周波数に対応する最大周期
         
         // 範囲チェック
         if (minPeriod < 1) minPeriod = 1;
@@ -279,68 +242,66 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         }
         
         float maxCorrelation = 0f;
-        int bestPeriod = 0;
+        int bestPeriod = -1;
         
-        // 自己相関の正規化用に、period=0の相関を計算
-        float zeroCorrelation = 0f;
-        for (int i = 0; i < samples.Length; i++)
-        {
-            zeroCorrelation += samples[i] * samples[i];
-        }
-        zeroCorrelation /= samples.Length;
+        // FromGeneの実装を完全に再現
+        // correlations配列は使用されないが、FromGeneと同じ構造を維持
+        // correlations[0]は常に0なので、normalizedCorr = corr / (0 || 1) = corr / 1 = corr
+        // つまり、正規化は行われず、相関値の合計をそのまま使用
         
-        for (int period = minPeriod; period <= maxPeriod && period < samples.Length / 2; period++)
+        // 各周期でオートコリレーションを計算
+        for (int period = minPeriod; period < maxPeriod && period < samples.Length / 2; period++)
         {
             float correlation = 0f;
-            int count = 0;
             
+            // FromGeneと同じ：合計値を計算（平均を取らない）
             for (int i = 0; i < samples.Length - period; i++)
             {
                 correlation += samples[i] * samples[i + period];
-                count++;
             }
             
-            if (count > 0)
+            // FromGeneの実装：normalizedCorr = corr / (correlations[0] || 1)
+            // correlations[0]は0なので、実際には corr / 1 = corr（正規化なし）
+            float normalizedCorr = correlation; // 正規化しない
+            
+            if (normalizedCorr > maxCorrelation)
             {
-                correlation /= count;
-                
-                // 正規化（period=0の相関で割る）
-                if (zeroCorrelation > 0f)
-                {
-                    correlation = correlation / zeroCorrelation;
-                }
-                
-                if (correlation > maxCorrelation)
-                {
-                    maxCorrelation = correlation;
-                    bestPeriod = period;
-                }
+                maxCorrelation = normalizedCorr;
+                bestPeriod = period;
             }
         }
         
         confidence = maxCorrelation;
         
-        if (enableDebugLog)
+        // FromGeneと同じ閾値チェック
+        // FromGeneでは0.9だが、正規化されていない相関値の合計に対する閾値
+        // 相関値の合計はサンプル数に依存するため、最大可能相関値で正規化して比較
+        float maxPossibleCorrelation = 0f;
+        for (int i = 0; i < samples.Length; i++)
         {
-            Debug.Log($"Autocorrelation - BestPeriod: {bestPeriod}, MaxCorrelation: {maxCorrelation:F6}, Threshold: {autocorrelationThreshold:F6}");
+            maxPossibleCorrelation += samples[i] * samples[i];
         }
         
-        if (bestPeriod > 1 && maxCorrelation > autocorrelationThreshold)
+        // 正規化された相関値（0-1の範囲、FromGeneの0.9に相当）
+        float normalizedMaxCorrelation = maxPossibleCorrelation > 0f ? maxCorrelation / maxPossibleCorrelation : 0f;
+        
+        if (enableDebugLog)
         {
-            int p0 = bestPeriod - 1;
-            int p1 = bestPeriod;
-            int p2 = bestPeriod + 1;
-            float r0 = ComputeAutocorrAt(samples, p0);
-            float r1 = ComputeAutocorrAt(samples, p1);
-            float r2 = ComputeAutocorrAt(samples, p2);
-            float denom = 2f * (r0 - 2f * r1 + r2);
-            float delta = denom != 0f ? (r0 - r2) / denom : 0f; // -1..1
-            float refined = Mathf.Clamp(p1 + delta, minPeriod, maxPeriod);
-            float frequency = (float)voiceDetector.sampleRate / refined;
+            Debug.Log($"Autocorrelation - BestPeriod: {bestPeriod}, RawCorrelation: {maxCorrelation:F6}, NormalizedCorrelation: {normalizedMaxCorrelation:F6}, Threshold: {autocorrelationThreshold:F6}, ExpectedFreq: {(bestPeriod > 0 ? (float)sampleRate / bestPeriod : 0f):F1} Hz");
+        }
+        
+        // FromGeneの閾値0.9に相当（正規化後）
+        // autocorrelationThresholdを0.9に設定すると、FromGeneと同じ動作になる
+        float threshold = autocorrelationThreshold; // デフォルト0.1だが、0.9に近い値に調整可能
+        
+        if (bestPeriod > 1 && normalizedMaxCorrelation > threshold)
+        {
+            // 周波数計算：sampleRate / period（FromGeneと同じ）
+            float frequency = (float)sampleRate / bestPeriod;
             
             if (enableDebugLog)
             {
-                Debug.Log($"Autocorrelation success - Frequency: {frequency:F1} Hz, Refined period: {refined:F2}");
+                Debug.Log($"Autocorrelation success - Period: {bestPeriod}, Frequency: {frequency:F1} Hz, Correlation: {maxCorrelation:F6}");
             }
             
             return frequency;
@@ -363,13 +324,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         return 0f;
     }
 
-    float ComputeAutocorrAt(float[] samples, int period)
-    {
-        if (period <= 0 || period >= samples.Length) return 0f;
-        float c = 0f; int n = 0;
-        for (int i = 0; i < samples.Length - period; i++) { c += samples[i] * samples[i + period]; n++; }
-        return n > 0 ? c / n : 0f;
-    }
     
     
     float StabilizeWithHistory(float currentPitch)

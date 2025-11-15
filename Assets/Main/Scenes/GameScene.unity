@@ -612,11 +612,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ImprovedPitchAnalyzer
   pitchSensitivity: 1
-  minFrequency: 80
-  maxFrequency: 1000
+  minFrequency: 60
+  maxFrequency: 2000
   volumeThreshold: 0.01
   smoothingFactor: 0.1
-  autocorrelationThreshold: 0.3
+  autocorrelationThreshold: 0.1
   frameHistorySize: 5
   useAdvancedFiltering: 0
   leftPitch: 200
@@ -762,7 +762,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98bb142ca17274241a8a6f210e110cba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VoiceDebugSimulator
-  enableDebugMode: 1
+  enableDebugMode: 0
   scatterPlot: {fileID: 0}
   maxVolume: 1
   minPitch: 80
