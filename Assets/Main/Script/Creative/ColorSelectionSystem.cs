@@ -58,15 +58,17 @@ public class ColorSelectionSystem : MonoBehaviour
     /// </summary>
     public void SelectPresetColor(int index)
     {
+        Debug.Log($"ColorSelectionSystem.SelectPresetColor called with index={index}");
         if (settings == null || settings.presetColors == null || 
             index < 0 || index >= settings.presetColors.Length)
         {
-            Debug.LogWarning($"ColorSelectionSystem: 無効なプリセット色インデックス: {index}");
+            Debug.LogWarning($"ColorSelectionSystem: 無効なプリセット色インデックス: {index} (settings={settings}, presetColors length={settings?.presetColors?.Length ?? 0})");
             return;
         }
         
         currentPresetIndex = index;
         currentColor = settings.presetColors[index];
+        Debug.Log($"ColorSelectionSystem: Color changed to {currentColor}");
         NotifyColorChanged();
     }
     
@@ -130,6 +132,7 @@ public class ColorSelectionSystem : MonoBehaviour
     
     private void NotifyColorChanged()
     {
+        Debug.Log($"ColorSelectionSystem: NotifyColorChanged - Color={currentColor}, Subscribers={OnColorChanged?.GetInvocationList().Length ?? 0}");
         OnColorChanged?.Invoke(currentColor);
         OnColorChangedUnityEvent?.Invoke(currentColor);
     }

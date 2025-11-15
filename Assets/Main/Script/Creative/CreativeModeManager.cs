@@ -300,6 +300,7 @@ public class CreativeModeManager : MonoBehaviour
     /// </summary>
     public void SetColor(Color color)
     {
+        Debug.Log($"CreativeModeManager: SetColor - Color={color}");
         currentColor = color;
         OnColorChanged?.Invoke(color);
         OnColorChangedUnityEvent?.Invoke(color);
@@ -395,6 +396,7 @@ public class CreativeModeManager : MonoBehaviour
     /// </summary>
     private void OnColorSelectionChanged(Color color)
     {
+        Debug.Log($"CreativeModeManager: OnColorSelectionChanged - Color={color}");
         SetColor(color);
     }
     

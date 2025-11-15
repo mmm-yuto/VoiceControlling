@@ -276,10 +276,20 @@ public class CreativeModeUI : MonoBehaviour
     /// </summary>
     void BuildPresetButtons()
     {
-        if (colorSelectionSystem == null || presetColorContainer == null) return;
+        Debug.Log($"BuildPresetButtons called: colorSelectionSystem={colorSelectionSystem}, presetColorContainer={presetColorContainer}");
+        if (colorSelectionSystem == null || presetColorContainer == null)
+        {
+            Debug.LogWarning("BuildPresetButtons: colorSelectionSystem or presetColorContainer is null");
+            return;
+        }
         
         Color[] presetColors = colorSelectionSystem.GetPresetColors();
-        if (presetColors == null || presetColors.Length == 0) return;
+        Debug.Log($"BuildPresetButtons: presetColors length={presetColors?.Length ?? 0}");
+        if (presetColors == null || presetColors.Length == 0)
+        {
+            Debug.LogWarning("BuildPresetButtons: No preset colors available");
+            return;
+        }
         
         // 既存のボタンを削除
         foreach (Transform child in presetColorContainer)
@@ -318,15 +328,36 @@ public class CreativeModeUI : MonoBehaviour
             }
             
             // ボタンイベント設定
+            // TextMeshProのButtonプレハブにも対応（親、自身、子の順で検索）
             Button button = buttonObj.GetComponent<Button>();
+            if (button == null)
+            {
+                button = buttonObj.GetComponentInParent<Button>();
+            }
+            if (button == null)
+            {
+                button = buttonObj.GetComponentInChildren<Button>();
+            }
+            
             if (button != null)
             {
+                Debug.Log($"CreativeModeUI: Button component found on {buttonObj.name}, adding listener for index={index}");
                 button.onClick.AddListener(() => {
+                    Debug.Log($"PresetColorButton clicked: index={index}");
                     if (colorSelectionSystem != null)
                     {
+                        Debug.Log($"Calling SelectPresetColor({index})");
                         colorSelectionSystem.SelectPresetColor(index);
                     }
+                    else
+                    {
+                        Debug.LogError("CreativeModeUI: colorSelectionSystem is null!");
+                    }
                 });
+            }
+            else
+            {
+                Debug.LogError($"CreativeModeUI: Button component not found on buttonObj {buttonObj.name}. Please ensure the prefab has a Button component.");
             }
         }
     }
