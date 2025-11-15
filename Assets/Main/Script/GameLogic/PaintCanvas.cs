@@ -47,8 +47,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     
     public void PaintAt(Vector2 screenPosition, int playerId, float intensity)
     {
-        Debug.Log($"PaintCanvas.PaintAt called: screenPosition={screenPosition}, playerId={playerId}, intensity={intensity:F6}");
-        
         if (!isInitialized || settings == null)
         {
             Debug.LogWarning("PaintCanvas: 初期化されていません");
@@ -59,7 +57,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         frameCount++;
         if (frameCount % settings.updateFrequency != 0)
         {
-            Debug.Log($"PaintCanvas: Update frequency check failed (frameCount={frameCount}, updateFrequency={settings.updateFrequency})");
             return;
         }
         
@@ -67,13 +64,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         int canvasX = Mathf.RoundToInt((screenPosition.x / Screen.width) * settings.textureWidth);
         int canvasY = Mathf.RoundToInt((screenPosition.y / Screen.height) * settings.textureHeight);
         
-        Debug.Log($"PaintCanvas: Converted to canvas coordinates ({canvasX}, {canvasY}) from screen ({screenPosition.x}, {screenPosition.y})");
-        
         // 範囲チェック
         if (canvasX < 0 || canvasX >= settings.textureWidth || 
             canvasY < 0 || canvasY >= settings.textureHeight)
         {
-            Debug.LogWarning($"PaintCanvas: Coordinates out of range ({canvasX}, {canvasY}), texture size: {settings.textureWidth}x{settings.textureHeight}");
             return;
         }
         
@@ -81,19 +75,14 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
         if (effectiveIntensity < settings.minVolumeThreshold)
         {
-            Debug.LogWarning($"PaintCanvas: Intensity too low ({effectiveIntensity:F6} < {settings.minVolumeThreshold:F6})");
             return;
         }
         
         // 塗り処理（最初は単純に上書き、後から上塗り機能を追加）
         paintData[canvasX, canvasY] = playerId;
         
-        Debug.Log($"PaintCanvas: Painting at ({canvasX}, {canvasY}), Player: {playerId}, Intensity: {effectiveIntensity:F3}");
-        
         // イベント発火
         OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
-        
-        Debug.Log($"PaintCanvas: OnPaintCompleted event fired for ({screenPosition.x}, {screenPosition.y})");
         
         if (showDebugGizmos)
         {

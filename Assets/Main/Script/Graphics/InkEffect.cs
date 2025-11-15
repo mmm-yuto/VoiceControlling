@@ -8,7 +8,7 @@ public class InkEffect : MonoBehaviour
 {
     [Header("Particle System")]
     [Tooltip("パーティクルシステム（Inspectorで接続、または自動生成）")]
-    public ParticleSystem inkParticleSystem;
+    public ParticleSystem particleSystem;
     
     [Header("Effect Settings")]
     [Tooltip("パーティクルの色")]
@@ -38,39 +38,16 @@ public class InkEffect : MonoBehaviour
             paintCanvas = FindObjectOfType<PaintCanvas>();
         }
         
-        if (paintCanvas == null)
-        {
-            Debug.LogError("InkEffect: PaintCanvasが見つかりません！");
-        }
-        else
-        {
-            Debug.Log("InkEffect: PaintCanvasが見つかりました");
-        }
-        
         // パーティクルシステムが設定されていない場合は自動生成
-        if (inkParticleSystem == null)
+        if (particleSystem == null)
         {
             CreateParticleSystem();
-        }
-        
-        if (inkParticleSystem == null)
-        {
-            Debug.LogError("InkEffect: ParticleSystemが作成できませんでした！");
-        }
-        else
-        {
-            Debug.Log("InkEffect: ParticleSystemが作成されました");
         }
         
         // イベント購読
         if (paintCanvas != null)
         {
             paintCanvas.OnPaintCompleted += OnPaintCompleted;
-            Debug.Log("InkEffect: OnPaintCompletedイベントを購読しました");
-        }
-        else
-        {
-            Debug.LogError("InkEffect: PaintCanvasがnullのため、イベントを購読できません");
         }
     }
     
@@ -87,19 +64,19 @@ public class InkEffect : MonoBehaviour
     {
         GameObject particleObj = new GameObject("InkParticleSystem");
         particleObj.transform.SetParent(transform);
-        inkParticleSystem = particleObj.AddComponent<ParticleSystem>();
+        particleSystem = particleObj.AddComponent<ParticleSystem>();
         
         // パーティクルシステムの設定
-        var main = inkParticleSystem.main;
+        var main = particleSystem.main;
         main.startColor = particleColor;
         main.startSize = particleSize;
         main.startLifetime = particleLifetime;
         main.maxParticles = 1000;
         
-        var emission = inkParticleSystem.emission;
+        var emission = particleSystem.emission;
         emission.enabled = false; // 手動で発射
         
-        var shape = inkParticleSystem.shape;
+        var shape = particleSystem.shape;
         shape.enabled = true;
         shape.shapeType = ParticleSystemShapeType.Circle;
         shape.radius = 0.1f;
@@ -107,11 +84,8 @@ public class InkEffect : MonoBehaviour
     
     void OnPaintCompleted(Vector2 screenPosition, int playerId, float intensity)
     {
-        Debug.Log($"InkEffect.OnPaintCompleted called: screenPosition={screenPosition}, playerId={playerId}, intensity={intensity:F6}");
-        
-        if (inkParticleSystem == null)
+        if (particleSystem == null)
         {
-            Debug.LogError("InkEffect: ParticleSystem is null!");
             return;
         }
         
@@ -122,26 +96,19 @@ public class InkEffect : MonoBehaviour
             mainCamera = FindObjectOfType<Camera>();
         }
         
-        if (mainCamera == null)
+        if (mainCamera != null)
         {
-            Debug.LogError("InkEffect: Cameraが見つかりません！");
-            return;
+            // 画面座標をワールド座標に変換
+            Vector3 worldPos = mainCamera.ScreenToWorldPoint(
+                new Vector3(screenPosition.x, screenPosition.y, mainCamera.nearClipPlane + 1f)
+            );
+            
+            // パーティクルシステムの位置を設定
+            particleSystem.transform.position = worldPos;
+            
+            // パーティクルを発射
+            particleSystem.Emit(particleCount);
         }
-        
-        // 画面座標をワールド座標に変換
-        Vector3 worldPos = mainCamera.ScreenToWorldPoint(
-            new Vector3(screenPosition.x, screenPosition.y, mainCamera.nearClipPlane + 1f)
-        );
-        
-        Debug.Log($"InkEffect: Converting screen ({screenPosition.x}, {screenPosition.y}) to world ({worldPos.x}, {worldPos.y}, {worldPos.z})");
-        
-        // パーティクルシステムの位置を設定
-        inkParticleSystem.transform.position = worldPos;
-        
-        // パーティクルを発射
-        inkParticleSystem.Emit(particleCount);
-        
-        Debug.Log($"InkEffect: Emitted {particleCount} particles at world position ({worldPos.x}, {worldPos.y}, {worldPos.z})");
     }
 }
 

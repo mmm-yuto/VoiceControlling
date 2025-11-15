@@ -26,15 +26,10 @@ public class VolumeAnalyzer : MonoBehaviour
         }
         
         float[] samples = voiceDetector.GetAudioSamples();
-        if (samples != null && samples.Length > 0)
+        if (samples != null)
         {
             float volume = CalculateVolume(samples);
             ProcessVolume(volume);
-        }
-        else
-        {
-            // サンプルが取得できない場合は0を発火
-            ProcessVolume(0f);
         }
     }
     
@@ -50,14 +45,14 @@ public class VolumeAnalyzer : MonoBehaviour
     
     void ProcessVolume(float volume)
     {
-        // 常にイベントを発火（閾値チェックは呼び出し側で行う）
-        // これにより、PaintBattleGameManagerで常に最新の音量を取得できる
-        OnVolumeDetected?.Invoke(volume);
-        
-        // デバッグログ（閾値以上の場合のみ）
+        // 音量が閾値以上の場合のみ処理
         if (volume > volumeThreshold)
         {
-            Debug.Log($"VolumeAnalyzer - Volume detected: {volume:F6} (threshold: {volumeThreshold:F6})");
+            // 音量に基づく処理をここに実装
+            Debug.Log($"Volume: {volume:F3}");
+            
+            // イベント発火
+            OnVolumeDetected?.Invoke(volume);
         }
     }
     
