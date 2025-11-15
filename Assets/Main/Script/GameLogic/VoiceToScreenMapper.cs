@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 
 /// <summary>
 /// 音声値（音量・ピッチ）を画面座標に変換するシステム
@@ -30,6 +31,19 @@ public class VoiceToScreenMapper : MonoBehaviour
     [Tooltip("Use logarithmic scale for volume mapping (more sensitive to small volume changes)")]
     public bool useLogarithmicVolumeScale = true;
     
+    [Header("Range Display Labels")]
+    [Tooltip("Minimum volume label (displayed at bottom-left of graph)")]
+    public TextMeshProUGUI minVolumeLabel;
+    
+    [Tooltip("Maximum volume label (displayed at bottom-right of graph)")]
+    public TextMeshProUGUI maxVolumeLabel;
+    
+    [Tooltip("Minimum pitch label (displayed at top-left of graph)")]
+    public TextMeshProUGUI minPitchLabel;
+    
+    [Tooltip("Maximum pitch label (displayed at top-right of graph)")]
+    public TextMeshProUGUI maxPitchLabel;
+    
     // グラフの中心位置（カリブレーション結果から計算）
     private float centerVolume = 0.5f;
     private float centerPitch = 500f;
@@ -54,6 +68,9 @@ public class VoiceToScreenMapper : MonoBehaviour
         
         // 範囲を同期
         SyncRanges();
+        
+        // 初期ラベルを更新
+        UpdateRangeLabels();
     }
     
     void OnDestroy()
@@ -97,8 +114,37 @@ public class VoiceToScreenMapper : MonoBehaviour
         centerVolume = (minVolume + maxVolume) / 2f;
         centerPitch = (minPitch + maxPitch) / 2f;
         
+        // ラベルを更新
+        UpdateRangeLabels();
+        
         Debug.Log($"VoiceToScreenMapper: Ranges updated - Volume: {minVolume:F3} - {maxVolume:F3}, Pitch: {minPitch:F1} - {maxPitch:F1} Hz");
         Debug.Log($"VoiceToScreenMapper: Center - Volume: {centerVolume:F3}, Pitch: {centerPitch:F1} Hz");
+    }
+    
+    /// <summary>
+    /// 範囲ラベルを更新
+    /// </summary>
+    void UpdateRangeLabels()
+    {
+        if (minVolumeLabel != null)
+        {
+            minVolumeLabel.text = $"Min Vol: {minVolume:F3}";
+        }
+        
+        if (maxVolumeLabel != null)
+        {
+            maxVolumeLabel.text = $"Max Vol: {maxVolume:F3}";
+        }
+        
+        if (minPitchLabel != null)
+        {
+            minPitchLabel.text = $"Min Pitch: {minPitch:F1} Hz";
+        }
+        
+        if (maxPitchLabel != null)
+        {
+            maxPitchLabel.text = $"Max Pitch: {maxPitch:F1} Hz";
+        }
     }
     
     void OnCalibrationCompleted(float minVol, float maxVol, float minPit, float maxPit)
