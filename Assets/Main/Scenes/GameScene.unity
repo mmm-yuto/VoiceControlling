@@ -994,6 +994,7 @@ MonoBehaviour:
   maxPitch: 1000
   targetRectTransform: {fileID: 0}
   matchSliderYAxis: 1
+  useLogarithmicVolumeScale: 0
 --- !u!1 &711885814
 GameObject:
   m_ObjectHideFlags: 0

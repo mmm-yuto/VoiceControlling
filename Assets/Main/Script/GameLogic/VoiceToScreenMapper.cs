@@ -27,6 +27,9 @@ public class VoiceToScreenMapper : MonoBehaviour
     [Tooltip("有声時、Y軸をスライダーと同じ(minPitch..maxPitch)で正規化する（原点センタリング無効）")]
     public bool matchSliderYAxis = true;
     
+    [Tooltip("Use logarithmic scale for volume mapping (more sensitive to small volume changes)")]
+    public bool useLogarithmicVolumeScale = true;
+    
     // グラフの中心位置（カリブレーション結果から計算）
     private float centerVolume = 0.5f;
     private float centerPitch = 500f;
@@ -104,7 +107,7 @@ public class VoiceToScreenMapper : MonoBehaviour
     }
     
     /// <summary>
-    /// 音量を0-1に正規化（カリブレーション結果の範囲を使用）
+    /// 音量を0-1に正規化（カリブレーション結果の範囲を使用、対数スケール対応）
     /// </summary>
     float MapVolumeTo01(float volume)
     {
@@ -112,19 +115,55 @@ public class VoiceToScreenMapper : MonoBehaviour
         float volumeRange = maxVolume - minVolume;
         if (volumeRange <= 0.0001f) return 0.5f;
         
-        // 中心位置を基準にマッピング
-        float leftExtent = Mathf.Max(0.0001f, centerVolume - minVolume);
-        float rightExtent = Mathf.Max(0.0001f, maxVolume - centerVolume);
-        
-        if (volume >= centerVolume)
+        if (useLogarithmicVolumeScale)
         {
-            float frac = (volume - centerVolume) / rightExtent;
-            return 0.5f + 0.5f * Mathf.Clamp01(frac);
+            // 対数スケールを使用（人間の聴覚に近い感度）
+            // まず0-1に正規化
+            float normalizedVolume = Mathf.Clamp01((volume - minVolume) / volumeRange);
+            
+            // 対数変換（0を避けるために最小値を0.001に設定）
+            // normalizedVolumeが0の場合は0.001に、1の場合は1.0になるように変換
+            float minLogValue = 0.001f;
+            float logInput = normalizedVolume * (1f - minLogValue) + minLogValue;
+            float logVolume = Mathf.Log10(logInput) / Mathf.Log10(1f / minLogValue);
+            
+            // 中心位置も対数変換
+            float centerNormalized = Mathf.Clamp01((centerVolume - minVolume) / volumeRange);
+            float centerLogInput = centerNormalized * (1f - minLogValue) + minLogValue;
+            float centerLog = Mathf.Log10(centerLogInput) / Mathf.Log10(1f / minLogValue);
+            
+            // 対数空間で中心位置を基準にマッピング
+            if (logVolume >= centerLog)
+            {
+                float rightExtent = 1f - centerLog;
+                if (rightExtent <= 0.0001f) return 0.5f;
+                float frac = (logVolume - centerLog) / rightExtent;
+                return 0.5f + 0.5f * Mathf.Clamp01(frac);
+            }
+            else
+            {
+                float leftExtent = centerLog;
+                if (leftExtent <= 0.0001f) return 0.5f;
+                float frac = (centerLog - logVolume) / leftExtent;
+                return 0.5f - 0.5f * Mathf.Clamp01(frac);
+            }
         }
         else
         {
-            float frac = (centerVolume - volume) / leftExtent;
-            return 0.5f - 0.5f * Mathf.Clamp01(frac);
+            // 線形スケール（従来の方法）
+            float leftExtent = Mathf.Max(0.0001f, centerVolume - minVolume);
+            float rightExtent = Mathf.Max(0.0001f, maxVolume - centerVolume);
+            
+            if (volume >= centerVolume)
+            {
+                float frac = (volume - centerVolume) / rightExtent;
+                return 0.5f + 0.5f * Mathf.Clamp01(frac);
+            }
+            else
+            {
+                float frac = (centerVolume - volume) / leftExtent;
+                return 0.5f - 0.5f * Mathf.Clamp01(frac);
+            }
         }
     }
     
