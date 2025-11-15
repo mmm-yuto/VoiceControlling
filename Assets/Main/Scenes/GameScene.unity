@@ -813,7 +813,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VolumeAnalyzer
   volumeSensitivity: 1
-  volumeThreshold: 0.01
+  volumeThreshold: 0
 --- !u!4 &1430166760
 Transform:
   m_ObjectHideFlags: 0

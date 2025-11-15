@@ -94,6 +94,9 @@ public class PaintBattleGameManager : MonoBehaviour
         // イベント購読
         // デバッグモード時はVoiceDebugSimulatorのイベントを優先
         SubscribeToEvents();
+        
+        // 初期化確認ログ
+        Debug.Log($"PaintBattleGameManager - Initialization complete. volumeAnalyzer={volumeAnalyzer != null}, improvedPitchAnalyzer={improvedPitchAnalyzer != null}, voiceToScreenMapper={voiceToScreenMapper != null}, paintCanvas={paintCanvas != null}");
     }
     
     void OnDestroy()
@@ -129,11 +132,21 @@ public class PaintBattleGameManager : MonoBehaviour
             if (volumeAnalyzer != null)
             {
                 volumeAnalyzer.OnVolumeDetected += OnVolumeDetected;
+                Debug.Log("PaintBattleGameManager: VolumeAnalyzer.OnVolumeDetectedを購読しました");
+            }
+            else
+            {
+                Debug.LogWarning("PaintBattleGameManager: VolumeAnalyzerが見つかりません！");
             }
             
             if (improvedPitchAnalyzer != null)
             {
                 improvedPitchAnalyzer.OnPitchDetected += OnPitchDetected;
+                Debug.Log("PaintBattleGameManager: ImprovedPitchAnalyzer.OnPitchDetectedを購読しました");
+            }
+            else
+            {
+                Debug.LogWarning("PaintBattleGameManager: ImprovedPitchAnalyzerが見つかりません！");
             }
         }
     }
@@ -256,7 +269,7 @@ public class PaintBattleGameManager : MonoBehaviour
     void OnPitchDetected(float pitch)
     {
         latestPitch = pitch;
-        Debug.Log($"PaintBattleGameManager - OnPitchDetected: {pitch:F1} Hz, latestPitch updated to {latestPitch:F1} Hz");
+        Debug.Log($"PaintBattleGameManager - OnPitchDetected CALLED: pitch={pitch:F1} Hz, latestPitch updated from {latestPitch:F1} to {pitch:F1} Hz");
     }
     
     /// <summary>

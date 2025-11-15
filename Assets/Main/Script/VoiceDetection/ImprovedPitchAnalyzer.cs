@@ -131,10 +131,10 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             }
             else
             {
-                // 音量が低い場合はピッチ検知を停止
+                // 音量が低い場合はピッチ検知を停止（0を渡すが、ProcessPitch内で以前の値を維持）
                 if (enableDebugLog)
                 {
-                    Debug.Log($"ImprovedPitchAnalyzer - Volume too low: {currentVolume:F6} <= {volumeThreshold:F6}");
+                    Debug.Log($"ImprovedPitchAnalyzer - Volume too low: {currentVolume:F6} <= {volumeThreshold:F6}, maintaining previous pitch");
                 }
                 ProcessPitch(0f);
             }
@@ -459,7 +459,20 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             Debug.Log($"ImprovedPitchAnalyzer - ProcessPitch: Raw={pitch:F1} Hz, Smoothed={smoothedPitch:F1} Hz, LastDetected={lastDetectedPitch:F1} Hz");
         }
         
-        OnPitchDetected?.Invoke(smoothedPitch);
+        // イベント発火（smoothedPitchが0より大きい場合のみ）
+        if (smoothedPitch > 0f)
+        {
+            int subscriberCount = OnPitchDetected?.GetInvocationList().Length ?? 0;
+            Debug.Log($"ImprovedPitchAnalyzer - Invoking OnPitchDetected with {smoothedPitch:F1} Hz (hasValidPitch={hasValidPitch}, subscribers={subscriberCount})");
+            OnPitchDetected?.Invoke(smoothedPitch);
+        }
+        else
+        {
+            if (enableDebugLog)
+            {
+                Debug.Log($"ImprovedPitchAnalyzer - Not invoking OnPitchDetected (smoothedPitch={smoothedPitch:F1} <= 0, hasValidPitch={hasValidPitch})");
+            }
+        }
     }
     
     // インスペクター用のテストボタン

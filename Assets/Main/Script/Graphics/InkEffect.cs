@@ -8,7 +8,7 @@ public class InkEffect : MonoBehaviour
 {
     [Header("Particle System")]
     [Tooltip("パーティクルシステム（Inspectorで接続、または自動生成）")]
-    public ParticleSystem particleSystem;
+    public ParticleSystem inkParticleSystem;
     
     [Header("Effect Settings")]
     [Tooltip("パーティクルの色")]
@@ -48,12 +48,12 @@ public class InkEffect : MonoBehaviour
         }
         
         // パーティクルシステムが設定されていない場合は自動生成
-        if (particleSystem == null)
+        if (inkParticleSystem == null)
         {
             CreateParticleSystem();
         }
         
-        if (particleSystem == null)
+        if (inkParticleSystem == null)
         {
             Debug.LogError("InkEffect: ParticleSystemが作成できませんでした！");
         }
@@ -87,19 +87,19 @@ public class InkEffect : MonoBehaviour
     {
         GameObject particleObj = new GameObject("InkParticleSystem");
         particleObj.transform.SetParent(transform);
-        particleSystem = particleObj.AddComponent<ParticleSystem>();
+        inkParticleSystem = particleObj.AddComponent<ParticleSystem>();
         
         // パーティクルシステムの設定
-        var main = particleSystem.main;
+        var main = inkParticleSystem.main;
         main.startColor = particleColor;
         main.startSize = particleSize;
         main.startLifetime = particleLifetime;
         main.maxParticles = 1000;
         
-        var emission = particleSystem.emission;
+        var emission = inkParticleSystem.emission;
         emission.enabled = false; // 手動で発射
         
-        var shape = particleSystem.shape;
+        var shape = inkParticleSystem.shape;
         shape.enabled = true;
         shape.shapeType = ParticleSystemShapeType.Circle;
         shape.radius = 0.1f;
@@ -109,7 +109,7 @@ public class InkEffect : MonoBehaviour
     {
         Debug.Log($"InkEffect.OnPaintCompleted called: screenPosition={screenPosition}, playerId={playerId}, intensity={intensity:F6}");
         
-        if (particleSystem == null)
+        if (inkParticleSystem == null)
         {
             Debug.LogError("InkEffect: ParticleSystem is null!");
             return;
@@ -136,10 +136,10 @@ public class InkEffect : MonoBehaviour
         Debug.Log($"InkEffect: Converting screen ({screenPosition.x}, {screenPosition.y}) to world ({worldPos.x}, {worldPos.y}, {worldPos.z})");
         
         // パーティクルシステムの位置を設定
-        particleSystem.transform.position = worldPos;
+        inkParticleSystem.transform.position = worldPos;
         
         // パーティクルを発射
-        particleSystem.Emit(particleCount);
+        inkParticleSystem.Emit(particleCount);
         
         Debug.Log($"InkEffect: Emitted {particleCount} particles at world position ({worldPos.x}, {worldPos.y}, {worldPos.z})");
     }
