@@ -11,6 +11,7 @@ public class VoiceDisplay : MonoBehaviour
     public Slider pitchSlider;
     
     [Header("Display Settings")]
+    public float minVolume = 0f;
     public float maxVolume = 1f;
     public float minPitch = 0f;
     public float maxPitch = 1000f;
@@ -35,6 +36,21 @@ public class VoiceDisplay : MonoBehaviour
         Debug.Log($"Max volume updated: {maxVolume:F3}");
     }
     
+    // 音量の範囲設定
+    public void SetVolumeRange(float newMinVolume, float newMaxVolume)
+    {
+        minVolume = newMinVolume;
+        maxVolume = newMaxVolume;
+        
+        if (volumeSlider != null)
+        {
+            volumeSlider.minValue = minVolume;
+            volumeSlider.maxValue = maxVolume;
+        }
+        
+        Debug.Log($"Volume range updated: {minVolume:F3} - {maxVolume:F3}");
+    }
+    
     // ピッチの範囲設定
     public void SetPitchRange(float newMinPitch, float newMaxPitch)
     {
@@ -48,6 +64,18 @@ public class VoiceDisplay : MonoBehaviour
         }
         
         Debug.Log($"Pitch range updated: {minPitch:F1} - {maxPitch:F1} Hz");
+    }
+    
+    // カリブレーション結果を適用
+    void ApplyCalibrationResults(float newMinVolume, float newMaxVolume, float newMinPitch, float newMaxPitch)
+    {
+        SetVolumeRange(newMinVolume, newMaxVolume);
+        SetPitchRange(newMinPitch, newMaxPitch);
+    }
+    
+    void OnCalibrationCompleted(float minVol, float maxVol, float minPit, float maxPit)
+    {
+        ApplyCalibrationResults(minVol, maxVol, minPit, maxPit);
     }
     
     private VolumeAnalyzer volumeAnalyzer;
@@ -86,6 +114,16 @@ public class VoiceDisplay : MonoBehaviour
         else
         {
             Debug.LogWarning("No pitch analyzer found!");
+        }
+        
+        // カリブレーション完了イベントを購読
+        VoiceCalibrator.OnCalibrationCompleted += OnCalibrationCompleted;
+        
+        // 既存のカリブレーション結果があれば適用
+        if (VoiceCalibrator.MinVolume > 0f || VoiceCalibrator.MaxVolume > 0f)
+        {
+            ApplyCalibrationResults(VoiceCalibrator.MinVolume, VoiceCalibrator.MaxVolume, 
+                                    VoiceCalibrator.MinPitch, VoiceCalibrator.MaxPitch);
         }
         
         // UI初期化
@@ -167,5 +205,7 @@ public class VoiceDisplay : MonoBehaviour
             improvedPitchAnalyzer.OnPitchDetected -= UpdatePitchDisplay;
         if (fixedPitchAnalyzer != null)
             fixedPitchAnalyzer.OnPitchDetected -= UpdatePitchDisplay;
+        
+        VoiceCalibrator.OnCalibrationCompleted -= OnCalibrationCompleted;
     }
 }

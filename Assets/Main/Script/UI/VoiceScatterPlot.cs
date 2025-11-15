@@ -70,12 +70,12 @@ public class VoiceScatterPlot : MonoBehaviour
 			maxPitch = improvedPitchAnalyzer.maxFrequency;
 		}
 
-		// 原点（0点）をキャリブ平均で初期化（a）
-		zeroVolume = Mathf.Max(0f, VoiceCalibrator.LastAverageVolume);
-		zeroPitch = VoiceCalibrator.LastAveragePitch > 0f ? VoiceCalibrator.LastAveragePitch : minPitch;
+		// 原点（0点）をキャリブ中心位置で初期化
+		zeroVolume = Mathf.Max(0f, VoiceCalibrator.CenterVolume);
+		zeroPitch = VoiceCalibrator.CenterPitch > 0f ? VoiceCalibrator.CenterPitch : minPitch;
 
-		// キャリブ完了通知が来たら原点を更新
-		VoiceCalibrator.OnCalibrationAveragesUpdated += OnCalibrationAveragesUpdated;
+		// カリブレーション完了通知が来たら原点を更新
+		VoiceCalibrator.OnCalibrationCompleted += OnCalibrationCompleted;
 
 		// イベント購読
 		if (volumeAnalyzer != null)
@@ -111,7 +111,7 @@ public class VoiceScatterPlot : MonoBehaviour
 			improvedPitchAnalyzer.OnPitchDetected -= OnPitch;
 		if (pitchAnalyzer != null)
 			pitchAnalyzer.OnPitchDetected -= OnPitch;
-		VoiceCalibrator.OnCalibrationAveragesUpdated -= OnCalibrationAveragesUpdated;
+		VoiceCalibrator.OnCalibrationCompleted -= OnCalibrationCompleted;
 	}
 
 	void OnVolume(float v)
@@ -214,10 +214,11 @@ public class VoiceScatterPlot : MonoBehaviour
 		marker.anchoredPosition = smoothedPos;
 	}
 
-	void OnCalibrationAveragesUpdated(float avgVol, float avgPitch)
+	void OnCalibrationCompleted(float minVol, float maxVol, float minPit, float maxPit)
 	{
-		zeroVolume = Mathf.Max(0f, avgVol);
-		zeroPitch = avgPitch > 0f ? avgPitch : zeroPitch;
+		// カリブレーション結果から中心位置を取得
+		zeroVolume = VoiceCalibrator.CenterVolume;
+		zeroPitch = VoiceCalibrator.CenterPitch;
 		// バー側の範囲更新を反映
 		SyncRangesFromUI();
 	}

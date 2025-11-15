@@ -7,6 +7,9 @@ using UnityEngine;
 public class VoiceToScreenMapper : MonoBehaviour
 {
     [Header("Ranges")]
+    [Tooltip("ボリュームの最小値（カリブレーション結果から設定）")]
+    public float minVolume = 0f;
+    
     [Tooltip("ボリュームの最大値（VoiceDisplayと同期）")]
     public float maxVolume = 1f;
     
@@ -20,18 +23,27 @@ public class VoiceToScreenMapper : MonoBehaviour
     [Tooltip("有声時、Y軸をスライダーと同じ(minPitch..maxPitch)で正規化する（原点センタリング無効）")]
     public bool matchSliderYAxis = true;
     
-    // キャリブレーション平均（原点）
-    private float zeroVolume = 0f;
-    private float zeroPitch = 80f;
+    // グラフの中心位置（カリブレーション結果から計算）
+    private float centerVolume = 0.5f;
+    private float centerPitch = 500f;
     
     void Start()
     {
-        // 原点（0点）をキャリブ平均で初期化
-        zeroVolume = Mathf.Max(0f, VoiceCalibrator.LastAverageVolume);
-        zeroPitch = VoiceCalibrator.LastAveragePitch > 0f ? VoiceCalibrator.LastAveragePitch : minPitch;
+        // カリブレーション結果から初期化
+        if (VoiceCalibrator.MinVolume > 0f || VoiceCalibrator.MaxVolume > 0f)
+        {
+            UpdateCalibrationRanges(VoiceCalibrator.MinVolume, VoiceCalibrator.MaxVolume, 
+                                    VoiceCalibrator.MinPitch, VoiceCalibrator.MaxPitch);
+        }
+        else
+        {
+            // デフォルト値で初期化
+            centerVolume = 0.5f;
+            centerPitch = (minPitch + maxPitch) / 2f;
+        }
         
-        // キャリブ完了通知が来たら原点を更新
-        VoiceCalibrator.OnCalibrationAveragesUpdated += OnCalibrationAveragesUpdated;
+        // カリブレーション完了通知を購読
+        VoiceCalibrator.OnCalibrationCompleted += OnCalibrationCompleted;
         
         // 範囲を同期
         SyncRanges();
@@ -39,10 +51,10 @@ public class VoiceToScreenMapper : MonoBehaviour
     
     void OnDestroy()
     {
-        VoiceCalibrator.OnCalibrationAveragesUpdated -= OnCalibrationAveragesUpdated;
+        VoiceCalibrator.OnCalibrationCompleted -= OnCalibrationCompleted;
     }
     
-    void SyncRanges()
+    public void SyncRanges()
     {
         // VoiceDisplayから範囲を取得
         VoiceDisplay voiceDisplay = FindObjectOfType<VoiceDisplay>();
@@ -64,54 +76,76 @@ public class VoiceToScreenMapper : MonoBehaviour
         }
     }
     
-    void OnCalibrationAveragesUpdated(float avgVol, float avgPitch)
+    /// <summary>
+    /// カリブレーション結果を適用して範囲を更新
+    /// </summary>
+    public void UpdateCalibrationRanges(float newMinVolume, float newMaxVolume, float newMinPitch, float newMaxPitch)
     {
-        zeroVolume = Mathf.Max(0f, avgVol);
-        zeroPitch = avgPitch > 0f ? avgPitch : zeroPitch;
+        minVolume = newMinVolume;
+        maxVolume = newMaxVolume;
+        minPitch = newMinPitch;
+        maxPitch = newMaxPitch;
+        
+        // グラフの中心位置を計算
+        centerVolume = (minVolume + maxVolume) / 2f;
+        centerPitch = (minPitch + maxPitch) / 2f;
+        
+        Debug.Log($"VoiceToScreenMapper: Ranges updated - Volume: {minVolume:F3} - {maxVolume:F3}, Pitch: {minPitch:F1} - {maxPitch:F1} Hz");
+        Debug.Log($"VoiceToScreenMapper: Center - Volume: {centerVolume:F3}, Pitch: {centerPitch:F1} Hz");
+    }
+    
+    void OnCalibrationCompleted(float minVol, float maxVol, float minPit, float maxPit)
+    {
+        UpdateCalibrationRanges(minVol, maxVol, minPit, maxPit);
     }
     
     /// <summary>
-    /// 音量を0-1に正規化（VoiceScatterPlot.MapVolumeTo01のロジックを参考）
+    /// 音量を0-1に正規化（カリブレーション結果の範囲を使用）
     /// </summary>
     float MapVolumeTo01(float volume)
     {
-        // 原点(キャリブ平均)を中心に非対称レンジでマッピング
-        float leftExtent = Mathf.Max(0.0001f, zeroVolume - 0f);
-        float rightExtent = Mathf.Max(0.0001f, maxVolume - zeroVolume);
+        // カリブレーション結果の範囲で正規化
+        float volumeRange = maxVolume - minVolume;
+        if (volumeRange <= 0.0001f) return 0.5f;
         
-        if (volume >= zeroVolume)
+        // 中心位置を基準にマッピング
+        float leftExtent = Mathf.Max(0.0001f, centerVolume - minVolume);
+        float rightExtent = Mathf.Max(0.0001f, maxVolume - centerVolume);
+        
+        if (volume >= centerVolume)
         {
-            float frac = (volume - zeroVolume) / rightExtent;
+            float frac = (volume - centerVolume) / rightExtent;
             return 0.5f + 0.5f * Mathf.Clamp01(frac);
         }
         else
         {
-            float frac = (zeroVolume - volume) / leftExtent;
+            float frac = (centerVolume - volume) / leftExtent;
             return 0.5f - 0.5f * Mathf.Clamp01(frac);
         }
     }
     
     /// <summary>
-    /// ピッチを0-1に正規化（VoiceScatterPlot.MapPitchTo01のロジックを参考）
+    /// ピッチを0-1に正規化（カリブレーション結果の範囲を使用）
     /// </summary>
     float MapPitchTo01(float pitch)
     {
-        float downExtent = Mathf.Max(0.0001f, zeroPitch - minPitch);
-        float upExtent = Mathf.Max(0.0001f, maxPitch - zeroPitch);
-        
         if (matchSliderYAxis)
         {
             return Mathf.InverseLerp(minPitch, Mathf.Max(minPitch + 0.0001f, maxPitch), pitch);
         }
         
-        if (pitch >= zeroPitch)
+        // 中心位置を基準にマッピング
+        float downExtent = Mathf.Max(0.0001f, centerPitch - minPitch);
+        float upExtent = Mathf.Max(0.0001f, maxPitch - centerPitch);
+        
+        if (pitch >= centerPitch)
         {
-            float frac = (pitch - zeroPitch) / upExtent;
+            float frac = (pitch - centerPitch) / upExtent;
             return 0.5f + 0.5f * Mathf.Clamp01(frac);
         }
         else
         {
-            float frac = (zeroPitch - pitch) / downExtent;
+            float frac = (centerPitch - pitch) / downExtent;
             return 0.5f - 0.5f * Mathf.Clamp01(frac);
         }
     }
@@ -137,12 +171,12 @@ public class VoiceToScreenMapper : MonoBehaviour
     }
     
     /// <summary>
-    /// マッピング領域の中心座標を取得
+    /// マッピング領域の中心座標を取得（カリブレーション結果の中心位置に対応）
     /// </summary>
     /// <returns>画面座標（Screen座標系）</returns>
     public Vector2 MapToCenter()
     {
-        // 中心は音量・ピッチの原点（キャリブ平均）に対応
+        // 中心はカリブレーション結果の中心位置（centerVolume, centerPitch）に対応
         // 0.5, 0.5の位置が中心
         float screenX = 0.5f * Screen.width;
         float screenY = 0.5f * Screen.height;

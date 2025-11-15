@@ -39,12 +39,12 @@ public class VoiceDebugSimulator : MonoBehaviour
     
     void Start()
     {
-        // キャリブレーション平均を取得
-        zeroVolume = Mathf.Max(0f, VoiceCalibrator.LastAverageVolume);
-        zeroPitch = VoiceCalibrator.LastAveragePitch > 0f ? VoiceCalibrator.LastAveragePitch : minPitch;
+        // キャリブレーション中心位置を取得
+        zeroVolume = Mathf.Max(0f, VoiceCalibrator.CenterVolume);
+        zeroPitch = VoiceCalibrator.CenterPitch > 0f ? VoiceCalibrator.CenterPitch : minPitch;
         
-        // キャリブレーション更新を購読
-        VoiceCalibrator.OnCalibrationAveragesUpdated += OnCalibrationAveragesUpdated;
+        // カリブレーション完了を購読
+        VoiceCalibrator.OnCalibrationCompleted += OnCalibrationCompleted;
         
         // 範囲を同期
         SyncRanges();
@@ -52,7 +52,7 @@ public class VoiceDebugSimulator : MonoBehaviour
     
     void OnDestroy()
     {
-        VoiceCalibrator.OnCalibrationAveragesUpdated -= OnCalibrationAveragesUpdated;
+        VoiceCalibrator.OnCalibrationCompleted -= OnCalibrationCompleted;
     }
     
     void Update()
@@ -235,10 +235,14 @@ public class VoiceDebugSimulator : MonoBehaviour
         return Mathf.Max(pitch, minPitch + 10f); // 最小ピッチより少し大きい値
     }
     
-    void OnCalibrationAveragesUpdated(float avgVol, float avgPitch)
+    void OnCalibrationCompleted(float minVol, float maxVol, float minPit, float maxPit)
     {
-        zeroVolume = Mathf.Max(0f, avgVol);
-        zeroPitch = avgPitch > 0f ? avgPitch : zeroPitch;
+        // カリブレーション結果から中心位置を取得
+        zeroVolume = VoiceCalibrator.CenterVolume;
+        zeroPitch = VoiceCalibrator.CenterPitch;
+        
+        // 範囲も更新
+        SyncRanges();
     }
     
     void SyncRanges()
