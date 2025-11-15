@@ -16,13 +16,13 @@ public class CalibrationPanel : MonoBehaviour
 
     [Header("Step Messages")]
     [TextArea(2, 4)]
-    [SerializeField] private string step1Message = "Step 1: 何も声を出さないでください（音量の最小値を測定）";
+    [SerializeField] private string step1Message = "Step 1: Please remain silent (measuring minimum volume)";
     [TextArea(2, 4)]
-    [SerializeField] private string step2Message = "Step 2: 大きな声を出してください（音量の最大値を測定）";
+    [SerializeField] private string step2Message = "Step 2: Please speak loudly (measuring maximum volume)";
     [TextArea(2, 4)]
-    [SerializeField] private string step3Message = "Step 3: 低い声を出してください（ピッチの最小値を測定）";
+    [SerializeField] private string step3Message = "Step 3: Please speak in a low voice (measuring minimum pitch)";
     [TextArea(2, 4)]
-    [SerializeField] private string step4Message = "Step 4: 高い声を出してください（ピッチの最大値を測定）";
+    [SerializeField] private string step4Message = "Step 4: Please speak in a high voice (measuring maximum pitch)";
 
     private void Awake()
     {
@@ -129,7 +129,7 @@ public class CalibrationPanel : MonoBehaviour
 
         if (statusLabel != null)
         {
-            statusLabel.text = "カリブレーションを開始してください";
+            statusLabel.text = "Please start calibration";
         }
 
         if (stepLabel != null)

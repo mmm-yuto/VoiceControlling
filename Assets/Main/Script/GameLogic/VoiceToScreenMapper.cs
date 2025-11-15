@@ -19,6 +19,10 @@ public class VoiceToScreenMapper : MonoBehaviour
     [Tooltip("ピッチの最大値（ImprovedPitchAnalyzerと同期）")]
     public float maxPitch = 1000f;
     
+    [Header("Target Mapping Area")]
+    [Tooltip("音声入力がマッピングされるUIパネルのRectTransform。未設定の場合はスクリーン全体。")]
+    public RectTransform targetRectTransform;
+    
     [Header("Mapping Options")]
     [Tooltip("有声時、Y軸をスライダーと同じ(minPitch..maxPitch)で正規化する（原点センタリング無効）")]
     public bool matchSliderYAxis = true;
@@ -163,11 +167,30 @@ public class VoiceToScreenMapper : MonoBehaviour
         float pit01 = MapPitchTo01(pitch);
         
         // 0-1を画面座標に変換
-        // Screen座標系：左下が(0,0)、右上が(Screen.width, Screen.height)
-        float screenX = vol01 * Screen.width;
-        float screenY = pit01 * Screen.height;
+        if (targetRectTransform != null)
+        {
+            // パネルが設定されている場合は、パネルの範囲内にマッピング
+            Vector3[] corners = new Vector3[4];
+            targetRectTransform.GetWorldCorners(corners);
+            
+            Camera mainCamera = Camera.main;
+            if (mainCamera == null) mainCamera = FindObjectOfType<Camera>();
+            
+            if (mainCamera != null)
+            {
+                Vector2 minScreen = mainCamera.WorldToScreenPoint(corners[0]);
+                Vector2 maxScreen = mainCamera.WorldToScreenPoint(corners[2]);
+                
+                float screenX = Mathf.Lerp(minScreen.x, maxScreen.x, vol01);
+                float screenY = Mathf.Lerp(minScreen.y, maxScreen.y, pit01);
+                
+                return new Vector2(screenX, screenY);
+            }
+        }
         
-        return new Vector2(screenX, screenY);
+        // パネルが設定されていない、またはカメラが見つからない場合は画面全体
+        // Screen座標系：左下が(0,0)、右上が(Screen.width, Screen.height)
+        return new Vector2(vol01 * Screen.width, pit01 * Screen.height);
     }
     
     /// <summary>
@@ -176,12 +199,31 @@ public class VoiceToScreenMapper : MonoBehaviour
     /// <returns>画面座標（Screen座標系）</returns>
     public Vector2 MapToCenter()
     {
+        if (targetRectTransform != null)
+        {
+            // パネルの中心位置を取得
+            Vector3[] corners = new Vector3[4];
+            targetRectTransform.GetWorldCorners(corners);
+            
+            Camera mainCamera = Camera.main;
+            if (mainCamera == null) mainCamera = FindObjectOfType<Camera>();
+            
+            if (mainCamera != null)
+            {
+                Vector2 minScreen = mainCamera.WorldToScreenPoint(corners[0]);
+                Vector2 maxScreen = mainCamera.WorldToScreenPoint(corners[2]);
+                
+                float screenX = Mathf.Lerp(minScreen.x, maxScreen.x, 0.5f);
+                float screenY = Mathf.Lerp(minScreen.y, maxScreen.y, 0.5f);
+                
+                return new Vector2(screenX, screenY);
+            }
+        }
+        
+        // パネルが設定されていない、またはカメラが見つからない場合は画面の中心
         // 中心はカリブレーション結果の中心位置（centerVolume, centerPitch）に対応
         // 0.5, 0.5の位置が中心
-        float screenX = 0.5f * Screen.width;
-        float screenY = 0.5f * Screen.height;
-        
-        return new Vector2(screenX, screenY);
+        return new Vector2(0.5f * Screen.width, 0.5f * Screen.height);
     }
 }
 

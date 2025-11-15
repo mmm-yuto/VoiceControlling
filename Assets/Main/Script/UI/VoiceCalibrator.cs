@@ -75,7 +75,7 @@ public class VoiceCalibrator : MonoBehaviour
         }
         
         // 初期状態の設定
-        UpdateCalibrationStatus("カリブレーションを開始してください");
+        UpdateCalibrationStatus("Please start calibration");
         
         // デフォルト設定の確認
         if (calibrationSettings == null)
@@ -123,7 +123,7 @@ public class VoiceCalibrator : MonoBehaviour
         UnsubscribeFromEvents();
         
         OnCalibrationRunningStateChanged?.Invoke(false);
-        UpdateCalibrationStatus("カリブレーションがキャンセルされました");
+        UpdateCalibrationStatus("Calibration cancelled");
         
         if (calibrationProgressSlider != null)
             calibrationProgressSlider.value = 0f;
@@ -139,7 +139,7 @@ public class VoiceCalibrator : MonoBehaviour
         currentStep = CalibrationStep.Step1_Silence;
         stepStartTime = Time.time;
         OnCalibrationStepChanged?.Invoke(1);
-        UpdateCalibrationStatus("Step 1: 何も声を出さないでください（音量の最小値を測定）");
+        UpdateCalibrationStatus("Step 1: Please remain silent (measuring minimum volume)");
         
         if (calibrationPanel != null)
             calibrationPanel.UpdateStepLabel(1);
@@ -151,7 +151,7 @@ public class VoiceCalibrator : MonoBehaviour
         currentStep = CalibrationStep.Step2_LoudVoice;
         stepStartTime = Time.time;
         OnCalibrationStepChanged?.Invoke(2);
-        UpdateCalibrationStatus("Step 2: 大きな声を出してください（音量の最大値を測定）");
+        UpdateCalibrationStatus("Step 2: Please speak loudly (measuring maximum volume)");
         
         if (calibrationPanel != null)
             calibrationPanel.UpdateStepLabel(2);
@@ -163,7 +163,7 @@ public class VoiceCalibrator : MonoBehaviour
         currentStep = CalibrationStep.Step3_LowPitch;
         stepStartTime = Time.time;
         OnCalibrationStepChanged?.Invoke(3);
-        UpdateCalibrationStatus("Step 3: 低い声を出してください（ピッチの最小値を測定）");
+        UpdateCalibrationStatus("Step 3: Please speak in a low voice (measuring minimum pitch)");
         
         if (calibrationPanel != null)
             calibrationPanel.UpdateStepLabel(3);
@@ -175,7 +175,7 @@ public class VoiceCalibrator : MonoBehaviour
         currentStep = CalibrationStep.Step4_HighPitch;
         stepStartTime = Time.time;
         OnCalibrationStepChanged?.Invoke(4);
-        UpdateCalibrationStatus("Step 4: 高い声を出してください（ピッチの最大値を測定）");
+        UpdateCalibrationStatus("Step 4: Please speak in a high voice (measuring maximum pitch)");
         
         if (calibrationPanel != null)
             calibrationPanel.UpdateStepLabel(4);
@@ -282,10 +282,10 @@ public class VoiceCalibrator : MonoBehaviour
         OnCalibrationRunningStateChanged?.Invoke(false);
         
         // 結果を表示
-        string result = $"カリブレーション完了！\n" +
-                       $"音量範囲: {minVolume:F3} - {maxVolume:F3}\n" +
-                       $"ピッチ範囲: {minPitch:F1} - {maxPitch:F1} Hz\n" +
-                       $"中心位置: 音量={CenterVolume:F3}, ピッチ={CenterPitch:F1} Hz";
+        string result = $"Calibration Complete!\n" +
+                       $"Volume Range: {minVolume:F3} - {maxVolume:F3}\n" +
+                       $"Pitch Range: {minPitch:F1} - {maxPitch:F1} Hz\n" +
+                       $"Center: Volume={CenterVolume:F3}, Pitch={CenterPitch:F1} Hz";
         
         UpdateCalibrationStatus(result);
         
