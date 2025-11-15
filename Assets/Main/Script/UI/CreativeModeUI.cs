@@ -1,0 +1,427 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+/// <summary>
+/// クリエイティブモードのUI管理
+/// ボタン、ラベル、イベント処理を担当
+/// </summary>
+public class CreativeModeUI : MonoBehaviour
+{
+    [Header("Manager References")]
+    [Tooltip("クリエイティブモードマネージャー（Inspectorで接続）")]
+    [SerializeField] private CreativeModeManager creativeModeManager;
+    
+    [Tooltip("色選択システム（Inspectorで接続）")]
+    [SerializeField] private ColorSelectionSystem colorSelectionSystem;
+    
+    [Tooltip("保存システム（Inspectorで接続、オプション）")]
+    [SerializeField] private CreativeModeSaveSystem saveSystem;
+    
+    [Header("Tool Buttons")]
+    [Tooltip("塗りツールボタン")]
+    [SerializeField] private Button paintToolButton;
+    
+    [Tooltip("消しツールボタン")]
+    [SerializeField] private Button eraserToolButton;
+    
+    [Header("Brush Type Buttons")]
+    [Tooltip("鉛筆ブラシボタン")]
+    [SerializeField] private Button pencilBrushButton;
+    
+    [Tooltip("ペンキブラシボタン（将来的な拡張）")]
+    [SerializeField] private Button paintBrushButton;
+    
+    [Header("Action Buttons")]
+    [Tooltip("クリアボタン")]
+    [SerializeField] private Button clearButton;
+    
+    [Tooltip("Undoボタン")]
+    [SerializeField] private Button undoButton;
+    
+    [Header("Color Buttons")]
+    [Tooltip("次の色ボタン")]
+    [SerializeField] private Button nextColorButton;
+    
+    [Tooltip("前の色ボタン")]
+    [SerializeField] private Button previousColorButton;
+    
+    [Header("Preset Color Buttons")]
+    [Tooltip("プリセット色ボタンのコンテナ（Horizontal Layout Groupなど）")]
+    [SerializeField] private Transform presetColorContainer;
+    
+    [Tooltip("プリセット色ボタンのプレハブ")]
+    [SerializeField] private GameObject presetColorButtonPrefab;
+    
+    [Header("Display Labels")]
+    [Tooltip("現在の色プレビュー（Image）")]
+    [SerializeField] private Image currentColorPreview;
+    
+    [Tooltip("ツール状態ラベル")]
+    [SerializeField] private TextMeshProUGUI toolStateLabel;
+    
+    [Tooltip("ブラシタイプラベル")]
+    [SerializeField] private TextMeshProUGUI brushTypeLabel;
+    
+    [Tooltip("Undo状態ラベル")]
+    [SerializeField] private TextMeshProUGUI undoStateLabel;
+    
+    [Header("Save/Share Buttons (Optional)")]
+    [Tooltip("保存ボタン")]
+    [SerializeField] private Button saveButton;
+    
+    [Tooltip("共有ボタン")]
+    [SerializeField] private Button shareButton;
+    
+    [Tooltip("保存状態ラベル")]
+    [SerializeField] private TextMeshProUGUI saveStatusLabel;
+    
+    void Start()
+    {
+        // 参照の自動検索
+        if (creativeModeManager == null)
+        {
+            creativeModeManager = FindObjectOfType<CreativeModeManager>();
+        }
+        
+        if (colorSelectionSystem == null)
+        {
+            colorSelectionSystem = FindObjectOfType<ColorSelectionSystem>();
+        }
+        
+        // イベント購読
+        SubscribeToEvents();
+        
+        // ボタンイベント設定
+        SetupButtons();
+        
+        // プリセット色ボタンの生成
+        BuildPresetButtons();
+        
+        // 初期UI更新
+        UpdateToolUI(creativeModeManager != null ? creativeModeManager.GetCurrentToolMode() : CreativeToolMode.Paint);
+        UpdateColorUI(colorSelectionSystem != null ? colorSelectionSystem.GetCurrentColor() : Color.white);
+        UpdateUndoUI(creativeModeManager != null && creativeModeManager.CanUndo());
+        UpdateBrushTypeUI(creativeModeManager != null ? creativeModeManager.GetCurrentBrushType() : BrushType.Pencil);
+    }
+    
+    void OnDestroy()
+    {
+        UnsubscribeFromEvents();
+    }
+    
+    void SubscribeToEvents()
+    {
+        if (creativeModeManager != null)
+        {
+            creativeModeManager.OnToolModeChanged += UpdateToolUI;
+            creativeModeManager.OnColorChanged += UpdateColorUI;
+            creativeModeManager.OnUndoAvailabilityChanged += UpdateUndoUI;
+            creativeModeManager.OnBrushTypeChanged += UpdateBrushTypeUI;
+        }
+        
+        if (colorSelectionSystem != null)
+        {
+            colorSelectionSystem.OnColorChanged += UpdateColorUI;
+        }
+    }
+    
+    void UnsubscribeFromEvents()
+    {
+        if (creativeModeManager != null)
+        {
+            creativeModeManager.OnToolModeChanged -= UpdateToolUI;
+            creativeModeManager.OnColorChanged -= UpdateColorUI;
+            creativeModeManager.OnUndoAvailabilityChanged -= UpdateUndoUI;
+            creativeModeManager.OnBrushTypeChanged -= UpdateBrushTypeUI;
+        }
+        
+        if (colorSelectionSystem != null)
+        {
+            colorSelectionSystem.OnColorChanged -= UpdateColorUI;
+        }
+        
+        if (saveSystem != null)
+        {
+            saveSystem.OnImageSaved -= HandleImageSaved;
+            saveSystem.OnShareCompleted -= HandleShareCompleted;
+        }
+    }
+    
+    void SetupButtons()
+    {
+        // ツールボタン
+        if (paintToolButton != null)
+        {
+            paintToolButton.onClick.AddListener(() => {
+                if (creativeModeManager != null)
+                {
+                    creativeModeManager.SetToolMode(CreativeToolMode.Paint);
+                }
+            });
+        }
+        
+        if (eraserToolButton != null)
+        {
+            eraserToolButton.onClick.AddListener(() => {
+                if (creativeModeManager != null)
+                {
+                    creativeModeManager.SetToolMode(CreativeToolMode.Eraser);
+                }
+            });
+        }
+        
+        // ブラシタイプボタン
+        if (pencilBrushButton != null)
+        {
+            pencilBrushButton.onClick.AddListener(() => {
+                if (creativeModeManager != null)
+                {
+                    creativeModeManager.SetBrushType(BrushType.Pencil);
+                }
+            });
+        }
+        
+        if (paintBrushButton != null)
+        {
+            paintBrushButton.onClick.AddListener(() => {
+                if (creativeModeManager != null)
+                {
+                    creativeModeManager.SetBrushType(BrushType.Paint);
+                }
+            });
+        }
+        
+        // アクションボタン
+        if (clearButton != null)
+        {
+            clearButton.onClick.AddListener(() => {
+                if (creativeModeManager != null)
+                {
+                    creativeModeManager.ClearCanvas();
+                }
+            });
+        }
+        
+        if (undoButton != null)
+        {
+            undoButton.onClick.AddListener(() => {
+                if (creativeModeManager != null)
+                {
+                    creativeModeManager.Undo();
+                }
+            });
+        }
+        
+        // 色ボタン
+        if (nextColorButton != null)
+        {
+            nextColorButton.onClick.AddListener(() => {
+                if (colorSelectionSystem != null)
+                {
+                    colorSelectionSystem.NextPresetColor();
+                }
+            });
+        }
+        
+        if (previousColorButton != null)
+        {
+            previousColorButton.onClick.AddListener(() => {
+                if (colorSelectionSystem != null)
+                {
+                    colorSelectionSystem.PreviousPresetColor();
+                }
+            });
+        }
+        
+        // 保存/共有ボタン（オプション）
+        if (saveButton != null)
+        {
+            saveButton.onClick.AddListener(() => {
+                if (saveSystem != null)
+                {
+                    saveSystem.SaveImage();
+                }
+                else
+                {
+                    Debug.LogWarning("CreativeModeUI: CreativeModeSaveSystemが設定されていません");
+                }
+            });
+        }
+        
+        if (shareButton != null)
+        {
+            shareButton.onClick.AddListener(() => {
+                if (saveSystem != null)
+                {
+                    saveSystem.ShareImage();
+                }
+                else
+                {
+                    Debug.LogWarning("CreativeModeUI: CreativeModeSaveSystemが設定されていません");
+                }
+            });
+        }
+        
+        // 保存システムのイベント購読
+        if (saveSystem != null)
+        {
+            saveSystem.OnImageSaved += HandleImageSaved;
+            saveSystem.OnShareCompleted += HandleShareCompleted;
+        }
+    }
+    
+    /// <summary>
+    /// プリセット色ボタンを動的に生成
+    /// </summary>
+    void BuildPresetButtons()
+    {
+        if (colorSelectionSystem == null || presetColorContainer == null) return;
+        
+        Color[] presetColors = colorSelectionSystem.GetPresetColors();
+        if (presetColors == null || presetColors.Length == 0) return;
+        
+        // 既存のボタンを削除
+        foreach (Transform child in presetColorContainer)
+        {
+            Destroy(child.gameObject);
+        }
+        
+        // プリセット色ボタンを生成
+        for (int i = 0; i < presetColors.Length; i++)
+        {
+            int index = i; // クロージャ用
+            
+            GameObject buttonObj;
+            if (presetColorButtonPrefab != null)
+            {
+                buttonObj = Instantiate(presetColorButtonPrefab, presetColorContainer);
+            }
+            else
+            {
+                // プレハブがない場合は動的に作成
+                buttonObj = new GameObject($"PresetColorButton_{i}");
+                buttonObj.transform.SetParent(presetColorContainer);
+                
+                Image image = buttonObj.AddComponent<Image>();
+                image.color = presetColors[i];
+                
+                Button newButton = buttonObj.AddComponent<Button>();
+                newButton.targetGraphic = image;
+            }
+            
+            // ボタンの色を設定
+            Image buttonImage = buttonObj.GetComponent<Image>();
+            if (buttonImage != null)
+            {
+                buttonImage.color = presetColors[i];
+            }
+            
+            // ボタンイベント設定
+            Button button = buttonObj.GetComponent<Button>();
+            if (button != null)
+            {
+                button.onClick.AddListener(() => {
+                    if (colorSelectionSystem != null)
+                    {
+                        colorSelectionSystem.SelectPresetColor(index);
+                    }
+                });
+            }
+        }
+    }
+    
+    /// <summary>
+    /// ツールUIを更新
+    /// </summary>
+    void UpdateToolUI(CreativeToolMode mode)
+    {
+        if (toolStateLabel != null)
+        {
+            toolStateLabel.text = mode == CreativeToolMode.Paint ? "Paint" : "Eraser";
+        }
+        
+        // ボタンの視覚的フィードバック
+        if (paintToolButton != null)
+        {
+            paintToolButton.interactable = (mode != CreativeToolMode.Paint);
+        }
+        
+        if (eraserToolButton != null)
+        {
+            eraserToolButton.interactable = (mode != CreativeToolMode.Eraser);
+        }
+    }
+    
+    /// <summary>
+    /// 色UIを更新
+    /// </summary>
+    void UpdateColorUI(Color color)
+    {
+        if (currentColorPreview != null)
+        {
+            currentColorPreview.color = color;
+        }
+    }
+    
+    /// <summary>
+    /// Undo UIを更新
+    /// </summary>
+    void UpdateUndoUI(bool canUndo)
+    {
+        if (undoButton != null)
+        {
+            undoButton.interactable = canUndo;
+        }
+        
+        if (undoStateLabel != null)
+        {
+            undoStateLabel.text = canUndo ? "Undo Available" : "No Undo";
+        }
+    }
+    
+    /// <summary>
+    /// ブラシタイプUIを更新
+    /// </summary>
+    void UpdateBrushTypeUI(BrushType brushType)
+    {
+        if (brushTypeLabel != null)
+        {
+            brushTypeLabel.text = brushType == BrushType.Pencil ? "Pencil" : "Paint";
+        }
+        
+        // ボタンの視覚的フィードバック
+        if (pencilBrushButton != null)
+        {
+            pencilBrushButton.interactable = (brushType != BrushType.Pencil);
+        }
+        
+        if (paintBrushButton != null)
+        {
+            paintBrushButton.interactable = (brushType != BrushType.Paint);
+        }
+    }
+    
+    /// <summary>
+    /// 保存完了時のハンドラ（CreativeModeSaveSystemから呼ばれる）
+    /// </summary>
+    public void HandleImageSaved(string filePath)
+    {
+        if (saveStatusLabel != null)
+        {
+            saveStatusLabel.text = $"Saved: {filePath}";
+        }
+    }
+    
+    /// <summary>
+    /// 共有完了時のハンドラ（CreativeModeSaveSystemから呼ばれる）
+    /// </summary>
+    public void HandleShareCompleted(bool success)
+    {
+        if (saveStatusLabel != null)
+        {
+            saveStatusLabel.text = success ? "Share completed" : "Share failed";
+        }
+    }
+}
+
