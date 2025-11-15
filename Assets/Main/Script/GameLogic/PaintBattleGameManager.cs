@@ -214,9 +214,12 @@ public class PaintBattleGameManager : MonoBehaviour
         
         bool isSilent = (latestVolume < threshold) || (latestPitch <= 0f);
         
+        Debug.Log($"PaintBattleGameManager - Update: latestVolume={latestVolume:F6}, latestPitch={latestPitch:F1} Hz, threshold={threshold:F6}, isSilent={isSilent}");
+        
         if (isSilent)
         {
             // 無音時は塗らない（実装手順書の推奨：Option A）
+            Debug.Log($"PaintBattleGameManager - Silent, skipping paint");
             return;
         }
         
@@ -225,20 +228,35 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             Vector2 screenPos = voiceToScreenMapper.MapVoiceToScreen(latestVolume, latestPitch);
             
+            Debug.Log($"PaintBattleGameManager - Painting at screenPos: {screenPos}, intensity: {latestVolume * paintSpeedMultiplier:F6}");
+            
             // 塗り処理
             float intensity = latestVolume * paintSpeedMultiplier;
             paintCanvas.PaintAt(screenPos, playerId, intensity);
+        }
+        else
+        {
+            if (voiceToScreenMapper == null)
+            {
+                Debug.LogWarning("PaintBattleGameManager - voiceToScreenMapper is null!");
+            }
+            if (paintCanvas == null)
+            {
+                Debug.LogWarning("PaintBattleGameManager - paintCanvas is null!");
+            }
         }
     }
     
     void OnVolumeDetected(float volume)
     {
         latestVolume = volume;
+        Debug.Log($"PaintBattleGameManager - OnVolumeDetected: {volume:F6}");
     }
     
     void OnPitchDetected(float pitch)
     {
         latestPitch = pitch;
+        Debug.Log($"PaintBattleGameManager - OnPitchDetected: {pitch:F1} Hz, latestPitch updated to {latestPitch:F1} Hz");
     }
     
     /// <summary>

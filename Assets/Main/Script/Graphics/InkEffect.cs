@@ -38,16 +38,39 @@ public class InkEffect : MonoBehaviour
             paintCanvas = FindObjectOfType<PaintCanvas>();
         }
         
+        if (paintCanvas == null)
+        {
+            Debug.LogError("InkEffect: PaintCanvasが見つかりません！");
+        }
+        else
+        {
+            Debug.Log("InkEffect: PaintCanvasが見つかりました");
+        }
+        
         // パーティクルシステムが設定されていない場合は自動生成
         if (particleSystem == null)
         {
             CreateParticleSystem();
         }
         
+        if (particleSystem == null)
+        {
+            Debug.LogError("InkEffect: ParticleSystemが作成できませんでした！");
+        }
+        else
+        {
+            Debug.Log("InkEffect: ParticleSystemが作成されました");
+        }
+        
         // イベント購読
         if (paintCanvas != null)
         {
             paintCanvas.OnPaintCompleted += OnPaintCompleted;
+            Debug.Log("InkEffect: OnPaintCompletedイベントを購読しました");
+        }
+        else
+        {
+            Debug.LogError("InkEffect: PaintCanvasがnullのため、イベントを購読できません");
         }
     }
     
@@ -84,8 +107,11 @@ public class InkEffect : MonoBehaviour
     
     void OnPaintCompleted(Vector2 screenPosition, int playerId, float intensity)
     {
+        Debug.Log($"InkEffect.OnPaintCompleted called: screenPosition={screenPosition}, playerId={playerId}, intensity={intensity:F6}");
+        
         if (particleSystem == null)
         {
+            Debug.LogError("InkEffect: ParticleSystem is null!");
             return;
         }
         
@@ -96,19 +122,26 @@ public class InkEffect : MonoBehaviour
             mainCamera = FindObjectOfType<Camera>();
         }
         
-        if (mainCamera != null)
+        if (mainCamera == null)
         {
-            // 画面座標をワールド座標に変換
-            Vector3 worldPos = mainCamera.ScreenToWorldPoint(
-                new Vector3(screenPosition.x, screenPosition.y, mainCamera.nearClipPlane + 1f)
-            );
-            
-            // パーティクルシステムの位置を設定
-            particleSystem.transform.position = worldPos;
-            
-            // パーティクルを発射
-            particleSystem.Emit(particleCount);
+            Debug.LogError("InkEffect: Cameraが見つかりません！");
+            return;
         }
+        
+        // 画面座標をワールド座標に変換
+        Vector3 worldPos = mainCamera.ScreenToWorldPoint(
+            new Vector3(screenPosition.x, screenPosition.y, mainCamera.nearClipPlane + 1f)
+        );
+        
+        Debug.Log($"InkEffect: Converting screen ({screenPosition.x}, {screenPosition.y}) to world ({worldPos.x}, {worldPos.y}, {worldPos.z})");
+        
+        // パーティクルシステムの位置を設定
+        particleSystem.transform.position = worldPos;
+        
+        // パーティクルを発射
+        particleSystem.Emit(particleCount);
+        
+        Debug.Log($"InkEffect: Emitted {particleCount} particles at world position ({worldPos.x}, {worldPos.y}, {worldPos.z})");
     }
 }
 
