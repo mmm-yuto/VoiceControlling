@@ -4866,7 +4866,7 @@ GameObject:
   - component: {fileID: 1535552785}
   - component: {fileID: 1535552784}
   m_Layer: 5
-  m_Name: PreviousButton
+  m_Name: SaveButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5491,23 +5491,23 @@ MonoBehaviour:
   creativeModeManager: {fileID: 2078794040}
   colorSelectionSystem: {fileID: 2060525658}
   saveSystem: {fileID: 1633198775}
-  paintToolButton: {fileID: 0}
-  eraserToolButton: {fileID: 0}
-  pencilBrushButton: {fileID: 0}
-  paintBrushButton: {fileID: 0}
-  clearButton: {fileID: 0}
-  undoButton: {fileID: 0}
-  nextColorButton: {fileID: 0}
-  previousColorButton: {fileID: 0}
-  presetColorContainer: {fileID: 0}
-  presetColorButtonPrefab: {fileID: 0}
-  currentColorPreview: {fileID: 0}
-  toolStateLabel: {fileID: 0}
-  brushTypeLabel: {fileID: 0}
-  undoStateLabel: {fileID: 0}
-  saveButton: {fileID: 0}
-  shareButton: {fileID: 0}
-  saveStatusLabel: {fileID: 0}
+  paintToolButton: {fileID: 488582553}
+  eraserToolButton: {fileID: 252282404}
+  pencilBrushButton: {fileID: 984162702}
+  paintBrushButton: {fileID: 622726873}
+  clearButton: {fileID: 1271676178}
+  undoButton: {fileID: 1375470322}
+  nextColorButton: {fileID: 1324192944}
+  previousColorButton: {fileID: 56153070}
+  presetColorContainer: {fileID: 352146547}
+  presetColorButtonPrefab: {fileID: 332218488}
+  currentColorPreview: {fileID: 763111430}
+  toolStateLabel: {fileID: 1882416903}
+  brushTypeLabel: {fileID: 406853573}
+  undoStateLabel: {fileID: 1644907682}
+  saveButton: {fileID: 1535552784}
+  shareButton: {fileID: 669252026}
+  saveStatusLabel: {fileID: 355047968}
 --- !u!1 &1659034252
 GameObject:
   m_ObjectHideFlags: 0
