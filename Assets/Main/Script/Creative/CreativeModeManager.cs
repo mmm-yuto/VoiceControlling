@@ -36,6 +36,8 @@ public class CreativeModeManager : MonoBehaviour
     private float lastHistorySaveTime = 0f;
     private float silenceStartTime = 0f;
     private bool isInOperation = false; // 操作中かどうか（音声検出中）
+    private Vector2 lastPaintPosition = Vector2.zero; // 前回の塗り位置
+    private bool hasLastPosition = false; // 前回の位置が有効かどうか
     
     // イベント
     public event System.Action<CreativeToolMode> OnToolModeChanged;
@@ -131,8 +133,17 @@ public class CreativeModeManager : MonoBehaviour
             Vector2 mouseScreenPos = voiceInputHandler.GetDebugMousePosition();
             if (mouseScreenPos != Vector2.zero)
             {
-                float debugIntensity = 0.5f * settings.paintIntensity;
-                PaintAt(mouseScreenPos, debugIntensity);
+                // マウスが動いている場合は連続線を描く
+                if (hasLastPosition && Vector2.Distance(mouseScreenPos, lastPaintPosition) > 0.1f)
+                {
+                    float debugIntensity = 0.5f * settings.paintIntensity;
+                    PaintAt(mouseScreenPos, debugIntensity);
+                }
+                else if (!hasLastPosition)
+                {
+                    float debugIntensity = 0.5f * settings.paintIntensity;
+                    PaintAt(mouseScreenPos, debugIntensity);
+                }
             }
             return;
         }
@@ -145,6 +156,8 @@ public class CreativeModeManager : MonoBehaviour
             {
                 isInOperation = false;
                 silenceStartTime = Time.time;
+                // 前回の位置をリセット（次の操作の開始時に新しい線として扱う）
+                hasLastPosition = false;
             }
             paintCanvas.NotifyPaintingSuppressed();
             return;
@@ -160,6 +173,8 @@ public class CreativeModeManager : MonoBehaviour
             {
                 PushHistorySnapshot();
             }
+            // 前回の位置をリセット（新しい操作の開始）
+            hasLastPosition = false;
         }
         
         // 座標と音量を取得
@@ -173,6 +188,7 @@ public class CreativeModeManager : MonoBehaviour
     
     /// <summary>
     /// 指定位置に塗る（ツールモードに応じて処理を分岐）
+    /// 前回の位置と現在の位置の間を補間して連続線を描く
     /// </summary>
     private void PaintAt(Vector2 position, float intensity)
     {
@@ -181,10 +197,32 @@ public class CreativeModeManager : MonoBehaviour
         switch (currentToolMode)
         {
             case CreativeToolMode.Paint:
-                PaintWithCurrentBrush(position, intensity);
+                if (hasLastPosition)
+                {
+                    // 前回の位置と現在の位置の間を補間
+                    PaintLineBetween(lastPaintPosition, position, intensity);
+                }
+                else
+                {
+                    // 最初の点はそのまま塗る
+                    PaintWithCurrentBrush(position, intensity);
+                }
+                // 現在の位置を記録
+                lastPaintPosition = position;
+                hasLastPosition = true;
                 break;
             case CreativeToolMode.Eraser:
-                EraseAt(position);
+                if (hasLastPosition)
+                {
+                    // 消しツールも連続線で消す
+                    EraseLineBetween(lastPaintPosition, position);
+                }
+                else
+                {
+                    EraseAt(position);
+                }
+                lastPaintPosition = position;
+                hasLastPosition = true;
                 break;
         }
     }
@@ -242,6 +280,77 @@ public class CreativeModeManager : MonoBehaviour
         
         float radius = settings.eraserRadius;
         paintCanvas.EraseAt(position, radius);
+    }
+    
+    /// <summary>
+    /// 2点間を補間して連続線を描く（塗り用）
+    /// </summary>
+    private void PaintLineBetween(Vector2 startPos, Vector2 endPos, float intensity)
+    {
+        if (paintCanvas == null) return;
+        
+        // 現在のブラシの半径を取得
+        float radius = currentBrushType == BrushType.Pencil ? settings.pencilRadius : settings.paintBrushRadius;
+        
+        // 距離を計算
+        float distance = Vector2.Distance(startPos, endPos);
+        
+        // 距離が短い場合は補間をスキップ（半径の1/4以下）
+        if (distance < radius * 0.25f)
+        {
+            PaintWithCurrentBrush(endPos, intensity);
+            return;
+        }
+        
+        // 補間ステップ数を計算（半径の半分ごとに点を打つ）
+        int steps = Mathf.Max(1, Mathf.CeilToInt(distance / (radius * 0.5f)));
+        
+        // 最大ステップ数を制限（パフォーマンス対策）
+        const int maxSteps = 50;
+        steps = Mathf.Min(steps, maxSteps);
+        
+        // 各ステップで塗る
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = (float)i / steps;
+            Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
+            PaintWithCurrentBrush(interpolatedPos, intensity);
+        }
+    }
+    
+    /// <summary>
+    /// 2点間を補間して連続線を消す（消しツール用）
+    /// </summary>
+    private void EraseLineBetween(Vector2 startPos, Vector2 endPos)
+    {
+        if (paintCanvas == null) return;
+        
+        float radius = settings.eraserRadius;
+        
+        // 距離を計算
+        float distance = Vector2.Distance(startPos, endPos);
+        
+        // 距離が短い場合は補間をスキップ（半径の1/4以下）
+        if (distance < radius * 0.25f)
+        {
+            paintCanvas.EraseAt(endPos, radius);
+            return;
+        }
+        
+        // 補間ステップ数を計算（半径の半分ごとに点を消す）
+        int steps = Mathf.Max(1, Mathf.CeilToInt(distance / (radius * 0.5f)));
+        
+        // 最大ステップ数を制限（パフォーマンス対策）
+        const int maxSteps = 50;
+        steps = Mathf.Min(steps, maxSteps);
+        
+        // 各ステップで消す
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = (float)i / steps;
+            Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
+            paintCanvas.EraseAt(interpolatedPos, radius);
+        }
     }
     
     /// <summary>

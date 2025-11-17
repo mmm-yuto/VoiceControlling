@@ -30,6 +30,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     // 内部状態
     private int frameCount = 0;
     private bool isInitialized = false;
+    private bool textureNeedsFlush = false; // テクスチャの更新が必要かどうか
     
     void Awake()
     {
@@ -112,6 +113,9 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         // テクスチャを更新
         UpdateTexturePixel(canvasX, canvasY, color);
         
+        // テクスチャの更新をフラッシュ
+        FlushTextureUpdates();
+        
         // イベント発火
         OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
         
@@ -127,6 +131,13 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     public void PaintAtWithRadius(Vector2 screenPosition, int playerId, float intensity, Color color, float radius)
     {
         if (!isInitialized || settings == null) return;
+        
+        // 更新頻度チェック
+        frameCount++;
+        if (frameCount % settings.updateFrequency != 0)
+        {
+            return;
+        }
         
         // 画面座標をキャンバス座標に変換
         int centerX = Mathf.RoundToInt((screenPosition.x / Screen.width) * settings.textureWidth);
@@ -168,9 +179,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             }
         }
         
-        // 塗りがあった場合のみイベント発火
+        // テクスチャの更新をフラッシュ
         if (hasPainted)
         {
+            FlushTextureUpdates();
             OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
         }
     }
@@ -181,6 +193,13 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     public void EraseAt(Vector2 screenPosition, float radius)
     {
         if (!isInitialized || settings == null) return;
+        
+        // 更新頻度チェック
+        frameCount++;
+        if (frameCount % settings.updateFrequency != 0)
+        {
+            return;
+        }
         
         // 画面座標をキャンバス座標に変換
         int centerX = Mathf.RoundToInt((screenPosition.x / Screen.width) * settings.textureWidth);
@@ -222,22 +241,35 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             }
         }
         
-        // 消しがあった場合のみイベント発火
+        // テクスチャの更新をフラッシュ
         if (hasErased)
         {
+            FlushTextureUpdates();
             OnPaintCompleted?.Invoke(screenPosition, 0, 0f);
         }
     }
     
     /// <summary>
-    /// テクスチャの特定ピクセルを更新
+    /// テクスチャの特定ピクセルを更新（バッチ処理用：Apply()は呼ばない）
     /// </summary>
     private void UpdateTexturePixel(int x, int y, Color color)
     {
         if (canvasTexture != null && x >= 0 && x < settings.textureWidth && y >= 0 && y < settings.textureHeight)
         {
             canvasTexture.SetPixel(x, y, color);
+            textureNeedsFlush = true;
+        }
+    }
+    
+    /// <summary>
+    /// テクスチャの更新をフラッシュ（まとめてApply()を実行）
+    /// </summary>
+    private void FlushTextureUpdates()
+    {
+        if (textureNeedsFlush && canvasTexture != null)
+        {
             canvasTexture.Apply();
+            textureNeedsFlush = false;
         }
     }
     

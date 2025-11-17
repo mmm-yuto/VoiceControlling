@@ -60,7 +60,11 @@ public class CreativeModeSaveSystem : MonoBehaviour
             return;
         }
         
-        // 保存先ディレクトリを作成
+        // 保存先ディレクトリを作成（Application.persistentDataPathを使用 - プラットフォーム固有の永続データパス）
+        // Windows: %USERPROFILE%\AppData\LocalLow\<CompanyName>\<ProductName>\Screenshots
+        // macOS: ~/Library/Application Support/<CompanyName>/<ProductName>/Screenshots
+        // Android: /storage/emulated/0/Android/data/<package.name>/files/Screenshots
+        // iOS: /var/mobile/Containers/Data/Application/<GUID>/Documents/Screenshots
         string saveDirectory = Path.Combine(Application.persistentDataPath, saveSettings.saveDirectory);
         if (!Directory.Exists(saveDirectory))
         {

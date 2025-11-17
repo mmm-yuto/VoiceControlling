@@ -7,8 +7,8 @@ using UnityEngine;
 public class CreativeSaveSettings : ScriptableObject
 {
     [Header("Save Path")]
-    [Tooltip("保存先ディレクトリ名")]
-    public string saveDirectory = "CreativeExports";
+    [Tooltip("保存先ディレクトリ名（Application.persistentDataPath配下）")]
+    public string saveDirectory = "Screenshots";
     
     [Tooltip("ファイル名のフォーマット（{0}にタイムスタンプが入る）")]
     public string fileNameFormat = "Creative_{0:yyyyMMdd_HHmmss}.png";
