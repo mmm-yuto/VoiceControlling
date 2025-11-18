@@ -53,8 +53,14 @@ Phase 2では、声で自由に絵を描けるクリエイティブモードを�
 
 ### 10. 基本enumとデータクラス
 - **CreativeToolMode.cs**: ツールモード（Paint, Eraser）
-- **BrushType.cs**: ブラシタイプ（Pencil, Paint）
+- **BrushType.cs**: ブラシタイプ（Pencil, Paint）※将来削除予定、BrushStrategyBaseを使用
 - **CanvasState.cs**: 履歴管理用の状態クラス
+
+### 11. ブラシシステム（Strategyパターン）
+- **IBrushStrategy.cs**: ブラシ戦略のインターフェース
+- **BrushStrategyBase.cs**: ブラシ戦略の基底クラス（ScriptableObject）
+- **PencilBrush.cs**: 鉛筆ブラシの実装
+- **PaintBrush.cs**: ペンキブラシの実装
 
 ---
 
@@ -75,13 +81,19 @@ Phase 2では、声で自由に絵を描けるクリエイティブモードを�
    - **Paint Intensity**: 塗り強度の倍率（デフォルト: 1.0）
    - **Initial Color**: 初期色（デフォルト: White）
    - **Default Player Id**: デフォルトプレイヤーID（デフォルト: 1）
-   - **Pencil Radius**: 鉛筆の半径（デフォルト: 5）
-   - **Paint Brush Radius**: ペンキブラシの半径（デフォルト: 50）
+   - **Available Brushes**: 利用可能なブラシのリスト（Step 1.4で作成したブラシアセットを追加）
+   - **Default Brush**: デフォルトで選択されるブラシ（Step 1.4で作成したブラシアセットから選択）
    - **Eraser Radius**: 消しツールの半径（デフォルト: 30）
    - **Max History Size**: 履歴の最大サイズ（Undo可能な回数、デフォルト: 10）
    - **Silence Volume Threshold**: 無音判定の音量閾値（デフォルト: 0.01）
    - **Silence Duration For Operation End**: 操作終了とみなす無音の継続時間（デフォルト: 0.3秒）
    - **History Save Mode**: 履歴保存モード（OnOperation / TimeBased）
+
+**注意**: 既存の`CreativeModeSettings`アセットがある場合、以下のフィールドが削除されました：
+- `Pencil Radius`（削除）
+- `Paint Brush Radius`（削除）
+
+これらの設定は、個別のブラシアセット（Step 1.4）で管理されます。
 
 #### 1.2: ColorSelectionSettingsの作成
 
@@ -105,7 +117,44 @@ Phase 2では、声で自由に絵を描けるクリエイティブモードを�
    - **Default File Name**: デフォルトファイル名（タイムスタンプなしの場合、デフォルト: "CreativeDrawing.png"）
    - **Image Scale**: 保存時の画像スケール（デフォルト: 1.0）
 
-**注意**: アセットの配置場所は機能に影響しませんが、プロジェクトの整理のため、専用フォルダ（`Assets/ScriptableObjects/Settings/`）に作成することを推奨します。
+#### 1.4: ブラシアセットの作成（必須）
+
+ブラシシステムはStrategyパターンを使用しており、各ブラシは個別のScriptableObjectアセットとして作成します。
+
+**PencilBrushアセットの作成**:
+1. `Assets/ScriptableObjects/` フォルダを開く（存在しない場合は作成）
+2. 右クリック → `Create` → `Folder`
+3. フォルダ名を `Brushes` に変更
+4. `Assets/ScriptableObjects/Brushes/` フォルダを開く
+5. 右クリック → `Create` → `Game` → `Brushes` → `Pencil Brush`
+6. アセット名を `PencilBrush` に変更
+7. Inspectorで設定を調整：
+   - **Radius**: ブラシの半径（デフォルト: 5、細い線用）
+   - **Display Name**: ブラシの表示名（デフォルト: "Pencil"）
+   - **Icon**: UI用アイコン（オプション、`Sprite`を設定可能）
+
+**PaintBrushアセットの作成**:
+1. `Assets/ScriptableObjects/Brushes/` フォルダを開く
+2. 右クリック → `Create` → `Game` → `Brushes` → `Paint Brush`
+3. アセット名を `PaintBrush` に変更
+4. Inspectorで設定を調整：
+   - **Radius**: ブラシの半径（デフォルト: 50、太い線用）
+   - **Display Name**: ブラシの表示名（デフォルト: "Paint"）
+   - **Icon**: UI用アイコン（オプション、`Sprite`を設定可能）
+
+**CreativeModeSettingsへの登録**:
+1. Step 1.1で作成した`CreativeModeSettings`アセットを選択
+2. Inspectorで以下を設定：
+   - **Available Brushes**リストの`+`ボタンをクリックして要素を追加
+   - 作成した`PencilBrush`アセットをドラッグ&ドロップ
+   - 再度`+`ボタンをクリックし、`PaintBrush`アセットをドラッグ&ドロップ
+   - **Default Brush**: `PencilBrush`または`PaintBrush`をドラッグ&ドロップ（デフォルトで使用するブラシ）
+
+**新しいブラシの追加方法**:
+- 新しいブラシを追加する場合は、`BrushStrategyBase`を継承した新しいScriptableObjectクラスを作成し、同様にアセット化して`Available Brushes`リストに追加するだけです。
+- コードを変更する必要はありません（Strategyパターンの利点）。
+
+**注意**: アセットの配置場所は機能に影響しませんが、プロジェクトの整理のため、専用フォルダ（`Assets/ScriptableObjects/Brushes/`）に作成することを推奨します。
 
 ### Step 2: シーンにコンポーネントを追加
 
@@ -206,9 +255,19 @@ Phase 1で作成した`PaintBattleGameManager`を更新します：
    - **Paint Tool Button**: 塗りツールボタン（`Button`コンポーネント付きのUI要素）
    - **Eraser Tool Button**: 消しツールボタン（`Button`コンポーネント付きのUI要素）
 
-   **Brush Type Buttons**（UI Buttonを作成して接続）:
-   - **Pencil Brush Button**: 鉛筆ブラシボタン（`Button`コンポーネント付きのUI要素）
-   - **Paint Brush Button**: ペンキブラシボタン（`Button`コンポーネント付きのUI要素、将来的な拡張）
+   **Brush Buttons**（動的生成）:
+   - **Brush Button Container**: ブラシボタンを並べるための`RectTransform`（例: Horizontal Layout Groupを持つ空のGameObject）
+     - Hierarchyで右クリック → `UI` → `Panel`（または空のGameObject）
+     - 同じGameObjectに`Horizontal Layout Group`コンポーネントを追加（推奨）
+     - このGameObjectを`Brush Button Container`フィールドにドラッグ&ドロップ
+   - **Brush Button Prefab**: ブラシボタンのプレハブ（`Button` + `TextMeshProUGUI`）。プレイ時に複製され、`Brush Button Container`の子として生成されます（オプション、プレハブがない場合は動的に作成されます）
+     - プレハブを作成する場合：
+       - Hierarchyで右クリック → `UI` → `Button - TextMeshPro`
+       - ボタンのテキストを設定（実行時に上書きされます）
+       - このボタンをProjectウィンドウにドラッグしてプレハブ化
+       - 作成したプレハブを`Brush Button Prefab`フィールドにドラッグ&ドロップ
+
+**注意**: 以前の個別ボタン（`Pencil Brush Button`、`Paint Brush Button`）は削除されました。ブラシボタンは`CreativeModeSettings`の`Available Brushes`リストに基づいて自動生成されます。
 
    **Action Buttons**（UI Buttonを作成して接続）:
    - **Clear Button**: クリアボタン（`Button`コンポーネント付きのUI要素）
@@ -260,8 +319,10 @@ Phase 1で作成した`PaintBattleGameManager`を更新します：
    - **消しツール**: `Eraser Tool Button`をクリック
 
 3. **ブラシタイプの選択**
-   - **鉛筆**: `Pencil Brush Button`をクリック（細い線、連続的な描画）
-   - **ペンキ**: `Paint Brush Button`をクリック（太い線、広範囲の塗りつぶし、将来的な拡張）
+   - `Brush Button Container`内のブラシボタンをクリックしてブラシを選択
+   - ボタンは`CreativeModeSettings`の`Available Brushes`リストに基づいて自動生成されます
+   - デフォルトでは、`Default Brush`で設定したブラシが選択されます
+   - 新しいブラシを追加する場合は、`CreativeModeSettings`の`Available Brushes`リストに追加するだけで自動的にボタンが生成されます
 
 4. **色の選択**
    - **プリセット色**: `Preset Color Container`内の色ボタンをクリック
@@ -312,9 +373,11 @@ Phase 1で作成した`PaintBattleGameManager`を更新します：
 
 5. **UIの確認**
    - ツール切り替えボタンが正常に動作していることを確認
+   - ブラシボタンが動的に生成されていることを確認（`CreativeModeSettings`の`Available Brushes`リストの数だけ生成される）
+   - ブラシボタンがクリック可能であることを確認
    - 色選択ボタンが正常に動作していることを確認
    - Undoボタンが正常に動作していることを確認
-   - ラベルが正しく更新されていることを確認
+   - ラベルが正しく更新されていることを確認（`Brush Type Label`には選択中のブラシの表示名が表示される）
 
 6. **履歴管理の確認**
    - Undo機能が正常に動作していることを確認
@@ -427,6 +490,31 @@ CreativeModeManager.Update () (at Assets/Main/Script/Creative/CreativeModeManage
    - `CreativeModeUI`の`Save System`参照が正しく設定されているか確認
    - 保存ボタンのイベントが正しく接続されているか確認
 
+### 問題: ブラシボタンが表示されない
+
+**原因と対処法**:
+1. **CreativeModeSettingsの設定が不完全**
+   - `CreativeModeSettings`の`Available Brushes`リストにブラシアセットが追加されているか確認
+   - ブラシアセットが`None (Brush Strategy Base)`になっていないか確認
+   - Step 1.4を参照してブラシアセットを作成・登録してください
+
+2. **CreativeModeUIのコンテナ設定**
+   - `CreativeModeUI`の`Brush Button Container`フィールドに`RectTransform`が設定されているか確認
+   - コンテナがアクティブになっているか確認
+
+3. **CreativeModeManagerとの連携**
+   - `CreativeModeManager`が正しく初期化されているか確認
+   - `CreativeModeManager`の`Settings`参照が正しく設定されているか確認
+
+### 問題: 既存のシーンでブラシボタンが消えた
+
+**原因と対処法**:
+- ブラシシステムがStrategyパターンに変更されたため、個別のボタンフィールド（`Pencil Brush Button`、`Paint Brush Button`）が削除されました
+- 新しい動的生成システムを使用するため、以下の手順を実行してください：
+  1. `CreativeModeUI`のInspectorで`Brush Button Container`を設定（Step 2.6参照）
+  2. `CreativeModeSettings`の`Available Brushes`リストにブラシアセットを追加（Step 1.4参照）
+  3. プレイモードでブラシボタンが自動生成されることを確認
+
 ---
 
 ## 次のステップ
@@ -500,12 +588,20 @@ ColorSelectionSystem ──→ CreativeModeManager
 ### 設定の推奨値
 
 - **CreativeModeSettings**:
-  - Pencil Radius: 5（細い線）
-  - Paint Brush Radius: 50（太い線）
+  - Available Brushes: `PencilBrush`（Radius: 5）、`PaintBrush`（Radius: 50）
+  - Default Brush: `PencilBrush`
   - Eraser Radius: 30（消しツール）
   - Max History Size: 10（Undo可能な回数）
   - Silence Volume Threshold: 0.01（デフォルト）
   - History Save Mode: OnOperation（操作開始/終了時に保存）
+
+- **PencilBrushアセット**:
+  - Radius: 5（細い線）
+  - Display Name: "Pencil"
+
+- **PaintBrushアセット**:
+  - Radius: 50（太い線）
+  - Display Name: "Paint"
 
 - **ColorSelectionSettings**:
   - Method: PresetPalette（プリセット色パレット）
@@ -521,5 +617,21 @@ ColorSelectionSystem ──→ CreativeModeManager
 
 Phase 2では、声で自由に絵を描けるクリエイティブモードを実装しました。このシステムは、Phase 1の塗りシステムを基盤として、ツール切り替え、色選択、履歴管理、描画システム、保存機能を追加しています。
 
+また、ブラシシステムはStrategyパターンに変更され、塗り方を増やしやすい設計になっています。新しいブラシを追加する場合は、`BrushStrategyBase`を継承したScriptableObjectクラスを作成し、アセット化して`CreativeModeSettings`の`Available Brushes`リストに追加するだけで動作します。
+
 問題が発生した場合は、このガイドのトラブルシューティングセクションを参照してください。
+
+## 変更履歴（Strategyパターンへの移行）
+
+### 変更点
+- **ブラシシステム**: enumベースからStrategyパターンに変更
+- **CreativeModeSettings**: `pencilRadius`と`paintBrushRadius`フィールドを削除し、`availableBrushes`リストと`defaultBrush`を追加
+- **CreativeModeUI**: 個別のボタンフィールド（`pencilBrushButton`、`paintBrushButton`）を削除し、動的生成システム（`brushButtonContainer`、`brushButtonPrefab`）に変更
+- **BrushType enum**: Obsolete属性を追加（将来削除予定）
+
+### 移行手順（既存プロジェクト向け）
+1. Step 1.4を参照してブラシアセットを作成
+2. 既存の`CreativeModeSettings`アセットを更新（`Available Brushes`リストにブラシアセットを追加）
+3. `CreativeModeUI`の設定を更新（`Brush Button Container`を設定）
+4. 既存の個別ボタン（`Pencil Brush Button`、`Paint Brush Button`）は削除しても問題ありません（動的生成されるため）
 
