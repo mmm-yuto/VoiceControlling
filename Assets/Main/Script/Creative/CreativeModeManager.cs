@@ -38,6 +38,7 @@ public class CreativeModeManager : MonoBehaviour
     private bool isInOperation = false; // 操作中かどうか（音声検出中）
     private Vector2 lastPaintPosition = Vector2.zero; // 前回の塗り位置
     private bool hasLastPosition = false; // 前回の位置が有効かどうか
+    private CanvasState lastSavedState = null; // 前回保存した状態（変更検出用）
     
     // イベント
     public event System.Action<CreativeToolMode> OnToolModeChanged;
@@ -362,22 +363,71 @@ public class CreativeModeManager : MonoBehaviour
         
         if (settings.historySaveMode == CreativeModeSettings.HistorySaveMode.TimeBased)
         {
-            // 一定時間ごとに履歴を保存
+            // 一定時間ごとに履歴を保存（変更があった場合のみ）
             if (Time.time - lastHistorySaveTime >= 0.5f) // 0.5秒ごと
             {
-                PushHistorySnapshot();
-                lastHistorySaveTime = Time.time;
+                if (HasCanvasChanged())
+                {
+                    PushHistorySnapshot();
+                    lastHistorySaveTime = Time.time;
+                }
+                else
+                {
+                    // 変更がない場合は時間だけ更新（次回のチェックを待つ）
+                    lastHistorySaveTime = Time.time;
+                }
             }
         }
         else if (settings.historySaveMode == CreativeModeSettings.HistorySaveMode.OnOperation)
         {
-            // 操作終了時に履歴を保存
+            // 操作終了時に履歴を保存（変更があった場合のみ）
             if (!isInOperation && Time.time - silenceStartTime >= settings.silenceDurationForOperationEnd)
             {
-                PushHistorySnapshot();
+                if (HasCanvasChanged())
+                {
+                    PushHistorySnapshot();
+                }
                 silenceStartTime = float.MaxValue; // 重複保存を防ぐ
             }
         }
+    }
+    
+    /// <summary>
+    /// キャンバスに変更があったかどうかをチェック
+    /// </summary>
+    private bool HasCanvasChanged()
+    {
+        if (paintCanvas == null) return false;
+        
+        // 前回保存した状態がない場合は変更ありとみなす
+        if (lastSavedState == null) return true;
+        
+        CanvasState currentState = paintCanvas.GetState();
+        if (currentState == null) return false;
+        
+        // サイズが異なる場合は変更あり
+        if (currentState.width != lastSavedState.width || 
+            currentState.height != lastSavedState.height)
+        {
+            return true;
+        }
+        
+        // 各ピクセルを比較（効率化のため、最初に見つかった違いで即座に返す）
+        for (int x = 0; x < currentState.width; x++)
+        {
+            for (int y = 0; y < currentState.height; y++)
+            {
+                // playerId、intensity、colorのいずれかが異なれば変更あり
+                if (currentState.playerIds[x, y] != lastSavedState.playerIds[x, y] ||
+                    Mathf.Abs(currentState.intensities[x, y] - lastSavedState.intensities[x, y]) > 0.001f ||
+                    currentState.colors[x, y] != lastSavedState.colors[x, y])
+                {
+                    return true;
+                }
+            }
+        }
+        
+        return false; // 変更なし
     }
     
     /// <summary>
@@ -444,11 +494,32 @@ public class CreativeModeManager : MonoBehaviour
         {
             CanvasState previousState = historyStack.Peek();
             paintCanvas.RestoreState(previousState);
+            
+            // 前回保存した状態も更新（Undo後の状態が新しい基準になる）
+            if (lastSavedState == null || 
+                lastSavedState.width != previousState.width || 
+                lastSavedState.height != previousState.height)
+            {
+                lastSavedState = new CanvasState(previousState.width, previousState.height);
+            }
+            lastSavedState.CopyFrom(previousState);
         }
         else
         {
             // 履歴がない場合はクリア
             paintCanvas.ResetCanvas();
+            // クリア後の状態を記録
+            CanvasState clearedState = paintCanvas.GetState();
+            if (clearedState != null)
+            {
+                if (lastSavedState == null || 
+                    lastSavedState.width != clearedState.width || 
+                    lastSavedState.height != clearedState.height)
+                {
+                    lastSavedState = new CanvasState(clearedState.width, clearedState.height);
+                }
+                lastSavedState.CopyFrom(clearedState);
+            }
         }
         
         UpdateUndoAvailability();
@@ -475,6 +546,16 @@ public class CreativeModeManager : MonoBehaviour
         historyStack.Push(state);
         TrimHistory();
         UpdateUndoAvailability();
+        
+        // 前回保存した状態を更新（変更検出用）
+        // 新しいCanvasStateを作成してコピー（参照ではなく値のコピー）
+        if (lastSavedState == null || 
+            lastSavedState.width != state.width || 
+            lastSavedState.height != state.height)
+        {
+            lastSavedState = new CanvasState(state.width, state.height);
+        }
+        lastSavedState.CopyFrom(state);
     }
     
     /// <summary>
