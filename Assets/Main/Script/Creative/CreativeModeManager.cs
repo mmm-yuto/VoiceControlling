@@ -26,8 +26,8 @@ public class CreativeModeManager : MonoBehaviour
     [Tooltip("現在のツールモード")]
     [SerializeField] private CreativeToolMode currentToolMode = CreativeToolMode.Paint;
     
-    [Tooltip("現在のブラシタイプ")]
-    [SerializeField] private BrushType currentBrushType = BrushType.Pencil;
+    [Tooltip("現在のブラシ")]
+    [SerializeField] private BrushStrategyBase currentBrush;
     
     // 内部状態
     private int currentPlayerId;
@@ -44,11 +44,11 @@ public class CreativeModeManager : MonoBehaviour
     public event System.Action<CreativeToolMode> OnToolModeChanged;
     public event System.Action<Color> OnColorChanged;
     public event System.Action<bool> OnUndoAvailabilityChanged; // bool = canUndo
-    public event System.Action<BrushType> OnBrushTypeChanged;
+    public event System.Action<BrushStrategyBase> OnBrushChanged;
     public UnityEvent<CreativeToolMode> OnToolModeChangedUnityEvent;
     public UnityEvent<Color> OnColorChangedUnityEvent;
     public UnityEvent<bool> OnUndoAvailabilityChangedUnityEvent;
-    public UnityEvent<BrushType> OnBrushTypeChangedUnityEvent;
+    public UnityEvent<BrushStrategyBase> OnBrushChangedUnityEvent;
     
     void Start()
     {
@@ -89,6 +89,16 @@ public class CreativeModeManager : MonoBehaviour
         
         currentPlayerId = settings.defaultPlayerId;
         currentColor = settings.initialColor;
+        
+        // デフォルトブラシの設定
+        if (currentBrush == null)
+        {
+            currentBrush = settings.defaultBrush;
+            if (currentBrush == null && settings.availableBrushes.Count > 0)
+            {
+                currentBrush = settings.availableBrushes[0];
+            }
+        }
         
         // 色選択システムのイベント購読
         if (colorSelectionSystem != null)
@@ -229,47 +239,14 @@ public class CreativeModeManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 現在のブラシタイプで塗る
+    /// 現在のブラシで塗る
     /// </summary>
     private void PaintWithCurrentBrush(Vector2 position, float intensity)
     {
-        if (paintCanvas == null) return;
-        
-        switch (currentBrushType)
-        {
-            case BrushType.Pencil:
-                PaintWithPencil(position, intensity);
-                break;
-            case BrushType.Paint:
-                PaintWithPaint(position, intensity);
-                break;
-        }
-    }
-    
-    /// <summary>
-    /// 鉛筆で塗る
-    /// </summary>
-    private void PaintWithPencil(Vector2 position, float intensity)
-    {
-        if (paintCanvas == null) return;
+        if (paintCanvas == null || currentBrush == null) return;
         
         float finalIntensity = intensity * settings.paintIntensity;
-        float radius = settings.pencilRadius;
-        
-        paintCanvas.PaintAtWithRadius(position, currentPlayerId, finalIntensity, currentColor, radius);
-    }
-    
-    /// <summary>
-    /// ペンキブラシで塗る（将来的な拡張）
-    /// </summary>
-    private void PaintWithPaint(Vector2 position, float intensity)
-    {
-        if (paintCanvas == null) return;
-        
-        float finalIntensity = intensity * settings.paintIntensity;
-        float radius = settings.paintBrushRadius;
-        
-        paintCanvas.PaintAtWithRadius(position, currentPlayerId, finalIntensity, currentColor, radius);
+        currentBrush.Paint(paintCanvas, position, currentPlayerId, currentColor, finalIntensity);
     }
     
     /// <summary>
@@ -288,10 +265,10 @@ public class CreativeModeManager : MonoBehaviour
     /// </summary>
     private void PaintLineBetween(Vector2 startPos, Vector2 endPos, float intensity)
     {
-        if (paintCanvas == null) return;
+        if (paintCanvas == null || currentBrush == null) return;
         
         // 現在のブラシの半径を取得
-        float radius = currentBrushType == BrushType.Pencil ? settings.pencilRadius : settings.paintBrushRadius;
+        float radius = currentBrush.GetRadius();
         
         // 距離を計算
         float distance = Vector2.Distance(startPos, endPos);
@@ -443,15 +420,40 @@ public class CreativeModeManager : MonoBehaviour
     }
     
     /// <summary>
-    /// ブラシタイプを設定
+    /// ブラシを設定
     /// </summary>
+    public void SetBrush(BrushStrategyBase brush)
+    {
+        if (brush == null || currentBrush == brush) return;
+        
+        currentBrush = brush;
+        OnBrushChanged?.Invoke(brush);
+        OnBrushChangedUnityEvent?.Invoke(brush);
+    }
+    
+    /// <summary>
+    /// ブラシタイプを設定（後方互換性のため、将来削除予定）
+    /// </summary>
+    [System.Obsolete("BrushTypeは将来削除予定です。SetBrush(BrushStrategyBase)を使用してください。")]
     public void SetBrushType(BrushType brushType)
     {
-        if (currentBrushType == brushType) return;
+        // BrushTypeからBrushStrategyBaseへの変換
+        if (settings == null) return;
         
-        currentBrushType = brushType;
-        OnBrushTypeChanged?.Invoke(brushType);
-        OnBrushTypeChangedUnityEvent?.Invoke(brushType);
+        BrushStrategyBase brush = null;
+        if (brushType == BrushType.Pencil)
+        {
+            brush = settings.availableBrushes.Find(b => b is PencilBrush);
+        }
+        else if (brushType == BrushType.Paint)
+        {
+            brush = settings.availableBrushes.Find(b => b is PaintBrush);
+        }
+        
+        if (brush != null)
+        {
+            SetBrush(brush);
+        }
     }
     
     /// <summary>
@@ -599,11 +601,34 @@ public class CreativeModeManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 現在のブラシタイプを取得
+    /// 現在のブラシを取得
     /// </summary>
+    public BrushStrategyBase GetCurrentBrush()
+    {
+        return currentBrush;
+    }
+    
+    /// <summary>
+    /// 利用可能なブラシのリストを取得
+    /// </summary>
+    public List<BrushStrategyBase> GetAvailableBrushes()
+    {
+        if (settings == null) return new List<BrushStrategyBase>();
+        return new List<BrushStrategyBase>(settings.availableBrushes);
+    }
+    
+    /// <summary>
+    /// 現在のブラシタイプを取得（後方互換性のため、将来削除予定）
+    /// </summary>
+    [System.Obsolete("BrushTypeは将来削除予定です。GetCurrentBrush()を使用してください。")]
     public BrushType GetCurrentBrushType()
     {
-        return currentBrushType;
+        if (currentBrush == null) return BrushType.Pencil;
+        
+        if (currentBrush is PencilBrush) return BrushType.Pencil;
+        if (currentBrush is PaintBrush) return BrushType.Paint;
+        
+        return BrushType.Pencil; // デフォルト
     }
 }
 

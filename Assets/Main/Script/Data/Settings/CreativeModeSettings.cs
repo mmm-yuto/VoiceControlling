@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// クリエイティブモードの設定
@@ -18,13 +19,11 @@ public class CreativeModeSettings : ScriptableObject
     public int defaultPlayerId = 1;
     
     [Header("Brush Settings")]
-    [Tooltip("鉛筆の半径（ピクセル単位）")]
-    [Range(1f, 50f)] 
-    public float pencilRadius = 5f;
+    [Tooltip("利用可能なブラシのリスト")]
+    public List<BrushStrategyBase> availableBrushes = new List<BrushStrategyBase>();
     
-    [Tooltip("ペンキブラシの半径（ピクセル単位）- 将来的な拡張")]
-    [Range(10f, 200f)] 
-    public float paintBrushRadius = 50f;
+    [Tooltip("デフォルトで選択されるブラシ")]
+    public BrushStrategyBase defaultBrush;
     
     [Header("Eraser Settings")]
     [Tooltip("消しツールの半径（ピクセル単位）")]

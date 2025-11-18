@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
 
 /// <summary>
 /// クリエイティブモードのUI管理
@@ -25,12 +26,12 @@ public class CreativeModeUI : MonoBehaviour
     [Tooltip("消しツールボタン")]
     [SerializeField] private Button eraserToolButton;
     
-    [Header("Brush Type Buttons")]
-    [Tooltip("鉛筆ブラシボタン")]
-    [SerializeField] private Button pencilBrushButton;
+    [Header("Brush Buttons")]
+    [Tooltip("ブラシボタンのコンテナ（Horizontal Layout Groupなど）")]
+    [SerializeField] private Transform brushButtonContainer;
     
-    [Tooltip("ペンキブラシボタン（将来的な拡張）")]
-    [SerializeField] private Button paintBrushButton;
+    [Tooltip("ブラシボタンのプレハブ（オプション）")]
+    [SerializeField] private GameObject brushButtonPrefab;
     
     [Header("Action Buttons")]
     [Tooltip("クリアボタン")]
@@ -76,6 +77,9 @@ public class CreativeModeUI : MonoBehaviour
     [Tooltip("保存状態ラベル")]
     [SerializeField] private TextMeshProUGUI saveStatusLabel;
     
+    // 動的生成されたブラシボタンの辞書
+    private Dictionary<BrushStrategyBase, Button> brushButtons = new Dictionary<BrushStrategyBase, Button>();
+    
     void Start()
     {
         // 参照の自動検索
@@ -98,11 +102,14 @@ public class CreativeModeUI : MonoBehaviour
         // プリセット色ボタンの生成
         BuildPresetButtons();
         
+        // ブラシボタンの生成
+        BuildBrushButtons();
+        
         // 初期UI更新
         UpdateToolUI(creativeModeManager != null ? creativeModeManager.GetCurrentToolMode() : CreativeToolMode.Paint);
         UpdateColorUI(colorSelectionSystem != null ? colorSelectionSystem.GetCurrentColor() : Color.white);
         UpdateUndoUI(creativeModeManager != null && creativeModeManager.CanUndo());
-        UpdateBrushTypeUI(creativeModeManager != null ? creativeModeManager.GetCurrentBrushType() : BrushType.Pencil);
+        UpdateBrushUI(creativeModeManager != null ? creativeModeManager.GetCurrentBrush() : null);
     }
     
     void OnDestroy()
@@ -117,7 +124,7 @@ public class CreativeModeUI : MonoBehaviour
             creativeModeManager.OnToolModeChanged += UpdateToolUI;
             creativeModeManager.OnColorChanged += UpdateColorUI;
             creativeModeManager.OnUndoAvailabilityChanged += UpdateUndoUI;
-            creativeModeManager.OnBrushTypeChanged += UpdateBrushTypeUI;
+            creativeModeManager.OnBrushChanged += UpdateBrushUI;
         }
         
         if (colorSelectionSystem != null)
@@ -133,7 +140,7 @@ public class CreativeModeUI : MonoBehaviour
             creativeModeManager.OnToolModeChanged -= UpdateToolUI;
             creativeModeManager.OnColorChanged -= UpdateColorUI;
             creativeModeManager.OnUndoAvailabilityChanged -= UpdateUndoUI;
-            creativeModeManager.OnBrushTypeChanged -= UpdateBrushTypeUI;
+            creativeModeManager.OnBrushChanged -= UpdateBrushUI;
         }
         
         if (colorSelectionSystem != null)
@@ -167,27 +174,6 @@ public class CreativeModeUI : MonoBehaviour
                 if (creativeModeManager != null)
                 {
                     creativeModeManager.SetToolMode(CreativeToolMode.Eraser);
-                }
-            });
-        }
-        
-        // ブラシタイプボタン
-        if (pencilBrushButton != null)
-        {
-            pencilBrushButton.onClick.AddListener(() => {
-                if (creativeModeManager != null)
-                {
-                    creativeModeManager.SetBrushType(BrushType.Pencil);
-                }
-            });
-        }
-        
-        if (paintBrushButton != null)
-        {
-            paintBrushButton.onClick.AddListener(() => {
-                if (creativeModeManager != null)
-                {
-                    creativeModeManager.SetBrushType(BrushType.Paint);
                 }
             });
         }
@@ -363,6 +349,106 @@ public class CreativeModeUI : MonoBehaviour
     }
     
     /// <summary>
+    /// ブラシボタンを動的に生成
+    /// </summary>
+    void BuildBrushButtons()
+    {
+        if (creativeModeManager == null || brushButtonContainer == null)
+        {
+            Debug.LogWarning("BuildBrushButtons: creativeModeManager or brushButtonContainer is null");
+            return;
+        }
+        
+        List<BrushStrategyBase> availableBrushes = creativeModeManager.GetAvailableBrushes();
+        if (availableBrushes == null || availableBrushes.Count == 0)
+        {
+            Debug.LogWarning("BuildBrushButtons: 利用可能なブラシがありません。CreativeModeSettingsで設定してください。");
+            return;
+        }
+        
+        // 既存のボタンを削除
+        foreach (Transform child in brushButtonContainer)
+        {
+            Destroy(child.gameObject);
+        }
+        brushButtons.Clear();
+        
+        // ブラシボタンを生成
+        foreach (BrushStrategyBase brush in availableBrushes)
+        {
+            if (brush == null) continue;
+            
+            GameObject buttonObj;
+            if (brushButtonPrefab != null)
+            {
+                buttonObj = Instantiate(brushButtonPrefab, brushButtonContainer);
+            }
+            else
+            {
+                // プレハブがない場合は動的に作成
+                buttonObj = new GameObject($"BrushButton_{brush.name}");
+                buttonObj.transform.SetParent(brushButtonContainer);
+                
+                Image image = buttonObj.AddComponent<Image>();
+                Button newButton = buttonObj.AddComponent<Button>();
+                newButton.targetGraphic = image;
+                
+                // テキストを追加
+                GameObject textObj = new GameObject("Text");
+                textObj.transform.SetParent(buttonObj.transform);
+                TextMeshProUGUI text = textObj.AddComponent<TextMeshProUGUI>();
+                text.text = brush.GetDisplayName();
+                text.alignment = TextAlignmentOptions.Center;
+                text.color = Color.black;
+                
+                RectTransform textRect = textObj.GetComponent<RectTransform>();
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.sizeDelta = Vector2.zero;
+                textRect.anchoredPosition = Vector2.zero;
+            }
+            
+            // ボタンのテキストを設定
+            TextMeshProUGUI buttonText = buttonObj.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = brush.GetDisplayName();
+            }
+            
+            // アイコンを設定（オプション）
+            Image buttonImage = buttonObj.GetComponent<Image>();
+            if (buttonImage != null && brush.GetIcon() != null)
+            {
+                buttonImage.sprite = brush.GetIcon();
+            }
+            
+            // ボタンイベント設定
+            Button button = buttonObj.GetComponent<Button>();
+            if (button == null)
+            {
+                button = buttonObj.GetComponentInParent<Button>();
+            }
+            if (button == null)
+            {
+                button = buttonObj.GetComponentInChildren<Button>();
+            }
+            
+            if (button != null)
+            {
+                BrushStrategyBase brushRef = brush; // クロージャ用
+                button.onClick.AddListener(() => {
+                    if (creativeModeManager != null)
+                    {
+                        creativeModeManager.SetBrush(brushRef);
+                    }
+                });
+                
+                brushButtons[brush] = button;
+            }
+        }
+    }
+    
+    /// <summary>
     /// ツールUIを更新
     /// </summary>
     void UpdateToolUI(CreativeToolMode mode)
@@ -412,24 +498,22 @@ public class CreativeModeUI : MonoBehaviour
     }
     
     /// <summary>
-    /// ブラシタイプUIを更新
+    /// ブラシUIを更新
     /// </summary>
-    void UpdateBrushTypeUI(BrushType brushType)
+    void UpdateBrushUI(BrushStrategyBase brush)
     {
         if (brushTypeLabel != null)
         {
-            brushTypeLabel.text = brushType == BrushType.Pencil ? "Pencil" : "Paint";
+            brushTypeLabel.text = brush != null ? brush.GetDisplayName() : "None";
         }
         
-        // ボタンの視覚的フィードバック
-        if (pencilBrushButton != null)
+        // 動的生成されたボタンの視覚的フィードバック
+        foreach (var kvp in brushButtons)
         {
-            pencilBrushButton.interactable = (brushType != BrushType.Pencil);
-        }
-        
-        if (paintBrushButton != null)
-        {
-            paintBrushButton.interactable = (brushType != BrushType.Paint);
+            if (kvp.Value != null)
+            {
+                kvp.Value.interactable = (kvp.Key != brush);
+            }
         }
     }
     
