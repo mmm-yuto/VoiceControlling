@@ -12,10 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c42738e5b5a3dd4baf86418ab51778b, type: 3}
   m_Name: SprayBrush
   m_EditorClassIdentifier: Assembly-CSharp::SprayBrush
-  radius: 10
+  radius: 1
   displayName: Spray Brush
   icon: {fileID: 0}
-  particleCount: 20
-  particleRadius: 2
-  spreadRadius: 0
-  density: 0.5
+  particleCount: 40
+  particleRadius: 10
+  spreadRadius: 120
+  density: 0.7
+  radiusFalloff: 1
+  sprayUpdateFrequency: 20
+  minParticleRadiusThreshold: 1

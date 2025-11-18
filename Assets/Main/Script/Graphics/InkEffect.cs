@@ -12,6 +12,9 @@ public class InkEffect : MonoBehaviour
     public ParticleSystem particleSystem;
     
     [Header("Effect Settings")]
+    [Tooltip("エフェクトを使用するか（falseの場合はパーティクルを表示しないが、マーカーは表示される）")]
+    public bool useEffect = true;
+    
     [Tooltip("パーティクルの色")]
     public Color particleColor = Color.cyan;
     
@@ -47,6 +50,7 @@ public class InkEffect : MonoBehaviour
     
     private Image markerImage;
     private Canvas uiCanvas;
+    private Vector2 lastScreenPosition = Vector2.zero; // マーカー位置更新用
     
     void Start()
     {
@@ -56,8 +60,8 @@ public class InkEffect : MonoBehaviour
             paintCanvas = FindObjectOfType<PaintCanvas>();
         }
         
-        // パーティクルシステムが設定されていない場合は自動生成
-        if (particleSystem == null)
+        // パーティクルシステムが設定されていない場合は自動生成（エフェクトを使用する場合のみ）
+        if (useEffect && particleSystem == null)
         {
             CreateParticleSystem();
         }
@@ -88,10 +92,19 @@ public class InkEffect : MonoBehaviour
     
     void Update()
     {
-        // マーカーを常にエフェクトの中心に表示
-        if (showMarker && markerRectTransform != null && particleSystem != null)
+        // マーカーを表示位置に更新
+        if (showMarker && markerRectTransform != null)
         {
-            UpdateMarkerPosition();
+            if (useEffect && particleSystem != null)
+            {
+                // エフェクト有効時：パーティクルシステムの位置を使用
+                UpdateMarkerPosition();
+            }
+            else
+            {
+                // エフェクト無効時：最後に受け取った画面座標を使用
+                UpdateMarkerPositionFromScreen(lastScreenPosition);
+            }
         }
     }
     
@@ -119,7 +132,17 @@ public class InkEffect : MonoBehaviour
     
     void OnPaintCompleted(Vector2 screenPosition, int playerId, float intensity)
     {
-        if (particleSystem == null)
+        // 画面座標を保存（マーカー更新用）
+        lastScreenPosition = screenPosition;
+        
+        // マーカーが有効な場合は位置を更新
+        if (showMarker && markerRectTransform != null)
+        {
+            UpdateMarkerPositionFromScreen(screenPosition);
+        }
+        
+        // エフェクトが無効の場合はパーティクルを発射しない
+        if (!useEffect || particleSystem == null)
         {
             return;
         }
@@ -148,7 +171,8 @@ public class InkEffect : MonoBehaviour
     
     void OnPaintingSuppressed()
     {
-        if (particleSystem != null)
+        // エフェクトが有効な場合のみ処理
+        if (useEffect && particleSystem != null)
         {
             particleSystem.Clear();
             Camera mainCamera = Camera.main;
@@ -163,7 +187,25 @@ public class InkEffect : MonoBehaviour
                     Vector3 centerScreenPos = voiceToScreenMapper.MapToCenter();
                     Vector3 worldPos = mainCamera.ScreenToWorldPoint(new Vector3(centerScreenPos.x, centerScreenPos.y, mainCamera.nearClipPlane + 1f));
                     particleSystem.transform.position = worldPos;
+                    
+                    // マーカーも中心位置に更新
+                    if (showMarker && markerRectTransform != null)
+                    {
+                        UpdateMarkerPositionFromScreen(centerScreenPos);
+                        lastScreenPosition = centerScreenPos;
+                    }
                 }
+            }
+        }
+        else if (showMarker && markerRectTransform != null)
+        {
+            // エフェクトが無効でもマーカーは中心位置に更新
+            VoiceToScreenMapper voiceToScreenMapper = FindObjectOfType<VoiceToScreenMapper>();
+            if (voiceToScreenMapper != null)
+            {
+                Vector3 centerScreenPos = voiceToScreenMapper.MapToCenter();
+                UpdateMarkerPositionFromScreen(centerScreenPos);
+                lastScreenPosition = centerScreenPos;
             }
         }
     }
@@ -236,16 +278,28 @@ public class InkEffect : MonoBehaviour
         {
             // パーティクルシステムのワールド座標を画面座標に変換
             Vector3 screenPos = mainCamera.WorldToScreenPoint(particleSystem.transform.position);
-            
-            // UI座標に変換
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                uiCanvas.transform as RectTransform,
-                screenPos,
-                uiCanvas.worldCamera,
-                out Vector2 localPoint))
-            {
-                markerRectTransform.anchoredPosition = localPoint;
-            }
+            UpdateMarkerPositionFromScreen(screenPos);
+        }
+    }
+    
+    /// <summary>
+    /// 画面座標からマーカー位置を更新
+    /// </summary>
+    void UpdateMarkerPositionFromScreen(Vector2 screenPosition)
+    {
+        if (markerRectTransform == null || uiCanvas == null)
+        {
+            return;
+        }
+        
+        // UI座標に変換
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            uiCanvas.transform as RectTransform,
+            screenPosition,
+            uiCanvas.worldCamera,
+            out Vector2 localPoint))
+        {
+            markerRectTransform.anchoredPosition = localPoint;
         }
     }
     
