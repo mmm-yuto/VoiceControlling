@@ -25,6 +25,9 @@ public class VoiceCalibrator : MonoBehaviour
     public static float CenterVolume { get; private set; } = 0.5f;
     public static float CenterPitch { get; private set; } = 500f;
     
+    // カリブレーション状態（外部から確認可能）
+    public static bool IsCalibrating { get; private set; } = false;
+    
     // イベント
     public static System.Action<string> OnCalibrationStatusUpdated;
     public static System.Action<float> OnCalibrationProgressUpdated;
@@ -107,6 +110,7 @@ public class VoiceCalibrator : MonoBehaviour
         // ステップ開始
         StartCoroutine(CalibrationCoroutine());
         
+        IsCalibrating = true;
         OnCalibrationRunningStateChanged?.Invoke(true);
         Debug.Log("Calibration started - Step 1: Silence");
     }
@@ -117,6 +121,7 @@ public class VoiceCalibrator : MonoBehaviour
         
         StopAllCoroutines();
         isCalibrating = false;
+        IsCalibrating = false;
         currentStep = CalibrationStep.None;
         
         // イベント購読解除
@@ -259,6 +264,7 @@ public class VoiceCalibrator : MonoBehaviour
     void CompleteCalibration()
     {
         isCalibrating = false;
+        IsCalibrating = false;
         currentStep = CalibrationStep.None;
         
         // イベント購読解除

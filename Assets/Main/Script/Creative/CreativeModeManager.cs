@@ -126,6 +126,12 @@ public class CreativeModeManager : MonoBehaviour
             return;
         }
         
+        // カリブレーション中は塗り処理をスキップ（パフォーマンス維持）
+        if (VoiceCalibrator.IsCalibrating)
+        {
+            return;
+        }
+        
         // 音声入力の処理
         ProcessVoiceInput();
         

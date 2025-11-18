@@ -55,6 +55,12 @@ public class PaintBattleGameManager : MonoBehaviour
             return;
         }
         
+        // カリブレーション中は塗り処理をスキップ（パフォーマンス維持）
+        if (VoiceCalibrator.IsCalibrating)
+        {
+            return;
+        }
+        
         // デバッグモード時はマウス位置を直接使用
         if (voiceInputHandler.IsDebugModeActive())
         {
