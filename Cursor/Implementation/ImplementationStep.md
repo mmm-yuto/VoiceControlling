@@ -163,15 +163,32 @@ Assets/
 │   │   ├── NetworkPaintSync.cs   // 塗りデータ同期
 │   │   └── NetworkPlayerSync.cs  // プレイヤー同期
 │   │
-│   ├── SinglePlayer/              // シングルモード（モンスター撃破）
-│   │   ├── Monster.cs            // モンスター
-│   │   ├── MonsterSpawner.cs       // モンスター生成管理
-│   │   ├── MonsterHitDetector.cs // 当たり判定
-│   │   ├── ScoreManager.cs       // スコア管理
-│   │   └── MovementPatterns/     // 移動パターン実装
-│   │       ├── LinearMovement.cs
-│   │       ├── CurveMovement.cs
-│   │       └── RandomMovement.cs
+│   ├── SinglePlayer/              // シングルモード（複数ゲームモード対応）
+│   │   ├── SinglePlayerModeManager.cs  // ゲームモード管理
+│   │   ├── ScoreManager.cs       // スコア管理（共通）
+│   │   ├── Modes/                // 各ゲームモード
+│   │   │   ├── MonsterHuntMode.cs      // モンスター撃破モード
+│   │   │   ├── ColorDefenseMode.cs     // カラーディフェンスモード
+│   │   │   ├── TracingMode.cs          // トレーシングモード
+│   │   │   └── AIBattleMode.cs         // AI対戦モード
+│   │   ├── Monster/              // モンスター撃破モード用
+│   │   │   ├── Monster.cs
+│   │   │   ├── MonsterSpawner.cs
+│   │   │   ├── MonsterHitDetector.cs
+│   │   │   └── MovementPatterns/
+│   │   │       ├── LinearMovement.cs
+│   │   │       ├── CurveMovement.cs
+│   │   │       └── RandomMovement.cs
+│   │   ├── ColorDefense/         // カラーディフェンスモード用
+│   │   │   └── ColorChangeArea.cs
+│   │   ├── Tracing/              // トレーシングモード用
+│   │   │   └── TracingLine.cs
+│   │   └── AI/                   // AI対戦モード用
+│   │       ├── IAIPaintStrategy.cs
+│   │       ├── RandomAIPaintStrategy.cs
+│   │       ├── PatternAIPaintStrategy.cs
+│   │       ├── AggressiveAIPaintStrategy.cs
+│   │       └── DefensiveAIPaintStrategy.cs
 │   │
 │   ├── UI/                        // UIシステム
 │   │   ├── VoiceDisplay.cs       // 音声表示（既存）
@@ -216,8 +233,16 @@ Assets/
 │       ├── Creative/
 │       │   └── CreativeModeSettings.cs
 │       └── SinglePlayer/
-│           ├── MonsterSettings.cs
-│           ├── SpawnSettings.cs
+│           ├── SinglePlayerGameModeSettings.cs  // ゲームモード設定（共通）
+│           ├── Modes/
+│           │   ├── MonsterHuntSettings.cs
+│           │   ├── ColorDefenseSettings.cs
+│           │   ├── TracingSettings.cs
+│           │   ├── TracingDrawingData.cs
+│           │   └── AIBattleSettings.cs
+│           ├── Monster/
+│           │   ├── MonsterSettings.cs
+│           │   └── SpawnSettings.cs
 │           └── ScoreSettings.cs
 │
 ├── ScriptableObjects/            // ScriptableObjectアセット
@@ -281,16 +306,22 @@ Assets/
 **理由**: ネットワーク機能を分離し、オフラインモードに影響を与えない
 
 #### 5. SinglePlayer/（シングルモード）
-**役割**: モンスター撃破モード
+**役割**: 複数のゲームモードを実装（モンスター撃破、カラーディフェンス、トレーシング、AI対戦）
 
 **分割方針**:
-- **Monster.cs**: モンスターの基本動作、HP管理
-- **MonsterSpawner.cs**: モンスターの生成・管理
-- **MonsterHitDetector.cs**: インクとモンスターの当たり判定
-- **ScoreManager.cs**: スコア計算、コンボ管理
-- **MovementPatterns/**: 移動パターンの実装（インターフェース化）
+- **SinglePlayerModeManager.cs**: ゲームモードの管理・切り替え
+- **Modes/**: 各ゲームモードの実装（インターフェース化）
+  - **MonsterHuntMode.cs**: モンスター撃破モード
+  - **ColorDefenseMode.cs**: カラーディフェンスモード
+  - **TracingMode.cs**: トレーシングモード
+  - **AIBattleMode.cs**: AI対戦モード
+- **ScoreManager.cs**: スコア計算、ランキング管理（共通）
+- **Monster/**: モンスター撃破モード用のコンポーネント
+- **ColorDefense/**: カラーディフェンスモード用のコンポーネント
+- **Tracing/**: トレーシングモード用のコンポーネント
+- **AI/**: AI対戦モード用のコンポーネント（AI戦略の実装）
 
-**理由**: 各機能を独立させ、モンスターの種類や移動パターンを追加しやすく
+**理由**: 各ゲームモードを独立させ、新しいモードを追加しやすく。インターフェース化により、モード間の切り替えが容易
 
 #### 6. UI/（UIシステム）
 **役割**: ユーザーインターフェース
@@ -1915,11 +1946,185 @@ public class CreativeModeSaveSystem : MonoBehaviour
 
 ---
 
-## 🎯 Phase 3: シングルプレイモード（モンスター撃破モード）（優先実装）（1月）
+## 🎯 Phase 3: シングルプレイモード（複数ゲームモード対応）（優先実装）（1月）
 
 **目標**: シングルプレイで遊べる状態にする（オンライン実装は不要）
 
-### Step 3.1: モンスターシステムの実装
+**特徴**:
+- 複数のゲームモードを実装可能な設計
+- 各ゲームモードは独立したコンポーネントとして実装
+- インターフェース化により、新しいゲームモードを追加しやすく
+
+**実装するゲームモード**（優先順位順）:
+1. **カラーディフェンスモード**【優先度高】: ランダムな場所の色が変わるのを防ぐ
+2. **モンスター撃破モード**: 移動するモンスターを撃破する
+3. **トレーシングモード**: 透明な絵の線をなぞって点数を獲得
+4. **AI対戦モード**: AIと色塗り対決
+
+### Step 3.0: シングルプレイモードマネージャー（ゲームモード切り替えシステム）
+
+**ファイル**: `Assets/Script/SinglePlayer/SinglePlayerModeManager.cs`
+
+**実装内容**:
+- 複数のゲームモードを管理
+- ゲームモードの切り替え
+- 各モードの初期化・終了処理
+
+**変更しやすさの考慮事項**:
+- **インターフェース化**: `ISinglePlayerGameMode`インターフェースで各モードを抽象化
+- **ScriptableObject設定**: ゲームモードの設定を管理
+- **Inspector設定**: 各モードのコンポーネントをInspectorで接続可能に
+- **イベント発火**: モード切り替え時にイベントを発火
+
+**主要メソッド**:
+```csharp
+public enum SinglePlayerGameModeType
+{
+    MonsterHunt,      // モンスター撃破モード
+    ColorDefense,     // カラーディフェンスモード
+    Tracing,          // トレーシングモード
+    AIBattle         // AI対戦モード
+}
+
+public interface ISinglePlayerGameMode
+{
+    void Initialize(SinglePlayerGameModeSettings settings);
+    void StartGame();
+    void Update(float deltaTime);
+    void EndGame();
+    void Pause();
+    void Resume();
+    int GetScore();
+    float GetProgress(); // 0.0～1.0の進捗
+    bool IsGameOver();
+    SinglePlayerGameModeType GetModeType();
+}
+
+[CreateAssetMenu(fileName = "SinglePlayerGameModeSettings", menuName = "Game/SinglePlayer/Game Mode Settings")]
+public class SinglePlayerGameModeSettings : ScriptableObject
+{
+    [Header("Mode Selection")]
+    public SinglePlayerGameModeType selectedMode = SinglePlayerGameModeType.ColorDefense; // デフォルト: カラーディフェンスモード（優先度高）
+    
+    [Header("Common Settings")]
+    [Range(30f, 300f)] public float gameDuration = 180f; // ゲーム時間（秒）
+    [Range(1, 10)] public int difficultyLevel = 1;
+    
+    [Header("Mode-Specific Settings")]
+    public MonsterHuntSettings monsterHuntSettings;
+    public ColorDefenseSettings colorDefenseSettings;
+    public TracingSettings tracingSettings;
+    public AIBattleSettings aiBattleSettings;
+}
+
+public class SinglePlayerModeManager : MonoBehaviour
+{
+    [Header("Settings")]
+    [SerializeField] private SinglePlayerGameModeSettings settings;
+    
+    [Header("Mode Components")]
+    [SerializeField] private MonsterHuntMode monsterHuntMode;
+    [SerializeField] private ColorDefenseMode colorDefenseMode;
+    [SerializeField] private TracingMode tracingMode;
+    [SerializeField] private AIBattleMode aiBattleMode;
+    
+    [Header("Shared Components")]
+    [SerializeField] private PaintCanvas paintCanvas;
+    [SerializeField] private ScoreManager scoreManager;
+    
+    private ISinglePlayerGameMode currentMode;
+    
+    public static event Action<SinglePlayerGameModeType> OnModeChanged;
+    public static event Action<int> OnScoreUpdated;
+    public static event Action<float> OnProgressUpdated;
+    
+    void Start()
+    {
+        InitializeMode();
+    }
+    
+    private void InitializeMode()
+    {
+        // 全てのモードを無効化
+        DisableAllModes();
+        
+        // 選択されたモードを有効化
+        switch (settings.selectedMode)
+    {
+            case SinglePlayerGameModeType.MonsterHunt:
+                currentMode = monsterHuntMode;
+                break;
+            case SinglePlayerGameModeType.ColorDefense:
+                currentMode = colorDefenseMode;
+                break;
+            case SinglePlayerGameModeType.Tracing:
+                currentMode = tracingMode;
+                break;
+            case SinglePlayerGameModeType.AIBattle:
+                currentMode = aiBattleMode;
+                break;
+        }
+        
+        if (currentMode != null)
+        {
+            currentMode.Initialize(settings);
+            currentMode.StartGame();
+            OnModeChanged?.Invoke(settings.selectedMode);
+        }
+    }
+    
+    void Update()
+    {
+        if (currentMode != null)
+        {
+            currentMode.Update(Time.deltaTime);
+            
+            // スコアと進捗を更新
+            OnScoreUpdated?.Invoke(currentMode.GetScore());
+            OnProgressUpdated?.Invoke(currentMode.GetProgress());
+            
+            // ゲームオーバー判定
+            if (currentMode.IsGameOver())
+            {
+                currentMode.EndGame();
+        }
+    }
+    }
+    
+    private void DisableAllModes()
+    {
+        if (monsterHuntMode != null) monsterHuntMode.gameObject.SetActive(false);
+        if (colorDefenseMode != null) colorDefenseMode.gameObject.SetActive(false);
+        if (tracingMode != null) tracingMode.gameObject.SetActive(false);
+        if (aiBattleMode != null) aiBattleMode.gameObject.SetActive(false);
+        }
+    
+    public void ChangeMode(SinglePlayerGameModeType newMode)
+    {
+        if (currentMode != null)
+        {
+            currentMode.EndGame();
+        }
+        
+        settings.selectedMode = newMode;
+        InitializeMode();
+    }
+}
+```
+
+---
+
+### Step 3.1: モンスター撃破モード（Monster Hunt Mode）
+
+**ファイル**: `Assets/Script/SinglePlayer/Modes/MonsterHuntMode.cs`
+
+**実装内容**:
+- 移動するモンスターを撃破するゲームモード
+- モンスターの生成・管理
+- 当たり判定
+- スコア計算
+
+### Step 3.1.1: モンスターシステムの実装
 
 **ファイル**: `Assets/Script/SinglePlayer/Monster.cs`
 
@@ -1968,7 +2173,7 @@ public class Monster : MonoBehaviour
     public static event Action<Monster> OnMonsterSpawned;
     
     void Start()
-    {
+        {
         currentHP = settings.maxHP;
         OnMonsterSpawned?.Invoke(this);
     }
@@ -1980,7 +2185,7 @@ public class Monster : MonoBehaviour
         {
             currentPosition = movementPattern.GetNextPosition(currentPosition, Time.deltaTime);
             transform.position = currentPosition;
-        }
+    }
     }
     
     // インクが当たった時の処理
@@ -1988,7 +2193,7 @@ public class Monster : MonoBehaviour
     {
         currentHP -= damage;
         if (currentHP <= 0)
-        {
+            {
             Defeat();
         }
     }
@@ -2434,41 +2639,100 @@ public class MonsterHitDetector : MonoBehaviour
 
 ---
 
-### Step 3.4: スコアシステム
+### Step 3.1.4: モンスター撃破モードの実装
 
-**ファイル**: `Assets/Script/SinglePlayer/ScoreManager.cs`
+**ファイル**: `Assets/Script/SinglePlayer/Modes/MonsterHuntMode.cs`
 
 **実装内容**:
-- モンスター撃破時のスコア計算
-- コンボシステム（連続撃破ボーナス）
-- スコア表示
-- ランキング保存
+- `ISinglePlayerGameMode`インターフェースを実装
+- モンスター撃破モードのゲームロジック
+- スコア計算（モンスター撃破時）
 
 **実装方針**:
 ```csharp
-[CreateAssetMenu(fileName = "ScoreSettings", menuName = "Game/SinglePlayer/Score Settings")]
-public class ScoreSettings : ScriptableObject
+[CreateAssetMenu(fileName = "MonsterHuntSettings", menuName = "Game/SinglePlayer/Modes/Monster Hunt Settings")]
+public class MonsterHuntSettings : ScriptableObject
 {
-    [Header("Score Values")]
+    [Header("Monster Properties")]
+    [Range(1, 10)] public int maxHP = 3;
+    [Range(10f, 500f)] public float moveSpeed = 100f;
+    [Range(0.5f, 5f)] public float spawnInterval = 2f;
+    [Range(1, 10)] public int maxMonstersOnScreen = 5;
+    
+    [Header("Score")]
     public int baseScorePerMonster = 100;
     public int comboBonusMultiplier = 10;
     [Range(2, 10)] public int maxCombo = 5;
+    
+    [Header("Visual")]
+    public GameObject monsterPrefab;
+    public Color monsterColor = Color.red;
+    [Range(20f, 200f)] public float monsterSize = 50f;
 }
 
-public class ScoreManager : MonoBehaviour
+public class MonsterHuntMode : MonoBehaviour, ISinglePlayerGameMode
 {
-    [SerializeField] private ScoreSettings settings;
+    [SerializeField] private MonsterHuntSettings settings;
+    [SerializeField] private MonsterSpawner spawner;
+    [SerializeField] private MonsterHitDetector hitDetector;
+    [SerializeField] private PaintCanvas paintCanvas;
     
     private int currentScore = 0;
     private int currentCombo = 0;
+    private float gameTime = 0f;
+    private float gameDuration = 180f;
+    private bool isGameActive = false;
     
-    public static event Action<int> OnScoreUpdated;
-    public static event Action<int> OnComboUpdated;
+    public SinglePlayerGameModeType GetModeType() => SinglePlayerGameModeType.MonsterHunt;
     
-    void Start()
+    public void Initialize(SinglePlayerGameModeSettings modeSettings)
     {
+        gameDuration = modeSettings.gameDuration;
+        // モンスター生成システムを初期化
+        if (spawner != null)
+            spawner.Initialize(settings);
+    }
+    
+    public void StartGame()
+    {
+        isGameActive = true;
+        gameTime = 0f;
+        currentScore = 0;
+        currentCombo = 0;
+        
+        // イベント購読
         Monster.OnMonsterDefeated += OnMonsterDefeated;
     }
+    
+    public void Update(float deltaTime)
+    {
+        if (!isGameActive) return;
+        
+        gameTime += deltaTime;
+        
+        // モンスター生成・更新
+        if (spawner != null)
+            spawner.Update(deltaTime);
+        
+        // 当たり判定
+        if (hitDetector != null)
+            hitDetector.Update(deltaTime);
+    }
+    
+    public void EndGame()
+    {
+        isGameActive = false;
+        Monster.OnMonsterDefeated -= OnMonsterDefeated;
+    }
+    
+    public void Pause() { isGameActive = false; }
+    public void Resume() { isGameActive = true; }
+    
+    public int GetScore() => currentScore;
+    
+    public float GetProgress() => Mathf.Clamp01(gameTime / gameDuration);
+    
+    public bool IsGameOver() => gameTime >= gameDuration;
     
     private void OnMonsterDefeated(Monster monster)
     {
@@ -2478,16 +2742,604 @@ public class ScoreManager : MonoBehaviour
         // スコア計算
         int scoreGain = settings.baseScorePerMonster + (currentCombo * settings.comboBonusMultiplier);
         currentScore += scoreGain;
-        
-        OnScoreUpdated?.Invoke(currentScore);
-        OnComboUpdated?.Invoke(currentCombo);
+    }
+}
+```
+
+---
+
+### Step 3.2: カラーディフェンスモード（Color Defense Mode）
+
+**ファイル**: `Assets/Script/SinglePlayer/Modes/ColorDefenseMode.cs`
+
+**実装内容**:
+- ランダムな場所の色が徐々に変わっていくのを、声を出して色を塗って防ぐ
+- 色が変わる領域の生成・管理
+- プレイヤーが塗った領域との判定
+- 防げた領域数でスコア計算
+
+**変更しやすさの考慮事項**:
+- **ScriptableObject設定**: 色変化の速度、領域の数、サイズなどを設定ファイルで管理
+- **イベント発火**: 領域が完全に変色した時、防げた時にイベントを発火
+
+**実装方針**:
+```csharp
+[CreateAssetMenu(fileName = "ColorDefenseSettings", menuName = "Game/SinglePlayer/Modes/Color Defense Settings")]
+public class ColorDefenseSettings : ScriptableObject
+{
+    [Header("Color Change Properties")]
+    [Range(0.1f, 5f)] public float colorChangeSpeed = 1f; // 色が変わる速度
+    [Range(0.1f, 1f)] public float colorChangeRate = 0.5f; // 1秒あたりの変化率
+    public Color targetColor = Color.red; // 変化する色
+    
+    [Header("Area Properties")]
+    [Range(1, 20)] public int maxAreasOnScreen = 5;
+    [Range(50f, 300f)] public float areaSize = 100f;
+    [Range(1f, 10f)] public float spawnInterval = 3f;
+    
+    [Header("Score")]
+    public int scorePerDefendedArea = 50;
+    public int penaltyPerChangedArea = -20;
+}
+
+public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
+{
+    [SerializeField] private ColorDefenseSettings settings;
+    [SerializeField] private PaintCanvas paintCanvas;
+    
+    private List<ColorChangeArea> activeAreas = new List<ColorChangeArea>();
+    private float spawnTimer = 0f;
+    private int currentScore = 0;
+    private float gameTime = 0f;
+    private float gameDuration = 180f;
+    private bool isGameActive = false;
+    
+    public SinglePlayerGameModeType GetModeType() => SinglePlayerGameModeType.ColorDefense;
+    
+    public void Initialize(SinglePlayerGameModeSettings modeSettings)
+    {
+        gameDuration = modeSettings.gameDuration;
     }
     
-    public void ResetCombo()
+    public void StartGame()
     {
-        currentCombo = 0;
-        OnComboUpdated?.Invoke(0);
+        isGameActive = true;
+        gameTime = 0f;
+        currentScore = 0;
+        activeAreas.Clear();
+        spawnTimer = 0f;
     }
+    
+    public void Update(float deltaTime)
+    {
+        if (!isGameActive) return;
+        
+        gameTime += deltaTime;
+        spawnTimer += deltaTime;
+        
+        // 新しい領域を生成
+        if (spawnTimer >= settings.spawnInterval && activeAreas.Count < settings.maxAreasOnScreen)
+        {
+            SpawnColorChangeArea();
+            spawnTimer = 0f;
+        }
+        
+        // 各領域の更新
+        for (int i = activeAreas.Count - 1; i >= 0; i--)
+        {
+            ColorChangeArea area = activeAreas[i];
+            area.Update(deltaTime, paintCanvas);
+            
+            // 完全に変色した場合
+            if (area.IsFullyChanged())
+            {
+                currentScore += settings.penaltyPerChangedArea;
+                activeAreas.RemoveAt(i);
+                Destroy(area.gameObject);
+            }
+            // 完全に防げた場合
+            else if (area.IsFullyDefended())
+            {
+                currentScore += settings.scorePerDefendedArea;
+                activeAreas.RemoveAt(i);
+                Destroy(area.gameObject);
+            }
+        }
+    }
+    
+    private void SpawnColorChangeArea()
+    {
+        GameObject areaObj = new GameObject("ColorChangeArea");
+        ColorChangeArea area = areaObj.AddComponent<ColorChangeArea>();
+        area.Initialize(settings, GetRandomPosition());
+        activeAreas.Add(area);
+    }
+    
+    private Vector2 GetRandomPosition()
+    {
+        return new Vector2(
+            Random.Range(100f, Screen.width - 100f),
+            Random.Range(100f, Screen.height - 100f)
+        );
+    }
+    
+    public void EndGame() { isGameActive = false; }
+    public void Pause() { isGameActive = false; }
+    public void Resume() { isGameActive = true; }
+    public int GetScore() => currentScore;
+    public float GetProgress() => Mathf.Clamp01(gameTime / gameDuration);
+    public bool IsGameOver() => gameTime >= gameDuration;
+}
+
+// 色が変わる領域のコンポーネント
+public class ColorChangeArea : MonoBehaviour
+{
+    private ColorDefenseSettings settings;
+    private Vector2 centerPosition;
+    private float changeProgress = 0f; // 0.0～1.0
+    private float defendedProgress = 0f; // 0.0～1.0
+    
+    public void Initialize(ColorDefenseSettings settings, Vector2 position)
+    {
+        this.settings = settings;
+        this.centerPosition = position;
+        changeProgress = 0f;
+        defendedProgress = 0f;
+    }
+    
+    public void Update(float deltaTime, PaintCanvas canvas)
+    {
+        // 色変化の進行
+        changeProgress += settings.colorChangeRate * deltaTime;
+        changeProgress = Mathf.Clamp01(changeProgress);
+        
+        // プレイヤーが塗った領域をチェック
+        CheckPlayerPaint(canvas);
+    }
+    
+    private void CheckPlayerPaint(PaintCanvas canvas)
+    {
+        // 領域内のプレイヤーの塗り具合をチェック
+        // 塗られたピクセル数をカウントして、defendedProgressを更新
+        int totalPixels = GetTotalPixelsInArea();
+        int paintedPixels = GetPaintedPixelsInArea(canvas);
+        defendedProgress = (float)paintedPixels / totalPixels;
+    }
+    
+    public bool IsFullyChanged() => changeProgress >= 1f && defendedProgress < 0.5f;
+    public bool IsFullyDefended() => defendedProgress >= 0.9f;
+    
+    private int GetTotalPixelsInArea() { /* 実装 */ return 0; }
+    private int GetPaintedPixelsInArea(PaintCanvas canvas) { /* 実装 */ return 0; }
+}
+```
+
+---
+
+### Step 3.3: トレーシングモード（Tracing Mode）
+
+**ファイル**: `Assets/Script/SinglePlayer/Modes/TracingMode.cs`
+
+**実装内容**:
+- 透明な絵が下に書いてあって、その線をなぞる
+- なぞれた度合いが点数になる
+- 線の判定と精度計算
+
+**変更しやすさの考慮事項**:
+- **ScriptableObject設定**: 線の太さ、許容誤差、スコア計算式を設定ファイルで管理
+- **絵のデータ**: 絵のパスデータ（ベジェ曲線、点列など）をScriptableObjectで管理
+- **イベント発火**: 線をなぞった時、完成度が更新された時にイベントを発火
+
+**実装方針**:
+```csharp
+[CreateAssetMenu(fileName = "TracingSettings", menuName = "Game/SinglePlayer/Modes/Tracing Settings")]
+public class TracingSettings : ScriptableObject
+{
+    [Header("Line Properties")]
+    [Range(10f, 100f)] public float lineTolerance = 30f; // 線からの許容距離
+    [Range(5f, 50f)] public float lineWidth = 20f;
+    
+    [Header("Score")]
+    public int baseScorePerLine = 100;
+    [Range(0.5f, 1f)] public float perfectThreshold = 0.95f; // 完璧ななぞりの閾値
+    public int perfectBonus = 50;
+    
+    [Header("Drawing Data")]
+    public TracingDrawingData drawingData; // なぞる絵のデータ
+}
+
+[CreateAssetMenu(fileName = "TracingDrawingData", menuName = "Game/SinglePlayer/Modes/Tracing Drawing Data")]
+public class TracingDrawingData : ScriptableObject
+{
+    public List<TracingLine> lines = new List<TracingLine>();
+}
+
+[System.Serializable]
+public class TracingLine
+{
+    public List<Vector2> points = new List<Vector2>(); // 線の点列
+    public float lineWidth = 20f;
+}
+
+public class TracingMode : MonoBehaviour, ISinglePlayerGameMode
+{
+    [SerializeField] private TracingSettings settings;
+    [SerializeField] private PaintCanvas paintCanvas;
+    
+    private List<TracingLine> lines;
+    private Dictionary<TracingLine, float> lineProgress = new Dictionary<TracingLine, float>();
+    private int currentScore = 0;
+    private float gameTime = 0f;
+    private float gameDuration = 180f;
+    private bool isGameActive = false;
+    
+    public SinglePlayerGameModeType GetModeType() => SinglePlayerGameModeType.Tracing;
+    
+    public void Initialize(SinglePlayerGameModeSettings modeSettings)
+    {
+        gameDuration = modeSettings.gameDuration;
+        lines = new List<TracingLine>(settings.drawingData.lines);
+        
+        // 各線の進捗を初期化
+        foreach (var line in lines)
+        {
+            lineProgress[line] = 0f;
+        }
+    }
+    
+    public void StartGame()
+    {
+        isGameActive = true;
+        gameTime = 0f;
+        currentScore = 0;
+    }
+    
+    public void Update(float deltaTime)
+    {
+        if (!isGameActive) return;
+        
+        gameTime += deltaTime;
+        
+        // 各線のなぞり具合をチェック
+        foreach (var line in lines)
+        {
+            float progress = CalculateLineProgress(line);
+            lineProgress[line] = progress;
+            
+            // スコア計算（進捗が更新された時のみ）
+            if (progress > 0.9f && !lineProgress.ContainsKey(line))
+            {
+                CalculateLineScore(line, progress);
+            }
+        }
+    }
+    
+    private float CalculateLineProgress(TracingLine line)
+    {
+        float totalLength = GetLineLength(line);
+        float tracedLength = GetTracedLength(line, paintCanvas);
+        return tracedLength / totalLength;
+    }
+    
+    private void CalculateLineScore(TracingLine line, float progress)
+    {
+        int score = settings.baseScorePerLine;
+        
+        // 完璧ななぞりの場合、ボーナス追加
+        if (progress >= settings.perfectThreshold)
+        {
+            score += settings.perfectBonus;
+        }
+        
+        // 進捗に応じてスコアを調整
+        score = Mathf.RoundToInt(score * progress);
+        currentScore += score;
+    }
+    
+    private float GetLineLength(TracingLine line)
+    {
+        float length = 0f;
+        for (int i = 1; i < line.points.Count; i++)
+        {
+            length += Vector2.Distance(line.points[i - 1], line.points[i]);
+        }
+        return length;
+    }
+    
+    private float GetTracedLength(TracingLine line, PaintCanvas canvas)
+    {
+        float tracedLength = 0f;
+        for (int i = 1; i < line.points.Count; i++)
+        {
+            Vector2 start = line.points[i - 1];
+            Vector2 end = line.points[i];
+            
+            // 線分上の点がプレイヤーによって塗られているかチェック
+            int segments = Mathf.CeilToInt(Vector2.Distance(start, end) / settings.lineTolerance);
+            for (int j = 0; j <= segments; j++)
+            {
+                float t = (float)j / segments;
+                Vector2 point = Vector2.Lerp(start, end, t);
+                
+                // この点が塗られているかチェック
+                if (IsPointPainted(point, canvas))
+                {
+                    tracedLength += Vector2.Distance(start, end) / segments;
+                }
+            }
+        }
+        return tracedLength;
+    }
+    
+    private bool IsPointPainted(Vector2 point, PaintCanvas canvas)
+    {
+        // 点の周囲をチェック（許容誤差内）
+        int playerId = canvas.GetPlayerIdAt(point);
+        return playerId > 0; // プレイヤーが塗っている
+    }
+    
+    public void EndGame() { isGameActive = false; }
+    public void Pause() { isGameActive = false; }
+    public void Resume() { isGameActive = true; }
+    public int GetScore() => currentScore;
+    public float GetProgress() => Mathf.Clamp01(gameTime / gameDuration);
+    public bool IsGameOver() => gameTime >= gameDuration;
+}
+```
+
+---
+
+### Step 3.4: AI対戦モード（AI Battle Mode）
+
+**ファイル**: `Assets/Script/SinglePlayer/Modes/AIBattleMode.cs`
+
+**実装内容**:
+- AIと色塗り対決
+- AIの塗り戦略（ランダム、パターン、プレイヤー追従など）
+- 塗り面積の比較で勝敗判定
+- タイマー制限
+
+**変更しやすさの考慮事項**:
+- **AI戦略の抽象化**: `IAIPaintStrategy`インターフェースでAIの行動を差し替え可能に
+- **ScriptableObject設定**: AIの難易度、塗り速度、戦略タイプを設定ファイルで管理
+- **イベント発火**: AIが塗った時、勝敗が決まった時にイベントを発火
+
+**実装方針**:
+```csharp
+[CreateAssetMenu(fileName = "AIBattleSettings", menuName = "Game/SinglePlayer/Modes/AI Battle Settings")]
+public class AIBattleSettings : ScriptableObject
+{
+    [Header("AI Properties")]
+    public AIDifficulty difficulty = AIDifficulty.Medium;
+    [Range(0.1f, 2f)] public float aiPaintSpeed = 1f; // AIの塗り速度倍率
+    public AIPaintStrategyType strategyType = AIPaintStrategyType.Random;
+    
+    [Header("Game Rules")]
+    [Range(30f, 300f)] public float battleDuration = 180f;
+    [Range(0.1f, 1f)] public float victoryThreshold = 0.6f; // 勝利に必要な塗り面積の割合
+    
+    [Header("Score")]
+    public int winScore = 1000;
+    public int loseScore = 100;
+}
+
+public enum AIDifficulty
+{
+    Easy,    // 遅い、単純な戦略
+    Medium,  // 普通の速度、中程度の戦略
+    Hard     // 速い、複雑な戦略
+}
+
+public enum AIPaintStrategyType
+{
+    Random,      // ランダムに塗る
+    Pattern,     // パターンで塗る
+    Aggressive,  // プレイヤーの領域を奪う
+    Defensive    // 自分の領域を守る
+}
+
+public interface IAIPaintStrategy
+{
+    Vector2 GetNextPaintPosition(PaintCanvas canvas, float deltaTime);
+    void Initialize(AIBattleSettings settings);
+}
+
+public class AIBattleMode : MonoBehaviour, ISinglePlayerGameMode
+{
+    [SerializeField] private AIBattleSettings settings;
+    [SerializeField] private PaintCanvas paintCanvas;
+    [SerializeField] private IAIPaintStrategy aiStrategy;
+    
+    private const int PLAYER_ID = 1;
+    private const int AI_ID = 2;
+    
+    private int currentScore = 0;
+    private float gameTime = 0f;
+    private float aiPaintTimer = 0f;
+    private bool isGameActive = false;
+    private bool isPlayerWon = false;
+    
+    public SinglePlayerGameModeType GetModeType() => SinglePlayerGameModeType.AIBattle;
+    
+    public void Initialize(SinglePlayerGameModeSettings modeSettings)
+    {
+        settings.battleDuration = modeSettings.gameDuration;
+        
+        // AI戦略を初期化
+        InitializeAIStrategy();
+    }
+    
+    private void InitializeAIStrategy()
+    {
+        switch (settings.strategyType)
+        {
+            case AIPaintStrategyType.Random:
+                aiStrategy = gameObject.AddComponent<RandomAIPaintStrategy>();
+                break;
+            case AIPaintStrategyType.Pattern:
+                aiStrategy = gameObject.AddComponent<PatternAIPaintStrategy>();
+                break;
+            case AIPaintStrategyType.Aggressive:
+                aiStrategy = gameObject.AddComponent<AggressiveAIPaintStrategy>();
+                break;
+            case AIPaintStrategyType.Defensive:
+                aiStrategy = gameObject.AddComponent<DefensiveAIPaintStrategy>();
+                break;
+        }
+        
+        if (aiStrategy != null)
+        {
+            aiStrategy.Initialize(settings);
+        }
+    }
+    
+    public void StartGame()
+    {
+        isGameActive = true;
+        gameTime = 0f;
+        currentScore = 0;
+        aiPaintTimer = 0f;
+        isPlayerWon = false;
+        
+        // キャンバスをリセット
+        if (paintCanvas != null)
+            paintCanvas.ResetCanvas();
+    }
+    
+    public void Update(float deltaTime)
+    {
+        if (!isGameActive) return;
+        
+        gameTime += deltaTime;
+        aiPaintTimer += deltaTime;
+        
+        // AIの塗り処理
+        float aiPaintInterval = 1f / settings.aiPaintSpeed; // 難易度に応じて調整
+        if (aiPaintTimer >= aiPaintInterval && aiStrategy != null)
+        {
+            Vector2 aiPaintPos = aiStrategy.GetNextPaintPosition(paintCanvas, deltaTime);
+            if (paintCanvas != null)
+            {
+                paintCanvas.PaintAt(aiPaintPos, AI_ID, 1f, GetAIColor());
+            }
+            aiPaintTimer = 0f;
+        }
+        
+        // 勝敗判定
+        CheckVictory();
+    }
+    
+    private void CheckVictory()
+    {
+        if (paintCanvas == null) return;
+        
+        float playerArea = paintCanvas.GetPaintedArea(PLAYER_ID);
+        float aiArea = paintCanvas.GetPaintedArea(AI_ID);
+        float totalArea = playerArea + aiArea;
+        
+        if (totalArea > 0.1f) // ある程度塗られた場合
+        {
+            float playerRatio = playerArea / totalArea;
+            
+            if (playerRatio >= settings.victoryThreshold)
+            {
+                isPlayerWon = true;
+                currentScore = settings.winScore;
+                EndGame();
+    }
+            else if (aiArea / totalArea >= settings.victoryThreshold)
+            {
+                isPlayerWon = false;
+                currentScore = settings.loseScore;
+                EndGame();
+            }
+        }
+    }
+    
+    private Color GetAIColor()
+    {
+        // AIの色（プレイヤーと区別できる色）
+        return Color.blue;
+    }
+    
+    public void EndGame() { isGameActive = false; }
+    public void Pause() { isGameActive = false; }
+    public void Resume() { isGameActive = true; }
+    public int GetScore() => currentScore;
+    public float GetProgress() => Mathf.Clamp01(gameTime / settings.battleDuration);
+    public bool IsGameOver() => gameTime >= settings.battleDuration || isPlayerWon || currentScore > 0;
+}
+
+// AI戦略の実装例：ランダム戦略
+public class RandomAIPaintStrategy : MonoBehaviour, IAIPaintStrategy
+{
+    private AIBattleSettings settings;
+    
+    public void Initialize(AIBattleSettings settings)
+    {
+        this.settings = settings;
+    }
+    
+    public Vector2 GetNextPaintPosition(PaintCanvas canvas, float deltaTime)
+    {
+        // ランダムな位置を返す
+        return new Vector2(
+            Random.Range(0f, Screen.width),
+            Random.Range(0f, Screen.height)
+        );
+    }
+}
+```
+
+---
+
+### Step 3.5: スコアシステム（共通）
+
+**ファイル**: `Assets/Script/SinglePlayer/ScoreManager.cs`
+
+**実装内容**:
+- 全ゲームモード共通のスコア管理
+- スコア表示
+- ランキング保存
+
+**実装方針**:
+```csharp
+[CreateAssetMenu(fileName = "ScoreSettings", menuName = "Game/SinglePlayer/Score Settings")]
+public class ScoreSettings : ScriptableObject
+{
+    [Header("Ranking")]
+    public int maxRankingEntries = 10;
+    public string rankingKeyPrefix = "SinglePlayerRanking_";
+}
+
+public class ScoreManager : MonoBehaviour
+{
+    [SerializeField] private ScoreSettings settings;
+    
+    public static event Action<int> OnScoreUpdated;
+    public static event Action<List<RankingEntry>> OnRankingUpdated;
+    
+    public void SaveScore(int score, SinglePlayerGameModeType modeType)
+    {
+        string key = $"{settings.rankingKeyPrefix}{modeType}";
+        // PlayerPrefsまたはJSONで保存
+        // ランキングを更新
+    }
+    
+    public List<RankingEntry> GetRanking(SinglePlayerGameModeType modeType)
+    {
+        string key = $"{settings.rankingKeyPrefix}{modeType}";
+        // ランキングを読み込んで返す
+        return new List<RankingEntry>();
+    }
+}
+
+[System.Serializable]
+public class RankingEntry
+{
+    public int score;
+    public System.DateTime dateTime;
+    public SinglePlayerGameModeType modeType;
 }
 ```
 
@@ -2614,37 +3466,43 @@ public class VictoryCondition : MonoBehaviour
 11. 保存機能（オプション）
 
 ### 🟡 Phase 3: シングルプレイモード（優先実装）
-12. モンスターシステム（Step 5.1）
-13. モンスター生成・管理システム（Step 5.2）
-14. 当たり判定システム（Step 5.3）
-15. スコアシステム（Step 5.4）
-16. シングルモード用UI（スコア、タイマー表示）
+12. シングルプレイモードマネージャー（Step 3.0）
+13. **カラーディフェンスモード**（Step 3.2）【優先度高】
+14. **モンスター撃破モード**:
+    - モンスターシステム（Step 3.1.1）
+    - モンスター生成・管理システム（Step 3.1.2）
+    - 当たり判定システム（Step 3.1.3）
+    - モード実装（Step 3.1.4）
+15. **トレーシングモード**（Step 3.3）
+16. **AI対戦モード**（Step 3.4）
+17. スコアシステム（共通）（Step 3.5）
+18. シングルモード用UI（スコア、タイマー、モード選択表示）
 
 ### 🟢 Phase 4: オンラインマルチ（シングルプレイの次）
-17. ネットワーク実装（Step 3.1）
-18. ネットワーク同期システム
-19. マッチメイキング
+19. ネットワーク実装（Step 4.1）
+20. ネットワーク同期システム
+21. マッチメイキング
 
 ### 🔵 Phase 5: UI/UX実装
-20. ゲーム画面UI（Step 4.1）
-21. 攻撃タイプ選択UI（Step 4.1.1）
-22. メニューシステム（Step 4.2）
-23. シーン管理システム
+22. ゲーム画面UI（Step 5.1）
+23. 攻撃タイプ選択UI（Step 5.1.1）
+24. メニューシステム（Step 5.2）
+25. シーン管理システム
 
 ### 🟣 Phase 6: カスタマイズシステム
-24. インクカスタマイズ（Step 5.1）
-25. サウンドカスタマイズ（Step 5.2）
+26. インクカスタマイズ（Step 6.1）
+27. サウンドカスタマイズ（Step 6.2）
 
 ### ⚪ Phase 7: 最適化とバグ修正
-26. パフォーマンス最適化
-27. バランス調整
-28. バグ修正
+28. パフォーマンス最適化
+29. バランス調整
+30. バグ修正
 
 ### 🔴 Phase 8: オフラインマルチ（ローカル対戦）（最も低い優先順位）
-29. プレイヤー管理システム（Step 3.1）
-30. 勝利条件判定（Step 3.2）
-31. オフラインマルチ実装（Step 3.3）
-32. 対戦用UI（塗り面積表示、タイマー）
+31. プレイヤー管理システム（Step 8.1）
+32. 勝利条件判定（Step 8.2）
+33. オフラインマルチ実装（Step 8.3）
+34. 対戦用UI（塗り面積表示、タイマー）
 
 ---
 
@@ -2731,10 +3589,14 @@ public class VictoryCondition : MonoBehaviour
 - [ ] クリエイティブモードで遊べる状態になる
 
 ### Phase 3 完了条件
-- [ ] モンスターが画面を移動する
-- [ ] インクがモンスターに当たるとダメージを与える
-- [ ] モンスター撃破時にスコアが加算される
-- [ ] シングルモードで遊べる状態になる
+- [ ] シングルプレイモードマネージャーが動作する
+- [ ] ゲームモードの切り替えが可能
+- [ ] **カラーディフェンスモード**【優先度高】: ランダムな場所の色が変わり、プレイヤーが塗って防げる
+- [ ] **モンスター撃破モード**: モンスターが画面を移動し、インクが当たるとダメージを与え、撃破時にスコアが加算される
+- [ ] **トレーシングモード**: 透明な絵の線をなぞって点数を獲得できる
+- [ ] **AI対戦モード**: AIと色塗り対決ができる
+- [ ] 各モードでスコアが正しく計算される
+- [ ] ランキングが保存・表示される
 
 ### Phase 4 完了条件
 - [ ] オンライン対戦が可能になる
