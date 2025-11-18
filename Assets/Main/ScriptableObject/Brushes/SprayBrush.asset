@@ -20,5 +20,5 @@ MonoBehaviour:
   spreadRadius: 120
   density: 0.7
   radiusFalloff: 1
-  sprayUpdateFrequency: 20
+  sprayUpdateFrequency: 25
   minParticleRadiusThreshold: 1
