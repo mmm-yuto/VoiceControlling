@@ -15,6 +15,22 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     public int frameHistorySize = 5; // フレーム履歴のサイズ
     public bool useAdvancedFiltering = true; // 高度なフィルタリングを使用
     
+    [Header("Confidence and Intentional Voice Detection")]
+    [Tooltip("最小信頼度（この値未満の検出は無視される）")]
+    [Range(0f, 1f)]
+    public float minConfidence = 0.3f; // 最小信頼度
+    [Tooltip("意図的な音声の最小持続時間（秒）")]
+    [Range(0f, 1f)]
+    public float intentionalVoiceMinDuration = 0.1f; // 意図的な音声の最小持続時間
+    [Tooltip("安定性の閾値（Hz、この値以内の変化は安定とみなす）")]
+    [Range(0f, 200f)]
+    public float intentionalVoiceStabilityThreshold = 50f; // 安定性の閾値
+    [Tooltip("音量の安定性の閾値（0-1、この値以上で安定とみなす）")]
+    [Range(0f, 1f)]
+    public float intentionalVoiceVolumeStability = 0.8f; // 音量の安定性の閾値
+    [Tooltip("適応的スムージングを有効にする")]
+    public bool adaptiveSmoothingEnabled = true; // 適応的スムージングを有効にする
+    
     [Header("Movement Pitch Settings")]
     public float leftPitch = 200f;    // 左移動用のピッチ
     public float centerPitch = 400f;  // 中央（停止）用のピッチ
@@ -38,6 +54,20 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     // フレーム履歴
     private Queue<float> pitchHistory = new Queue<float>();
     private Queue<float> volumeHistory = new Queue<float>();
+    
+    // 意図的な音声の検出用の履歴
+    private Queue<PitchDetectionResult> recentDetections = new Queue<PitchDetectionResult>();
+    private float lastAcceptedPitch = 0f;
+    private float lastAcceptedTime = 0f;
+    
+    // ピッチ検出結果を保持する構造体
+    private struct PitchDetectionResult
+    {
+        public float pitch;
+        public float confidence;
+        public float volume;
+        public float time;
+    }
     
     void Start()
     {
@@ -70,7 +100,7 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             {
                 Debug.Log($"Test Mode: Using fixed pitch {testPitch} Hz");
             }
-            ProcessPitch(testPitch);
+            ProcessPitch(testPitch, 1.0f, volumeThreshold * 2f); // 高い信頼度と音量でテスト
         }
         else
         {
@@ -120,14 +150,15 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
                     Debug.Log($"ImprovedPitchAnalyzer - Volume threshold passed, calculating pitch...");
                 }
                 
-                float pitch = CalculatePitchAdvanced(samples);
+                float confidence;
+                float pitch = CalculatePitchAdvanced(samples, out confidence);
                 
                 if (enableDebugLog)
                 {
-                    Debug.Log($"ImprovedPitchAnalyzer - Pitch detected: {pitch:F1} Hz (Volume: {currentVolume:F6})");
+                    Debug.Log($"ImprovedPitchAnalyzer - Pitch detected: {pitch:F1} Hz (Volume: {currentVolume:F6}, Confidence: {confidence:F3})");
                 }
                 
-                ProcessPitch(pitch);
+                ProcessPitch(pitch, confidence, currentVolume);
             }
             else
             {
@@ -136,7 +167,7 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
                 {
                     Debug.Log($"ImprovedPitchAnalyzer - Volume too low: {currentVolume:F6} <= {volumeThreshold:F6}");
                 }
-                ProcessPitch(0f);
+                ProcessPitch(0f, 0f, currentVolume);
             }
         }
     }
@@ -151,7 +182,7 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         return Mathf.Sqrt(sum / samples.Length);
     }
     
-    float CalculatePitchAdvanced(float[] samples)
+    float CalculatePitchAdvanced(float[] samples, out float confidence)
     {
         // FromGeneと同じ：最小限のDC除去のみ（フィルタリングは行わない）
         // DCオフセットがあると相関値が大きくなりすぎるため、最小限の除去のみ
@@ -160,6 +191,14 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         // オートコリレーション法のみでピッチ検出
         float acConfidence;
         float autocorrelationPitch = CalculatePitchAutocorrelation(processedSamples, out acConfidence);
+        
+        // 信頼度を正規化（0-1の範囲に）
+        float maxPossibleCorrelation = 0f;
+        for (int i = 0; i < samples.Length; i++)
+        {
+            maxPossibleCorrelation += samples[i] * samples[i];
+        }
+        confidence = maxPossibleCorrelation > 0f ? acConfidence / maxPossibleCorrelation : 0f;
         
         // 4. 検出されたピッチをそのまま返す（範囲チェックは削除）
         // グラフ表示時に範囲外の値はクランプされるため、ここでは実際のピッチを返す
@@ -173,16 +212,17 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
                 bool inRange = (autocorrelationPitch >= minFrequency && autocorrelationPitch <= maxFrequency);
                 if (inRange)
                 {
-                    Debug.Log($"Pitch detected: {finalPitch:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz)");
+                    Debug.Log($"Pitch detected: {finalPitch:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz, Confidence: {confidence:F3})");
                 }
                 else
                 {
-                    Debug.Log($"Pitch detected (out of calibration range): {finalPitch:F1} Hz (Calibration Range: {minFrequency}-{maxFrequency} Hz)");
+                    Debug.Log($"Pitch detected (out of calibration range): {finalPitch:F1} Hz (Calibration Range: {minFrequency}-{maxFrequency} Hz, Confidence: {confidence:F3})");
                 }
             }
         }
         else
         {
+            confidence = 0f;
             if (enableDebugLog)
             {
                 Debug.LogWarning("Autocorrelation returned 0 - no pitch detected");
@@ -224,9 +264,9 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         int sampleRate = voiceDetector.sampleRate;
         
         // 検索範囲を広げる（カリブレーション範囲に関係なく、実際のピッチを検出可能にする）
-        // 人間の声の範囲をカバー: 50Hz（低い男性の声）～ 2000Hz（高い女性の声）
+        // 人間の声の範囲をカバー: 50Hz（低い男性の声）～ 1000Hz（高い女性の声）
         const float searchMinFrequency = 50f;  // 検索範囲の最小周波数
-        const float searchMaxFrequency = 2000f; // 検索範囲の最大周波数
+        const float searchMaxFrequency = 1000f; // 検索範囲の最大周波数
         int minPeriod = Mathf.FloorToInt((float)sampleRate / searchMaxFrequency); // 高周波数に対応する最小周期
         int maxPeriod = Mathf.FloorToInt((float)sampleRate / searchMinFrequency); // 低周波数に対応する最大周期
         
@@ -380,14 +420,78 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         return currentPitch;
     }
     
-    void ProcessPitch(float pitch)
+    void ProcessPitch(float pitch, float confidence, float volume)
     {
-        // 常にスムージングして値を出力（オートコリレーションのみの実装）
+        float currentTime = Time.time;
+        
+        // 信頼度ベースのフィルタリング
+        if (pitch > 0f && confidence < minConfidence)
+        {
+            if (enableDebugLog)
+            {
+                Debug.Log($"Pitch rejected - Low confidence: {confidence:F3} < {minConfidence:F3}");
+            }
+            pitch = 0f; // 信頼度が低い場合は無視
+        }
+        
+        // 最近の検出結果を記録
+        if (pitch > 0f)
+        {
+            recentDetections.Enqueue(new PitchDetectionResult
+            {
+                pitch = pitch,
+                confidence = confidence,
+                volume = volume,
+                time = currentTime
+            });
+            
+            // 古い検出結果を削除（最小持続時間の2倍以上前のもの）
+            while (recentDetections.Count > 0 && 
+                   currentTime - recentDetections.Peek().time > intentionalVoiceMinDuration * 2f)
+            {
+                recentDetections.Dequeue();
+            }
+        }
+        
+        // 意図的な音声の検出
+        bool isIntentionalVoice = IsIntentionalVoice(pitch, confidence, volume, currentTime);
+        
+        // 適応的スムージング
+        float effectiveSmoothingFactor = smoothingFactor;
+        if (adaptiveSmoothingEnabled && pitch > 0f && hasValidPitch)
+        {
+            // 信頼度に基づくスムージング係数の調整
+            float confidenceFactor = Mathf.Clamp01(confidence);
+            effectiveSmoothingFactor = smoothingFactor * (0.5f + confidenceFactor * 0.5f);
+            
+            // 変化量に基づく調整（急激な変化は遅く）
+            if (smoothedPitch > 0f)
+            {
+                float changeRatio = Mathf.Abs(pitch - smoothedPitch) / Mathf.Max(smoothedPitch, 1f);
+                if (changeRatio > 0.2f) // 20%以上の変化
+                {
+                    effectiveSmoothingFactor *= 0.5f; // より遅く
+                }
+            }
+        }
+        
+        // スムージング処理
         if (hasValidPitch)
         {
-            if (pitch > 0f)
+            if (pitch > 0f && isIntentionalVoice)
             {
-                smoothedPitch = Mathf.Lerp(smoothedPitch, pitch, smoothingFactor);
+                // 意図的な音声の場合のみ更新
+                smoothedPitch = Mathf.Lerp(smoothedPitch, pitch, effectiveSmoothingFactor);
+                lastAcceptedPitch = pitch;
+                lastAcceptedTime = currentTime;
+            }
+            else if (pitch > 0f && !isIntentionalVoice)
+            {
+                // 意図的でない場合は、前回の値を維持（スムージングしない）
+                if (enableDebugLog)
+                {
+                    Debug.Log($"Pitch ignored - Not intentional: {pitch:F1} Hz");
+                }
             }
             else
             {
@@ -397,10 +501,12 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         }
         else
         {
-            if (pitch > 0f)
+            if (pitch > 0f && isIntentionalVoice)
             {
                 smoothedPitch = pitch;
                 hasValidPitch = true;
+                lastAcceptedPitch = pitch;
+                lastAcceptedTime = currentTime;
             }
             else
             {
@@ -412,29 +518,130 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         
         if (enableDebugLog)
         {
-            Debug.Log($"ImprovedPitchAnalyzer - ProcessPitch: Raw={pitch:F1} Hz, Smoothed={smoothedPitch:F1} Hz, LastDetected={lastDetectedPitch:F1} Hz");
+            string intentionalStatus = isIntentionalVoice ? "INTENTIONAL" : "NOT_INTENTIONAL";
+            Debug.Log($"ImprovedPitchAnalyzer - ProcessPitch: Raw={pitch:F1} Hz, Confidence={confidence:F3}, Smoothed={smoothedPitch:F1} Hz, LastDetected={lastDetectedPitch:F1} Hz, Status={intentionalStatus}");
         }
         
         OnPitchDetected?.Invoke(smoothedPitch);
+    }
+    
+    bool IsIntentionalVoice(float pitch, float confidence, float volume, float currentTime)
+    {
+        if (pitch <= 0f || confidence < minConfidence)
+        {
+            return false;
+        }
+        
+        // 音量の安定性チェック
+        if (volume < volumeThreshold * intentionalVoiceVolumeStability)
+        {
+            if (enableDebugLog)
+            {
+                Debug.Log($"Not intentional - Volume too low: {volume:F6} < {volumeThreshold * intentionalVoiceVolumeStability:F6}");
+            }
+            return false;
+        }
+        
+        // 最小持続時間のチェック
+        if (recentDetections.Count == 0)
+        {
+            return false;
+        }
+        
+        // 最近の検出結果が最小持続時間以上あるかチェック
+        float oldestTime = recentDetections.Peek().time;
+        float duration = currentTime - oldestTime;
+        
+        if (duration < intentionalVoiceMinDuration)
+        {
+            if (enableDebugLog)
+            {
+                Debug.Log($"Not intentional - Duration too short: {duration:F3}s < {intentionalVoiceMinDuration:F3}s");
+            }
+            return false;
+        }
+        
+        // ピッチの安定性チェック
+        float minPitch = float.MaxValue;
+        float maxPitch = float.MinValue;
+        int validCount = 0;
+        
+        foreach (var detection in recentDetections)
+        {
+            if (detection.pitch > 0f && detection.confidence >= minConfidence)
+            {
+                minPitch = Mathf.Min(minPitch, detection.pitch);
+                maxPitch = Mathf.Max(maxPitch, detection.pitch);
+                validCount++;
+            }
+        }
+        
+        if (validCount < 2)
+        {
+            if (enableDebugLog)
+            {
+                Debug.Log($"Not intentional - Not enough valid detections: {validCount}");
+            }
+            return false;
+        }
+        
+        float pitchRange = maxPitch - minPitch;
+        if (pitchRange > intentionalVoiceStabilityThreshold)
+        {
+            if (enableDebugLog)
+            {
+                Debug.Log($"Not intentional - Pitch too unstable: Range={pitchRange:F1} Hz > {intentionalVoiceStabilityThreshold:F1} Hz");
+            }
+            return false;
+        }
+        
+        // 現在のピッチが最近の検出結果と一致しているかチェック
+        float averagePitch = 0f;
+        int count = 0;
+        foreach (var detection in recentDetections)
+        {
+            if (detection.pitch > 0f && detection.confidence >= minConfidence)
+            {
+                averagePitch += detection.pitch;
+                count++;
+            }
+        }
+        
+        if (count > 0)
+        {
+            averagePitch /= count;
+            float pitchDifference = Mathf.Abs(pitch - averagePitch);
+            
+            if (pitchDifference > intentionalVoiceStabilityThreshold)
+            {
+                if (enableDebugLog)
+                {
+                    Debug.Log($"Not intentional - Current pitch differs too much: {pitchDifference:F1} Hz > {intentionalVoiceStabilityThreshold:F1} Hz");
+                }
+                return false;
+            }
+        }
+        
+        return true;
     }
     
     // インスペクター用のテストボタン
     [ContextMenu("Test Left Movement")]
     void TestLeftMovement()
     {
-        ProcessPitch(leftPitch);
+        ProcessPitch(leftPitch, 1.0f, volumeThreshold * 2f); // 高い信頼度と音量でテスト
     }
     
     [ContextMenu("Test Center Movement")]
     void TestCenterMovement()
     {
-        ProcessPitch(centerPitch);
+        ProcessPitch(centerPitch, 1.0f, volumeThreshold * 2f); // 高い信頼度と音量でテスト
     }
     
     [ContextMenu("Test Right Movement")]
     void TestRightMovement()
     {
-        ProcessPitch(rightPitch);
+        ProcessPitch(rightPitch, 1.0f, volumeThreshold * 2f); // 高い信頼度と音量でテスト
     }
     
     public System.Action<float> OnPitchDetected;
