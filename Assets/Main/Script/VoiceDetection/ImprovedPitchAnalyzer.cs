@@ -18,6 +18,20 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     [Range(0f, 1f)]
     public float highFrequencyPenalty = 0.4f; // 高周波数抑制係数
     
+    [Header("Multi-Algorithm Settings")]
+    [Tooltip("オートコリレーション法の重み付け係数")]
+    [Range(0f, 1f)]
+    public float autocorrelationWeight = 0.4f;
+    [Tooltip("YINアルゴリズムの重み付け係数")]
+    [Range(0f, 1f)]
+    public float yinWeight = 0.3f;
+    [Tooltip("ケプストラム法の重み付け係数")]
+    [Range(0f, 1f)]
+    public float cepstrumWeight = 0.3f;
+    [Tooltip("YINアルゴリズムの閾値（低いほど検出しやすい）")]
+    [Range(0f, 1f)]
+    public float yinThreshold = 0.1f;
+    
     [Header("Movement Pitch Settings")]
     public float leftPitch = 200f;    // 左移動用のピッチ
     public float centerPitch = 400f;  // 中央（停止）用のピッチ
@@ -160,45 +174,131 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         // DCオフセットがあると相関値が大きくなりすぎるため、最小限の除去のみ
         float[] processedSamples = RemoveDCOffsetOnly(samples);
         
-        // オートコリレーション法のみでピッチ検出
-        float acConfidence;
-        float autocorrelationPitch = CalculatePitchAutocorrelation(processedSamples, out acConfidence);
+        // 複数のアルゴリズムでピッチ検出
+        List<PitchResult> results = new List<PitchResult>();
         
-        // 4. 検出されたピッチをそのまま返す（範囲チェックは削除）
-        // グラフ表示時に範囲外の値はクランプされるため、ここでは実際のピッチを返す
-        float finalPitch = 0f;
-        if (autocorrelationPitch > 0f)
+        // 1. オートコリレーション法
+        if (autocorrelationWeight > 0f)
         {
-            finalPitch = autocorrelationPitch;
+            float acConfidence;
+            float acPitch = CalculatePitchAutocorrelation(processedSamples, out acConfidence);
+            if (acPitch > 0f)
+            {
+                results.Add(new PitchResult
+                {
+                    pitch = acPitch,
+                    confidence = acConfidence,
+                    weight = autocorrelationWeight,
+                    algorithm = "Autocorrelation"
+                });
+            }
+        }
+        
+        // 2. YINアルゴリズム
+        if (yinWeight > 0f)
+        {
+            float yinConfidence;
+            float yinPitch = CalculatePitchYIN(processedSamples, out yinConfidence);
+            if (yinPitch > 0f)
+            {
+                results.Add(new PitchResult
+                {
+                    pitch = yinPitch,
+                    confidence = yinConfidence,
+                    weight = yinWeight,
+                    algorithm = "YIN"
+                });
+            }
+        }
+        
+        // 3. ケプストラム法
+        if (cepstrumWeight > 0f)
+        {
+            float cepstrumConfidence;
+            float cepstrumPitch = CalculatePitchCepstrum(processedSamples, out cepstrumConfidence);
+            if (cepstrumPitch > 0f)
+            {
+                results.Add(new PitchResult
+                {
+                    pitch = cepstrumPitch,
+                    confidence = cepstrumConfidence,
+                    weight = cepstrumWeight,
+                    algorithm = "Cepstrum"
+                });
+            }
+        }
+        
+        // 結果を統合
+        float finalPitch = 0f;
+        
+        if (results.Count > 0)
+        {
+            // 重み付け平均を計算
+            float weightedSum = 0f;
+            float totalWeight = 0f;
+            
+            foreach (var result in results)
+            {
+                float effectiveWeight = result.weight * result.confidence;
+                weightedSum += result.pitch * effectiveWeight;
+                totalWeight += effectiveWeight;
+            }
+            
+            if (totalWeight > 0f)
+            {
+                finalPitch = weightedSum / totalWeight;
+            }
+            else
+            {
+                // 信頼度が低い場合は、重みのみで平均
+                weightedSum = 0f;
+                totalWeight = 0f;
+                foreach (var result in results)
+                {
+                    weightedSum += result.pitch * result.weight;
+                    totalWeight += result.weight;
+                }
+                if (totalWeight > 0f)
+                {
+                    finalPitch = weightedSum / totalWeight;
+                }
+            }
             
             if (enableDebugLog)
             {
-                bool inRange = (autocorrelationPitch >= minFrequency && autocorrelationPitch <= maxFrequency);
-                if (inRange)
+                string resultInfo = $"Multi-Algorithm Results: ";
+                foreach (var result in results)
                 {
-                    Debug.Log($"Pitch detected: {finalPitch:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz)");
+                    resultInfo += $"{result.algorithm}: {result.pitch:F1}Hz (conf:{result.confidence:F3}, weight:{result.weight:F2}) ";
                 }
-                else
-                {
-                    Debug.Log($"Pitch detected (out of calibration range): {finalPitch:F1} Hz (Calibration Range: {minFrequency}-{maxFrequency} Hz)");
-                }
+                resultInfo += $"Final: {finalPitch:F1}Hz";
+                Debug.Log(resultInfo);
             }
         }
         else
         {
             if (enableDebugLog)
             {
-                Debug.LogWarning("Autocorrelation returned 0 - no pitch detected");
+                Debug.LogWarning("All pitch detection algorithms returned 0 - no pitch detected");
             }
         }
         
-        // 5. フレーム履歴による安定化
+        // フレーム履歴による安定化
         if (useAdvancedFiltering && finalPitch > 0f)
         {
             finalPitch = StabilizeWithHistory(finalPitch);
         }
         
         return finalPitch;
+    }
+    
+    // ピッチ検出結果を保持する構造体
+    private struct PitchResult
+    {
+        public float pitch;
+        public float confidence;
+        public float weight;
+        public string algorithm;
     }
     
     float[] RemoveDCOffsetOnly(float[] samples)
@@ -275,9 +375,33 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             {
                 float frequency = (float)sampleRate / period;
                 
-                // 高周波数の相関値にペナルティを適用
-                float frequencyRatio = frequency / searchMaxFrequency; // 0.0 (50Hz) ～ 1.0 (2000Hz)
-                float weightedCorr = normalizedCorr * (1.0f - frequencyRatio * highFrequencyPenalty);
+                // 高周波数の相関値にペナルティを適用（周波数帯域ごとに調整）
+                float penaltyFactor = 0f;
+                if (frequency <= 300f)
+                {
+                    // 300Hz以下: 抑制なし（地声のハミングを保護）
+                    penaltyFactor = 0f;
+                }
+                else if (frequency <= 1000f)
+                {
+                    // 300-1000Hz: 軽い抑制（裏声のハミングを保護）
+                    float ratio = (frequency - 300f) / 700f; // 0.0 (300Hz) ～ 1.0 (1000Hz)
+                    penaltyFactor = highFrequencyPenalty * 0.3f * ratio;
+                }
+                else if (frequency <= 1500f)
+                {
+                    // 1000-1500Hz: 中程度の抑制
+                    float ratio = (frequency - 1000f) / 500f; // 0.0 (1000Hz) ～ 1.0 (1500Hz)
+                    penaltyFactor = highFrequencyPenalty * (0.3f + 0.4f * ratio); // 0.3 ～ 0.7
+                }
+                else
+                {
+                    // 1500Hz以上: 強い抑制（誤検出を防ぐ）
+                    float ratio = (frequency - 1500f) / 500f; // 0.0 (1500Hz) ～ 1.0 (2000Hz)
+                    penaltyFactor = highFrequencyPenalty * (0.7f + 0.3f * ratio); // 0.7 ～ 1.0
+                }
+                
+                float weightedCorr = normalizedCorr * (1.0f - penaltyFactor);
                 
                 peaks.Add(new PeakData
                 {
@@ -306,24 +430,63 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         // 最も高い重み付け相関値を持つピークを取得
         PeakData bestPeak = peaks[0];
         
-        // 周波数が低い順にソートして、最も低い周波数（基本周波数）を探す
-        peaks.Sort((a, b) => a.frequency.CompareTo(b.frequency));
+        // 各ピークにスコアを付与（元の相関値と重み付け相関値の両方を考慮）
+        float maxOriginalCorr = 0f;
+        float maxWeightedCorr = 0f;
+        foreach (var peak in peaks)
+        {
+            maxOriginalCorr = Mathf.Max(maxOriginalCorr, peak.normalizedCorrelation);
+            maxWeightedCorr = Mathf.Max(maxWeightedCorr, peak.weightedCorrelation);
+        }
         
-        // 重み付け相関値が十分高いピークの中で、最も低い周波数を選択
-        // ただし、最良の重み付け相関値の一定割合（例：70%）以上のピークのみを考慮
-        float correlationThreshold = bestPeak.weightedCorrelation * 0.7f;
-        float fundamentalFrequency = bestPeak.frequency;
+        PeakData? bestScoredPeak = null;
+        float bestScore = -1f;
         
         foreach (var peak in peaks)
         {
-            if (peak.weightedCorrelation >= correlationThreshold)
+            // スコア計算：元の相関値と重み付け相関値の両方を考慮
+            float originalScore = maxOriginalCorr > 0f ? peak.normalizedCorrelation / maxOriginalCorr : 0f;
+            float weightedScore = maxWeightedCorr > 0f ? peak.weightedCorrelation / maxWeightedCorr : 0f;
+            
+            // 低周波数（300Hz以下）にボーナスを付与（地声のハミングを保護）
+            float frequencyBonus = peak.frequency <= 300f ? 0.2f : 0f;
+            
+            // 総合スコア：元の相関値50%、重み付け相関値30%、周波数ボーナス20%
+            float totalScore = originalScore * 0.5f + weightedScore * 0.3f + frequencyBonus;
+            
+            if (totalScore > bestScore)
             {
-                // より低い周波数で、十分な相関値を持つピークが見つかった場合
-                if (peak.frequency < fundamentalFrequency)
-                {
-                    fundamentalFrequency = peak.frequency;
-                }
+                bestScore = totalScore;
+                bestScoredPeak = peak;
             }
+        }
+        
+        float fundamentalFrequency;
+        string selectionReason;
+        
+        if (bestScoredPeak != null)
+        {
+            fundamentalFrequency = bestScoredPeak.Value.frequency;
+            
+            // 元の相関値が高い（0.5以上）場合はそれを優先
+            if (bestScoredPeak.Value.normalizedCorrelation >= 0.5f)
+            {
+                selectionReason = $"High original correlation ({bestScoredPeak.Value.normalizedCorrelation:F3}) with score {bestScore:F3}";
+            }
+            else if (bestScoredPeak.Value.frequency <= 300f)
+            {
+                selectionReason = $"Low frequency peak ({bestScoredPeak.Value.frequency:F1} Hz) with score {bestScore:F3} (orig: {bestScoredPeak.Value.normalizedCorrelation:F3}, weighted: {bestScoredPeak.Value.weightedCorrelation:F3})";
+            }
+            else
+            {
+                selectionReason = $"Best scored peak ({bestScoredPeak.Value.frequency:F1} Hz) with score {bestScore:F3} (orig: {bestScoredPeak.Value.normalizedCorrelation:F3}, weighted: {bestScoredPeak.Value.weightedCorrelation:F3})";
+            }
+        }
+        else
+        {
+            // フォールバック：最も高い重み付け相関値を持つピーク
+            fundamentalFrequency = bestPeak.frequency;
+            selectionReason = $"Fallback to best weighted correlation ({bestPeak.frequency:F1} Hz)";
         }
         
         confidence = bestPeak.weightedCorrelation;
@@ -331,18 +494,240 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         if (enableDebugLog)
         {
             Debug.Log($"Autocorrelation - Found {peaks.Count} peaks. Best weighted correlation: {bestPeak.weightedCorrelation:F6} at {bestPeak.frequency:F1} Hz. Selected fundamental: {fundamentalFrequency:F1} Hz");
+            Debug.Log($"Selection reason: {selectionReason}");
             if (peaks.Count > 1)
             {
-                string peakInfo = "Peaks: ";
-                for (int i = 0; i < Mathf.Min(peaks.Count, 5); i++)
+                string peakInfo = "Top peaks: ";
+                // 重み付け相関値でソートし直して上位5つを表示
+                List<PeakData> sortedPeaks = new List<PeakData>(peaks);
+                sortedPeaks.Sort((a, b) => b.weightedCorrelation.CompareTo(a.weightedCorrelation));
+                for (int i = 0; i < Mathf.Min(sortedPeaks.Count, 5); i++)
                 {
-                    peakInfo += $"{peaks[i].frequency:F1}Hz({peaks[i].weightedCorrelation:F3}) ";
+                    var peak = sortedPeaks[i];
+                    float penalty = 0f;
+                    if (peak.frequency <= 300f) penalty = 0f;
+                    else if (peak.frequency <= 1000f) penalty = highFrequencyPenalty * 0.3f;
+                    else if (peak.frequency <= 1500f) penalty = highFrequencyPenalty * 0.7f;
+                    else penalty = highFrequencyPenalty;
+                    peakInfo += $"{peak.frequency:F1}Hz(orig:{peak.normalizedCorrelation:F3}, weighted:{peak.weightedCorrelation:F3}, penalty:{penalty:F3}) ";
                 }
                 Debug.Log(peakInfo);
             }
         }
         
         return fundamentalFrequency;
+    }
+    
+    float CalculatePitchYIN(float[] samples, out float confidence)
+    {
+        // YINアルゴリズムによる基本周波数検出
+        int sampleRate = voiceDetector.sampleRate;
+        
+        // 検索範囲: 50Hz ～ 2000Hz
+        const float searchMinFrequency = 50f;
+        const float searchMaxFrequency = 2000f;
+        int minPeriod = Mathf.FloorToInt((float)sampleRate / searchMaxFrequency);
+        int maxPeriod = Mathf.FloorToInt((float)sampleRate / searchMinFrequency);
+        
+        // 範囲チェック
+        if (minPeriod < 1) minPeriod = 1;
+        if (maxPeriod >= samples.Length / 2) maxPeriod = samples.Length / 2 - 1;
+        if (minPeriod >= maxPeriod)
+        {
+            confidence = 0f;
+            return 0f;
+        }
+        
+        // 差分関数を計算
+        float[] difference = new float[maxPeriod + 1];
+        
+        for (int period = minPeriod; period <= maxPeriod; period++)
+        {
+            float sum = 0f;
+            for (int j = 0; j < samples.Length - maxPeriod; j++)
+            {
+                float delta = samples[j] - samples[j + period];
+                sum += delta * delta;
+            }
+            difference[period] = sum;
+        }
+        
+        // 累積平均正規化差分関数（CMNDF）を計算
+        float[] cmndf = new float[maxPeriod + 1];
+        cmndf[0] = 1f; // period=0は使用しない
+        
+        for (int period = minPeriod; period <= maxPeriod; period++)
+        {
+            // 累積和を計算（period=1からperiodまで）
+            float cumulativeSum = 0f;
+            for (int j = 1; j <= period; j++)
+            {
+                cumulativeSum += difference[j];
+            }
+            
+            if (cumulativeSum > 0f && period > 0)
+            {
+                cmndf[period] = difference[period] * period / cumulativeSum;
+            }
+            else
+            {
+                cmndf[period] = 1f;
+            }
+        }
+        
+        // 閾値を超える最初の最小値を探す
+        float bestPeriod = 0f;
+        float bestValue = float.MaxValue;
+        
+        for (int period = minPeriod; period <= maxPeriod; period++)
+        {
+            if (cmndf[period] < yinThreshold)
+            {
+                // 局所的な最小値を探す（より正確な周期を求めるため）
+                if (period > minPeriod && period < maxPeriod)
+                {
+                    if (cmndf[period] < cmndf[period - 1] && cmndf[period] < cmndf[period + 1])
+                    {
+                        if (cmndf[period] < bestValue)
+                        {
+                            bestValue = cmndf[period];
+                            bestPeriod = period;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 閾値を超える値が見つからない場合、最小値を探す
+        if (bestPeriod == 0f)
+        {
+            for (int period = minPeriod; period <= maxPeriod; period++)
+            {
+                if (cmndf[period] < bestValue)
+                {
+                    bestValue = cmndf[period];
+                    bestPeriod = period;
+                }
+            }
+        }
+        
+        if (bestPeriod > 0f)
+        {
+            float frequency = (float)sampleRate / bestPeriod;
+            confidence = 1f - bestValue; // 値が小さいほど信頼度が高い
+            
+            if (enableDebugLog)
+            {
+                Debug.Log($"YIN Algorithm - Period: {bestPeriod:F1}, Frequency: {frequency:F1} Hz, Confidence: {confidence:F3}, CMNDF: {bestValue:F6}");
+            }
+            
+            return frequency;
+        }
+        
+        confidence = 0f;
+        if (enableDebugLog)
+        {
+            Debug.LogWarning("YIN Algorithm - No valid period found");
+        }
+        return 0f;
+    }
+    
+    float CalculatePitchCepstrum(float[] samples, out float confidence)
+    {
+        // ケプストラム法による基本周波数検出
+        int sampleRate = voiceDetector.sampleRate;
+        
+        // FFTのサイズを決定（2のべき乗）
+        int fftSize = 1;
+        while (fftSize < samples.Length)
+        {
+            fftSize *= 2;
+        }
+        
+        // FFTを実行（簡易実装：UnityのAudioSource.GetSpectrumDataを使用できないため、簡易FFTを実装）
+        // 注意: 完全なFFT実装は複雑なため、簡易版を使用
+        float[] spectrum = new float[fftSize];
+        
+        // 簡易FFT（実部のみ、高速化のため簡略化）
+        for (int k = 0; k < fftSize / 2; k++)
+        {
+            float real = 0f;
+            float imag = 0f;
+            
+            for (int n = 0; n < samples.Length && n < fftSize; n++)
+            {
+                float angle = 2f * Mathf.PI * k * n / fftSize;
+                real += samples[n] * Mathf.Cos(angle);
+                imag += samples[n] * Mathf.Sin(angle);
+            }
+            
+            spectrum[k] = Mathf.Sqrt(real * real + imag * imag);
+        }
+        
+        // 対数スペクトルを計算
+        float[] logSpectrum = new float[fftSize / 2];
+        for (int i = 0; i < fftSize / 2; i++)
+        {
+            logSpectrum[i] = Mathf.Log(spectrum[i] + 1e-10f); // ゼロ除算を防ぐ
+        }
+        
+        // 逆FFT（ケプストラム）を計算
+        float[] cepstrum = new float[fftSize / 2];
+        
+        // 検索範囲: 50Hz ～ 2000Hz に対応するケフレンシー範囲
+        int minQuefrency = Mathf.FloorToInt((float)sampleRate / 2000f); // 高周波数に対応
+        int maxQuefrency = Mathf.FloorToInt((float)sampleRate / 50f);   // 低周波数に対応
+        
+        if (minQuefrency < 1) minQuefrency = 1;
+        if (maxQuefrency >= fftSize / 2) maxQuefrency = fftSize / 2 - 1;
+        
+        for (int n = minQuefrency; n <= maxQuefrency && n < fftSize / 2; n++)
+        {
+            float real = 0f;
+            float imag = 0f;
+            
+            for (int k = 0; k < fftSize / 2; k++)
+            {
+                float angle = 2f * Mathf.PI * k * n / (fftSize / 2);
+                real += logSpectrum[k] * Mathf.Cos(angle);
+                imag += logSpectrum[k] * Mathf.Sin(angle);
+            }
+            
+            cepstrum[n] = Mathf.Sqrt(real * real + imag * imag);
+        }
+        
+        // ケプストラムのピークを探す（基本周波数に対応）
+        float maxCepstrum = 0f;
+        int bestQuefrency = 0;
+        
+        for (int n = minQuefrency; n <= maxQuefrency && n < fftSize / 2; n++)
+        {
+            if (cepstrum[n] > maxCepstrum)
+            {
+                maxCepstrum = cepstrum[n];
+                bestQuefrency = n;
+            }
+        }
+        
+        if (bestQuefrency > 0)
+        {
+            float frequency = (float)sampleRate / bestQuefrency;
+            confidence = maxCepstrum / (fftSize / 2); // 正規化された信頼度
+            
+            if (enableDebugLog)
+            {
+                Debug.Log($"Cepstrum Method - Quefrency: {bestQuefrency}, Frequency: {frequency:F1} Hz, Confidence: {confidence:F3}, Cepstrum: {maxCepstrum:F6}");
+            }
+            
+            return frequency;
+        }
+        
+        confidence = 0f;
+        if (enableDebugLog)
+        {
+            Debug.LogWarning("Cepstrum Method - No valid peak found");
+        }
+        return 0f;
     }
     
     // ピークデータを保持する構造体

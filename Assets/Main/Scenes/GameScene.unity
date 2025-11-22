@@ -3267,11 +3267,12 @@ MonoBehaviour:
   pitchSensitivity: 1
   minFrequency: 60
   maxFrequency: 2000
-  volumeThreshold: 0.1
+  volumeThreshold: 0.01
   smoothingFactor: 1
   autocorrelationThreshold: 0.1
   frameHistorySize: 5
   useAdvancedFiltering: 0
+  highFrequencyPenalty: 0.4
   leftPitch: 200
   centerPitch: 400
   rightPitch: 600
