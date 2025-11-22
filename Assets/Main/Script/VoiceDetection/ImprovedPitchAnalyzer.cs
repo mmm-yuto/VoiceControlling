@@ -14,6 +14,9 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     public float autocorrelationThreshold = 0.1f; // オートコリレーションの閾値（低いほど検出しやすい）
     public int frameHistorySize = 5; // フレーム履歴のサイズ
     public bool useAdvancedFiltering = true; // 高度なフィルタリングを使用
+    [Tooltip("高周波数の相関値に対する抑制係数（0.0-1.0、高いほど高周波数を抑制）")]
+    [Range(0f, 1f)]
+    public float highFrequencyPenalty = 0.4f; // 高周波数抑制係数
     
     [Header("Movement Pitch Settings")]
     public float leftPitch = 200f;    // 左移動用のピッチ
@@ -220,7 +223,7 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     
     float CalculatePitchAutocorrelation(float[] samples, out float confidence)
     {
-        // オートコリレーション法による基本周波数検出（FromGeneプロジェクトの実装を参考）
+        // オートコリレーション法による基本周波数検出（複数ピーク検出と高周波数抑制を追加）
         int sampleRate = voiceDetector.sampleRate;
         
         // 検索範囲を広げる（カリブレーション範囲に関係なく、実際のピッチを検出可能にする）
@@ -243,87 +246,113 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             return 0f;
         }
         
-        float maxCorrelation = 0f;
-        int bestPeriod = -1;
-        
-        // FromGeneの実装を完全に再現
-        // correlations配列は使用されないが、FromGeneと同じ構造を維持
-        // correlations[0]は常に0なので、normalizedCorr = corr / (0 || 1) = corr / 1 = corr
-        // つまり、正規化は行われず、相関値の合計をそのまま使用
-        
-        // 各周期でオートコリレーションを計算
-        for (int period = minPeriod; period < maxPeriod && period < samples.Length / 2; period++)
-        {
-            float correlation = 0f;
-            
-            // FromGeneと同じ：合計値を計算（平均を取らない）
-            for (int i = 0; i < samples.Length - period; i++)
-            {
-                correlation += samples[i] * samples[i + period];
-            }
-            
-            // FromGeneの実装：normalizedCorr = corr / (correlations[0] || 1)
-            // correlations[0]は0なので、実際には corr / 1 = corr（正規化なし）
-            float normalizedCorr = correlation; // 正規化しない
-            
-            if (normalizedCorr > maxCorrelation)
-            {
-                maxCorrelation = normalizedCorr;
-                bestPeriod = period;
-            }
-        }
-        
-        confidence = maxCorrelation;
-        
-        // FromGeneと同じ閾値チェック
-        // FromGeneでは0.9だが、正規化されていない相関値の合計に対する閾値
-        // 相関値の合計はサンプル数に依存するため、最大可能相関値で正規化して比較
+        // 最大可能相関値を計算（正規化用）
         float maxPossibleCorrelation = 0f;
         for (int i = 0; i < samples.Length; i++)
         {
             maxPossibleCorrelation += samples[i] * samples[i];
         }
         
-        // 正規化された相関値（0-1の範囲、FromGeneの0.9に相当）
-        float normalizedMaxCorrelation = maxPossibleCorrelation > 0f ? maxCorrelation / maxPossibleCorrelation : 0f;
+        // 複数ピークを検出するためのリスト
+        List<PeakData> peaks = new List<PeakData>();
+        
+        // 各周期でオートコリレーションを計算
+        for (int period = minPeriod; period < maxPeriod && period < samples.Length / 2; period++)
+        {
+            float correlation = 0f;
+            
+            // 相関値を計算
+            for (int i = 0; i < samples.Length - period; i++)
+            {
+                correlation += samples[i] * samples[i + period];
+            }
+            
+            // 正規化された相関値を計算
+            float normalizedCorr = maxPossibleCorrelation > 0f ? correlation / maxPossibleCorrelation : 0f;
+            
+            // 閾値以上の相関値を持つ周期をピーク候補として記録
+            if (normalizedCorr > autocorrelationThreshold)
+            {
+                float frequency = (float)sampleRate / period;
+                
+                // 高周波数の相関値にペナルティを適用
+                float frequencyRatio = frequency / searchMaxFrequency; // 0.0 (50Hz) ～ 1.0 (2000Hz)
+                float weightedCorr = normalizedCorr * (1.0f - frequencyRatio * highFrequencyPenalty);
+                
+                peaks.Add(new PeakData
+                {
+                    period = period,
+                    frequency = frequency,
+                    rawCorrelation = correlation,
+                    normalizedCorrelation = normalizedCorr,
+                    weightedCorrelation = weightedCorr
+                });
+            }
+        }
+        
+        if (peaks.Count == 0)
+        {
+            confidence = 0f;
+            if (enableDebugLog)
+            {
+                Debug.LogWarning("Autocorrelation failed - No peaks found above threshold");
+            }
+            return 0f;
+        }
+        
+        // 重み付け後の相関値でソート（高い順）
+        peaks.Sort((a, b) => b.weightedCorrelation.CompareTo(a.weightedCorrelation));
+        
+        // 最も高い重み付け相関値を持つピークを取得
+        PeakData bestPeak = peaks[0];
+        
+        // 周波数が低い順にソートして、最も低い周波数（基本周波数）を探す
+        peaks.Sort((a, b) => a.frequency.CompareTo(b.frequency));
+        
+        // 重み付け相関値が十分高いピークの中で、最も低い周波数を選択
+        // ただし、最良の重み付け相関値の一定割合（例：70%）以上のピークのみを考慮
+        float correlationThreshold = bestPeak.weightedCorrelation * 0.7f;
+        float fundamentalFrequency = bestPeak.frequency;
+        
+        foreach (var peak in peaks)
+        {
+            if (peak.weightedCorrelation >= correlationThreshold)
+            {
+                // より低い周波数で、十分な相関値を持つピークが見つかった場合
+                if (peak.frequency < fundamentalFrequency)
+                {
+                    fundamentalFrequency = peak.frequency;
+                }
+            }
+        }
+        
+        confidence = bestPeak.weightedCorrelation;
         
         if (enableDebugLog)
         {
-            Debug.Log($"Autocorrelation - BestPeriod: {bestPeriod}, RawCorrelation: {maxCorrelation:F6}, NormalizedCorrelation: {normalizedMaxCorrelation:F6}, Threshold: {autocorrelationThreshold:F6}, ExpectedFreq: {(bestPeriod > 0 ? (float)sampleRate / bestPeriod : 0f):F1} Hz");
-        }
-        
-        // FromGeneの閾値0.9に相当（正規化後）
-        // autocorrelationThresholdを0.9に設定すると、FromGeneと同じ動作になる
-        float threshold = autocorrelationThreshold; // デフォルト0.1だが、0.9に近い値に調整可能
-        
-        if (bestPeriod > 1 && normalizedMaxCorrelation > threshold)
-        {
-            // 周波数計算：sampleRate / period（FromGeneと同じ）
-            float frequency = (float)sampleRate / bestPeriod;
-            
-            if (enableDebugLog)
+            Debug.Log($"Autocorrelation - Found {peaks.Count} peaks. Best weighted correlation: {bestPeak.weightedCorrelation:F6} at {bestPeak.frequency:F1} Hz. Selected fundamental: {fundamentalFrequency:F1} Hz");
+            if (peaks.Count > 1)
             {
-                Debug.Log($"Autocorrelation success - Period: {bestPeriod}, Frequency: {frequency:F1} Hz, Correlation: {maxCorrelation:F6}");
-            }
-            
-            return frequency;
-        }
-        else
-        {
-            if (enableDebugLog)
-            {
-                if (bestPeriod <= 1)
+                string peakInfo = "Peaks: ";
+                for (int i = 0; i < Mathf.Min(peaks.Count, 5); i++)
                 {
-                    Debug.LogWarning($"Autocorrelation failed - BestPeriod too small: {bestPeriod}");
+                    peakInfo += $"{peaks[i].frequency:F1}Hz({peaks[i].weightedCorrelation:F3}) ";
                 }
-                else
-                {
-                    Debug.LogWarning($"Autocorrelation failed - Correlation too low: {maxCorrelation:F6} <= {autocorrelationThreshold:F6}");
-                }
+                Debug.Log(peakInfo);
             }
         }
         
-        return 0f;
+        return fundamentalFrequency;
+    }
+    
+    // ピークデータを保持する構造体
+    private struct PeakData
+    {
+        public int period;
+        public float frequency;
+        public float rawCorrelation;
+        public float normalizedCorrelation;
+        public float weightedCorrelation;
     }
 
     
