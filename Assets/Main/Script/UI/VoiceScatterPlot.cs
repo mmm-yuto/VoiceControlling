@@ -191,7 +191,8 @@ public class VoiceScatterPlot : MonoBehaviour
 		float upExtent = Mathf.Max(0.0001f, maxPitch - zeroPitch);
 		if (matchSliderYAxis)
 		{
-			return Mathf.InverseLerp(minPitch, Mathf.Max(minPitch + 0.0001f, maxPitch), pitch);
+			// 範囲外のピッチはクランプして、minPitchの位置（0.0）またはmaxPitchの位置（1.0）にマッピング
+			return Mathf.Clamp01(Mathf.InverseLerp(minPitch, Mathf.Max(minPitch + 0.0001f, maxPitch), pitch));
 		}
 		if (pitch >= zeroPitch)
 		{

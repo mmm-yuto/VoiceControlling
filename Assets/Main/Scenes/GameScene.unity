@@ -2305,7 +2305,7 @@ MonoBehaviour:
   minPitch: 80
   maxPitch: 1000
   targetRectTransform: {fileID: 0}
-  matchSliderYAxis: 1
+  matchSliderYAxis: 0
   useLogarithmicVolumeScale: 0
   minVolumeLabel: {fileID: 1415715463}
   maxVolumeLabel: {fileID: 1459296704}
@@ -3268,7 +3268,7 @@ MonoBehaviour:
   minFrequency: 60
   maxFrequency: 2000
   volumeThreshold: 0.01
-  smoothingFactor: 0.1
+  smoothingFactor: 1
   autocorrelationThreshold: 0.1
   frameHistorySize: 5
   useAdvancedFiltering: 0
