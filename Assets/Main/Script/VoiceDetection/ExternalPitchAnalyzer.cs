@@ -191,8 +191,11 @@ public class ExternalPitchAnalyzer : MonoBehaviour
     
     float CalculatePitchAutocorrelation(float[] samples)
     {
-        int minPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / maxFrequency);
-        int maxPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / minFrequency);
+        // 検索範囲を広げる（カリブレーション範囲に関係なく、実際のピッチを検出可能にする）
+        const float searchMinFrequency = 50f;  // 検索範囲の最小周波数
+        const float searchMaxFrequency = 2000f; // 検索範囲の最大周波数
+        int minPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / searchMaxFrequency);
+        int maxPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / searchMinFrequency);
         
         float maxCorrelation = 0f;
         int bestPeriod = 0;
@@ -277,11 +280,8 @@ public class ExternalPitchAnalyzer : MonoBehaviour
             float weight1 = 0.7f;
             float weight2 = 0.3f;
             float combinedPitch = (autocorrelationPitch * weight1 + harmonicPitch * weight2) / (weight1 + weight2);
-            
-            if (combinedPitch >= minFrequency && combinedPitch <= maxFrequency)
-            {
-                return combinedPitch;
-            }
+            // 検出されたピッチをそのまま返す（範囲チェックは削除）
+            return combinedPitch;
         }
         else if (autocorrelationPitch > 0)
         {

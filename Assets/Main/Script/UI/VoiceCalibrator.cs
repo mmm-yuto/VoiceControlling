@@ -227,36 +227,39 @@ public class VoiceCalibrator : MonoBehaviour
                 break;
                 
             case CalibrationStep.Step2_LoudVoice:
-                // 大きな声の音量最大値を計算
+                // 大きな声の音量平均値を計算
                 if (step2VolumeSamples.Count > 0)
                 {
-                    maxVolume = CalculateMax(step2VolumeSamples);
+                    float avgVolume = CalculateAverage(step2VolumeSamples);
+                    maxVolume = avgVolume;
                     if (calibrationSettings != null)
                         maxVolume *= calibrationSettings.maxVolumeMargin;
+                    Debug.Log($"Step 2 Complete - Max Volume: {maxVolume:F3} (Average: {avgVolume:F3})");
                 }
-                Debug.Log($"Step 2 Complete - Max Volume: {maxVolume:F3}");
                 break;
                 
             case CalibrationStep.Step3_LowPitch:
-                // 低い声のピッチ最小値を計算
+                // 低い声のピッチ平均値を計算
                 if (step3PitchSamples.Count > 0)
                 {
-                    minPitch = CalculateMin(step3PitchSamples);
+                    float avgPitch = CalculateAverage(step3PitchSamples);
+                    minPitch = avgPitch;
                     if (calibrationSettings != null)
                         minPitch *= calibrationSettings.minPitchMargin;
+                    Debug.Log($"Step 3 Complete - Min Pitch: {minPitch:F1} Hz (Average: {avgPitch:F1} Hz)");
                 }
-                Debug.Log($"Step 3 Complete - Min Pitch: {minPitch:F1} Hz");
                 break;
                 
             case CalibrationStep.Step4_HighPitch:
-                // 高い声のピッチ最大値を計算
+                // 高い声のピッチ平均値を計算
                 if (step4PitchSamples.Count > 0)
                 {
-                    maxPitch = CalculateMax(step4PitchSamples);
+                    float avgPitch = CalculateAverage(step4PitchSamples);
+                    maxPitch = avgPitch;
                     if (calibrationSettings != null)
                         maxPitch *= calibrationSettings.maxPitchMargin;
+                    Debug.Log($"Step 4 Complete - Max Pitch: {maxPitch:F1} Hz (Average: {avgPitch:F1} Hz)");
                 }
-                Debug.Log($"Step 4 Complete - Max Pitch: {maxPitch:F1} Hz");
                 break;
         }
     }

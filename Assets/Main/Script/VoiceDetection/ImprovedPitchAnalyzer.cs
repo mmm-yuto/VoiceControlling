@@ -161,24 +161,23 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         float acConfidence;
         float autocorrelationPitch = CalculatePitchAutocorrelation(processedSamples, out acConfidence);
         
-        // 4. 周波数範囲のチェック
+        // 4. 検出されたピッチをそのまま返す（範囲チェックは削除）
+        // グラフ表示時に範囲外の値はクランプされるため、ここでは実際のピッチを返す
         float finalPitch = 0f;
         if (autocorrelationPitch > 0f)
         {
-            if (autocorrelationPitch >= minFrequency && autocorrelationPitch <= maxFrequency)
+            finalPitch = autocorrelationPitch;
+            
+            if (enableDebugLog)
             {
-                finalPitch = autocorrelationPitch;
-                
-                if (enableDebugLog)
+                bool inRange = (autocorrelationPitch >= minFrequency && autocorrelationPitch <= maxFrequency);
+                if (inRange)
                 {
-                    Debug.Log($"Pitch in range: {finalPitch:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz)");
+                    Debug.Log($"Pitch detected: {finalPitch:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz)");
                 }
-            }
-            else
-            {
-                if (enableDebugLog)
+                else
                 {
-                    Debug.LogWarning($"Pitch out of range: {autocorrelationPitch:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz)");
+                    Debug.Log($"Pitch detected (out of calibration range): {finalPitch:F1} Hz (Calibration Range: {minFrequency}-{maxFrequency} Hz)");
                 }
             }
         }
@@ -224,9 +223,12 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         // オートコリレーション法による基本周波数検出（FromGeneプロジェクトの実装を参考）
         int sampleRate = voiceDetector.sampleRate;
         
-        // 検索範囲を設定（FromGeneと同じ方法）
-        int minPeriod = Mathf.FloorToInt((float)sampleRate / maxFrequency); // 高周波数に対応する最小周期
-        int maxPeriod = Mathf.FloorToInt((float)sampleRate / minFrequency); // 低周波数に対応する最大周期
+        // 検索範囲を広げる（カリブレーション範囲に関係なく、実際のピッチを検出可能にする）
+        // 人間の声の範囲をカバー: 50Hz（低い男性の声）～ 2000Hz（高い女性の声）
+        const float searchMinFrequency = 50f;  // 検索範囲の最小周波数
+        const float searchMaxFrequency = 2000f; // 検索範囲の最大周波数
+        int minPeriod = Mathf.FloorToInt((float)sampleRate / searchMaxFrequency); // 高周波数に対応する最小周期
+        int maxPeriod = Mathf.FloorToInt((float)sampleRate / searchMinFrequency); // 低周波数に対応する最大周期
         
         // 範囲チェック
         if (minPeriod < 1) minPeriod = 1;

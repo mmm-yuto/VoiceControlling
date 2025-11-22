@@ -112,13 +112,9 @@ public class PitchAnalyzer : MonoBehaviour
         // 最も信頼性の高い値を選択
         float finalFrequency = frequency1;
         
-        // 範囲内の周波数のみ返す
-        if (finalFrequency >= minFrequency && finalFrequency <= maxFrequency)
-        {
-            return finalFrequency;
-        }
-        
-        return 0f;
+        // 検出された周波数をそのまま返す（範囲チェックは削除）
+        // グラフ表示時に範囲外の値はクランプされるため、ここでは実際のピッチを返す
+        return finalFrequency;
     }
     
     float EstimateFrequencyFromAmplitude(float[] samples)

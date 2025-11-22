@@ -106,14 +106,20 @@ public class FixedPitchAnalyzer : MonoBehaviour
         // 5. 結果の統合
         float finalPitch = CombinePitchResults(autocorrelationPitch, harmonicPitch);
         
-        // 6. 範囲チェック
-        if (finalPitch < minFrequency || finalPitch > maxFrequency)
+        // 6. 検出されたピッチをそのまま返す（範囲チェックは削除）
+        // グラフ表示時に範囲外の値はクランプされるため、ここでは実際のピッチを返す
+        if (finalPitch > 0f)
         {
-            Debug.Log($"Pitch out of range: {finalPitch:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz)");
-            return 0f;
+            bool inRange = (finalPitch >= minFrequency && finalPitch <= maxFrequency);
+            if (inRange)
+            {
+                Debug.Log($"AutoCorr: {autocorrelationPitch:F1} Hz, Harmonic: {harmonicPitch:F1} Hz, Final: {finalPitch:F1} Hz");
+            }
+            else
+            {
+                Debug.Log($"AutoCorr: {autocorrelationPitch:F1} Hz, Harmonic: {harmonicPitch:F1} Hz, Final: {finalPitch:F1} Hz (out of calibration range: {minFrequency}-{maxFrequency} Hz)");
+            }
         }
-        
-        Debug.Log($"AutoCorr: {autocorrelationPitch:F1} Hz, Harmonic: {harmonicPitch:F1} Hz, Final: {finalPitch:F1} Hz");
         
         return finalPitch;
     }
@@ -164,8 +170,11 @@ public class FixedPitchAnalyzer : MonoBehaviour
     float CalculatePitchAutocorrelationFixed(float[] samples)
     {
         // 修正されたオートコリレーション法
-        int minPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / maxFrequency);
-        int maxPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / minFrequency);
+        // 検索範囲を広げる（カリブレーション範囲に関係なく、実際のピッチを検出可能にする）
+        const float searchMinFrequency = 50f;  // 検索範囲の最小周波数
+        const float searchMaxFrequency = 2000f; // 検索範囲の最大周波数
+        int minPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / searchMaxFrequency);
+        int maxPeriod = Mathf.RoundToInt(voiceDetector.sampleRate / searchMinFrequency);
         
         // 範囲を制限
         minPeriod = Mathf.Max(minPeriod, 1);
@@ -200,12 +209,8 @@ public class FixedPitchAnalyzer : MonoBehaviour
         if (bestPeriod > 0 && maxCorrelation > autocorrelationThreshold)
         {
             float frequency = (float)voiceDetector.sampleRate / bestPeriod;
-            
-            // 周波数の妥当性をチェック
-            if (frequency >= minFrequency && frequency <= maxFrequency)
-            {
-                return frequency;
-            }
+            // 検出された周波数をそのまま返す（範囲チェックは削除）
+            return frequency;
         }
         
         return 0f;
@@ -221,13 +226,8 @@ public class FixedPitchAnalyzer : MonoBehaviour
         // ゼロクロッシング数から周波数を推定
         float frequency = (zeroCrossings * voiceDetector.sampleRate) / (2f * samples.Length);
         
-        // 周波数の妥当性をチェック
-        if (frequency >= minFrequency && frequency <= maxFrequency)
-        {
-            return frequency;
-        }
-        
-        return 0f;
+        // 検出された周波数をそのまま返す（範囲チェックは削除）
+        return frequency;
     }
     
     int CountZeroCrossings(float[] samples)
