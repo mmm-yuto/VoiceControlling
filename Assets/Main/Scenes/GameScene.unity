@@ -3265,18 +3265,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ImprovedPitchAnalyzer
   pitchSensitivity: 1
-  minFrequency: 60
+  minFrequency: 50
   maxFrequency: 1000
   volumeThreshold: 0.01
   smoothingFactor: 1
-  autocorrelationThreshold: 0.1
+  autocorrelationThreshold: 0.5
   frameHistorySize: 5
-  useAdvancedFiltering: 0
+  useAdvancedFiltering: 1
   minConfidence: 0.3
   intentionalVoiceMinDuration: 0.1
-  intentionalVoiceStabilityThreshold: 50
+  intentionalVoiceStabilityThreshold: 30
   intentionalVoiceVolumeStability: 0.8
-  adaptiveSmoothingEnabled: 0
+  adaptiveSmoothingEnabled: 1
   leftPitch: 200
   centerPitch: 400
   rightPitch: 600
