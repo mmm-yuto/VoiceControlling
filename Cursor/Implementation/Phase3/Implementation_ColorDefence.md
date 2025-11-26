@@ -63,8 +63,8 @@ public class ColorDefenseSettings : ScriptableObject
     [Range(50f, 300f)] 
     public float areaSize = 100f;
     
-    [Tooltip("領域の形状タイプ")]
-    public AreaShape areaShape = AreaShape.Circle;
+    [Tooltip("領域の形状設定（ScriptableObject）")]
+    public AreaShapeData areaShapeData;
     
     [Tooltip("新しい領域が出現する間隔（秒）")]
     [Range(1f, 10f)] 
@@ -178,11 +178,169 @@ public class DifficultyPhase
     }
 }
 
-public enum AreaShape
+// ============================================
+// 形状システム（変更しやすい設計）
+// ============================================
+
+/// <summary>
+/// 領域の形状を定義するインターフェース
+/// 新しい形状を追加する際は、このインターフェースを実装する
+/// </summary>
+public interface IAreaShape
 {
-    Circle,     // 円形
-    Square,     // 正方形
-    Rectangle   // 長方形
+    /// <summary>
+    /// 指定されたピクセルが領域内にあるかチェック
+    /// </summary>
+    bool IsPointInArea(Vector2 point, Vector2 center, float baseSize);
+    
+    /// <summary>
+    /// 領域内の総ピクセル数を計算（近似値）
+    /// </summary>
+    int CalculateAreaInPixels(float baseSize);
+    
+    /// <summary>
+    /// 領域のバウンディングボックスを取得（最適化用）
+    /// </summary>
+    Rect GetBoundingBox(Vector2 center, float baseSize);
+}
+
+/// <summary>
+/// 形状の設定データ（Inspectorで設定可能）
+/// </summary>
+public abstract class AreaShapeData : ScriptableObject
+{
+    public abstract IAreaShape CreateShape();
+    
+    [Header("Visual Settings")]
+    [Tooltip("視覚表現用のスプライト（オプション）")]
+    public Sprite shapeSprite;
+    
+    [Tooltip("形状の色")]
+    public Color shapeColor = Color.red;
+}
+
+// ============================================
+// 具体的な形状実装例
+// ============================================
+
+/// <summary>
+/// 円形の形状
+/// </summary>
+[CreateAssetMenu(fileName = "CircleShape", menuName = "Game/SinglePlayer/Area Shape/Circle")]
+public class CircleShapeData : AreaShapeData
+{
+    public override IAreaShape CreateShape()
+    {
+        return new CircleShape();
+    }
+}
+
+public class CircleShape : IAreaShape
+{
+    public bool IsPointInArea(Vector2 point, Vector2 center, float baseSize)
+    {
+        float radius = baseSize * 0.5f;
+        return Vector2.Distance(point, center) <= radius;
+    }
+    
+    public int CalculateAreaInPixels(float baseSize)
+    {
+        float radius = baseSize * 0.5f;
+        return Mathf.RoundToInt(Mathf.PI * radius * radius);
+    }
+    
+    public Rect GetBoundingBox(Vector2 center, float baseSize)
+    {
+        float radius = baseSize * 0.5f;
+        return new Rect(center.x - radius, center.y - radius, baseSize, baseSize);
+    }
+}
+
+/// <summary>
+/// 正方形の形状
+/// </summary>
+[CreateAssetMenu(fileName = "SquareShape", menuName = "Game/SinglePlayer/Area Shape/Square")]
+public class SquareShapeData : AreaShapeData
+{
+    public override IAreaShape CreateShape()
+    {
+        return new SquareShape();
+    }
+}
+
+public class SquareShape : IAreaShape
+{
+    public bool IsPointInArea(Vector2 point, Vector2 center, float baseSize)
+    {
+        float halfSize = baseSize * 0.5f;
+        return Mathf.Abs(point.x - center.x) <= halfSize &&
+               Mathf.Abs(point.y - center.y) <= halfSize;
+    }
+    
+    public int CalculateAreaInPixels(float baseSize)
+    {
+        return Mathf.RoundToInt(baseSize * baseSize);
+    }
+    
+    public Rect GetBoundingBox(Vector2 center, float baseSize)
+    {
+        float halfSize = baseSize * 0.5f;
+        return new Rect(center.x - halfSize, center.y - halfSize, baseSize, baseSize);
+    }
+}
+
+/// <summary>
+/// 長方形の形状
+/// </summary>
+[CreateAssetMenu(fileName = "RectangleShape", menuName = "Game/SinglePlayer/Area Shape/Rectangle")]
+public class RectangleShapeData : AreaShapeData
+{
+    [Header("Rectangle Settings")]
+    [Tooltip("幅の比率（baseSizeに対する）")]
+    [Range(0.5f, 2f)]
+    public float widthRatio = 1f;
+    
+    [Tooltip("高さの比率（baseSizeに対する）")]
+    [Range(0.5f, 2f)]
+    public float heightRatio = 1f;
+    
+    public override IAreaShape CreateShape()
+    {
+        return new RectangleShape(widthRatio, heightRatio);
+    }
+}
+
+public class RectangleShape : IAreaShape
+{
+    private float widthRatio;
+    private float heightRatio;
+    
+    public RectangleShape(float widthRatio, float heightRatio)
+    {
+        this.widthRatio = widthRatio;
+        this.heightRatio = heightRatio;
+    }
+    
+    public bool IsPointInArea(Vector2 point, Vector2 center, float baseSize)
+    {
+        float halfWidth = baseSize * widthRatio * 0.5f;
+        float halfHeight = baseSize * heightRatio * 0.5f;
+        return Mathf.Abs(point.x - center.x) <= halfWidth &&
+               Mathf.Abs(point.y - center.y) <= halfHeight;
+    }
+    
+    public int CalculateAreaInPixels(float baseSize)
+    {
+        return Mathf.RoundToInt(baseSize * widthRatio * baseSize * heightRatio);
+    }
+    
+    public Rect GetBoundingBox(Vector2 center, float baseSize)
+    {
+        float halfWidth = baseSize * widthRatio * 0.5f;
+        float halfHeight = baseSize * heightRatio * 0.5f;
+        return new Rect(center.x - halfWidth, center.y - halfHeight, 
+                       baseSize * widthRatio, baseSize * heightRatio);
+    }
 }
 ```
 
@@ -250,8 +408,8 @@ public class ColorChangeArea : MonoBehaviour
     private Vector2 centerPosition;
     private float changeProgress = 0f;      // 色変化の進行度（0.0～1.0）
     private float defendedProgress = 0f;   // プレイヤーが防いだ進行度（0.0～1.0）
-    private float areaRadius;
-    private AreaShape shape;
+    private float areaSize;
+    private IAreaShape shape;              // 形状判定ロジック（変更しやすい設計）
     private int totalPixelsInArea = 0;
     private bool isInitialized = false;
     
@@ -272,9 +430,20 @@ public class ColorChangeArea : MonoBehaviour
         this.centerPosition = position;
         
         // 領域サイズが指定されている場合はそれを使用、そうでなければ設定から取得
-        float size = areaSize > 0f ? areaSize : settings.areaSize;
-        this.areaRadius = size * 0.5f;
-        this.shape = settings.areaShape;
+        this.areaSize = areaSize > 0f ? areaSize : settings.areaSize;
+        
+        // 形状を初期化（変更しやすい設計）
+        if (settings.areaShapeData != null)
+        {
+            this.shape = settings.areaShapeData.CreateShape();
+        }
+        else
+        {
+            // デフォルトは円形
+            Debug.LogWarning("ColorChangeArea: areaShapeDataが設定されていません。デフォルトの円形を使用します。");
+            this.shape = new CircleShape();
+        }
+        
         this.changeProgress = 0f;
         this.defendedProgress = 0f;
         this.isInitialized = true;
@@ -348,17 +517,16 @@ public class ColorChangeArea : MonoBehaviour
     /// </summary>
     private void CalculateTotalPixels()
     {
-        PaintSettings paintSettings = null;
-        if (settings != null)
+        if (shape != null)
         {
-            // PaintCanvasから設定を取得する必要がある場合は、後で設定
-            // ここでは簡易計算
-            float area = shape == AreaShape.Circle 
-                ? Mathf.PI * areaRadius * areaRadius 
-                : areaRadius * areaRadius * 4f; // 正方形の場合
-            
-            // ピクセル密度を仮定（実際のPaintCanvasの解像度に応じて調整）
-            totalPixelsInArea = Mathf.RoundToInt(area);
+            // 形状クラスから総ピクセル数を取得（変更しやすい設計）
+            totalPixelsInArea = shape.CalculateAreaInPixels(areaSize);
+        }
+        else
+        {
+            // フォールバック: 円形として計算
+            float radius = areaSize * 0.5f;
+            totalPixelsInArea = Mathf.RoundToInt(Mathf.PI * radius * radius);
         }
     }
     
@@ -375,13 +543,19 @@ public class ColorChangeArea : MonoBehaviour
         
         // 画面座標をキャンバス座標に変換
         Vector2 canvasCenter = ScreenToCanvas(centerPosition, canvas);
-        float canvasRadius = ScreenToCanvasRadius(areaRadius, canvas);
+        float canvasSize = ScreenToCanvasSize(areaSize, canvas);
+        
+        // バウンディングボックスを取得して最適化（変更しやすい設計）
+        Rect boundingBox = shape != null 
+            ? shape.GetBoundingBox(canvasCenter, canvasSize)
+            : new Rect(canvasCenter.x - canvasSize * 0.5f, canvasCenter.y - canvasSize * 0.5f, 
+                      canvasSize, canvasSize);
         
         // 領域の範囲を計算
-        int minX = Mathf.Max(0, Mathf.RoundToInt(canvasCenter.x - canvasRadius));
-        int maxX = Mathf.Min(paintSettings.textureWidth - 1, Mathf.RoundToInt(canvasCenter.x + canvasRadius));
-        int minY = Mathf.Max(0, Mathf.RoundToInt(canvasCenter.y - canvasRadius));
-        int maxY = Mathf.Min(paintSettings.textureHeight - 1, Mathf.RoundToInt(canvasCenter.y + canvasRadius));
+        int minX = Mathf.Max(0, Mathf.RoundToInt(boundingBox.xMin));
+        int maxX = Mathf.Min(paintSettings.textureWidth - 1, Mathf.RoundToInt(boundingBox.xMax));
+        int minY = Mathf.Max(0, Mathf.RoundToInt(boundingBox.yMin));
+        int maxY = Mathf.Min(paintSettings.textureHeight - 1, Mathf.RoundToInt(boundingBox.yMax));
         
         // 領域内の各ピクセルをチェック
         for (int x = minX; x <= maxX; x++)
@@ -390,8 +564,8 @@ public class ColorChangeArea : MonoBehaviour
             {
                 Vector2 pixelPos = new Vector2(x, y);
                 
-                // 領域の形状に応じて判定
-                if (IsPixelInArea(pixelPos, canvasCenter, canvasRadius))
+                // 領域の形状に応じて判定（変更しやすい設計）
+                if (IsPixelInArea(pixelPos, canvasCenter, canvasSize))
                 {
                     // プレイヤーが塗っているかチェック（playerId > 0）
                     int playerId = canvas.GetPlayerIdAtCanvas(x, y);
@@ -421,39 +595,30 @@ public class ColorChangeArea : MonoBehaviour
     }
     
     /// <summary>
-    /// 画面座標の半径をキャンバス座標の半径に変換
+    /// 画面座標のサイズをキャンバス座標のサイズに変換
     /// </summary>
-    private float ScreenToCanvasRadius(float screenRadius, PaintCanvas canvas)
+    private float ScreenToCanvasSize(float screenSize, PaintCanvas canvas)
     {
         PaintSettings paintSettings = canvas.GetSettings();
         if (paintSettings == null) return 0f;
         
-        return (screenRadius / Screen.width) * paintSettings.textureWidth;
+        return (screenSize / Screen.width) * paintSettings.textureWidth;
     }
     
     /// <summary>
-    /// ピクセルが領域内にあるかチェック
+    /// ピクセルが領域内にあるかチェック（変更しやすい設計）
     /// </summary>
-    private bool IsPixelInArea(Vector2 pixelPos, Vector2 centerPos, float radius)
+    private bool IsPixelInArea(Vector2 pixelPos, Vector2 centerPos, float baseSize)
     {
-        switch (shape)
+        if (shape != null)
         {
-            case AreaShape.Circle:
-                float distance = Vector2.Distance(pixelPos, centerPos);
-                return distance <= radius;
-                
-            case AreaShape.Square:
-                return Mathf.Abs(pixelPos.x - centerPos.x) <= radius &&
-                       Mathf.Abs(pixelPos.y - centerPos.y) <= radius;
-                
-            case AreaShape.Rectangle:
-                // 長方形の場合（幅と高さを別々に設定可能にする場合は拡張）
-                return Mathf.Abs(pixelPos.x - centerPos.x) <= radius &&
-                       Mathf.Abs(pixelPos.y - centerPos.y) <= radius;
-                
-            default:
-                return false;
+            // 形状クラスに判定を委譲（変更しやすい設計）
+            return shape.IsPointInArea(pixelPos, centerPos, baseSize);
         }
+        
+        // フォールバック: 円形として判定
+        float radius = baseSize * 0.5f;
+        return Vector2.Distance(pixelPos, centerPos) <= radius;
     }
     
     /// <summary>
@@ -484,8 +649,8 @@ public class ColorChangeArea : MonoBehaviour
     public Vector2 CenterPosition => centerPosition;
     public float ChangeProgress => changeProgress;
     public float DefendedProgress => defendedProgress;
-    public float AreaRadius => areaRadius;
-    public AreaShape Shape => shape;
+    public float AreaSize => areaSize;
+    public IAreaShape Shape => shape;
 }
 ```
 
@@ -1334,6 +1499,109 @@ public class GameHUD : MonoBehaviour
 
 ---
 
+## 🔧 新しい形状の追加方法（変更しやすい設計）
+
+### ステップ1: 形状クラスの実装
+
+`IAreaShape`インターフェースを実装したクラスを作成します。
+
+**例: 星形の実装**
+
+```csharp
+public class StarShape : IAreaShape
+{
+    private int points; // 星の頂点数
+    private float innerRadiusRatio; // 内側の半径の比率
+    
+    public StarShape(int points = 5, float innerRadiusRatio = 0.5f)
+    {
+        this.points = points;
+        this.innerRadiusRatio = innerRadiusRatio;
+    }
+    
+    public bool IsPointInArea(Vector2 point, Vector2 center, float baseSize)
+    {
+        // 星形の判定ロジック
+        float outerRadius = baseSize * 0.5f;
+        float innerRadius = outerRadius * innerRadiusRatio;
+        
+        Vector2 dir = point - center;
+        float angle = Mathf.Atan2(dir.y, dir.x);
+        float distance = dir.magnitude;
+        
+        // 星形の境界を計算
+        float normalizedAngle = (angle + Mathf.PI) / (2f * Mathf.PI / points);
+        int segment = Mathf.FloorToInt(normalizedAngle) % points;
+        float segmentAngle = (normalizedAngle % 1f) * (2f * Mathf.PI / points);
+        
+        float radius = Mathf.Lerp(outerRadius, innerRadius, 
+            Mathf.Abs(segmentAngle - Mathf.PI / points) / (Mathf.PI / points));
+        
+        return distance <= radius;
+    }
+    
+    public int CalculateAreaInPixels(float baseSize)
+    {
+        // 星形の面積の近似値
+        float outerRadius = baseSize * 0.5f;
+        float innerRadius = outerRadius * innerRadiusRatio;
+        return Mathf.RoundToInt(Mathf.PI * outerRadius * outerRadius * 0.7f);
+    }
+    
+    public Rect GetBoundingBox(Vector2 center, float baseSize)
+    {
+        float radius = baseSize * 0.5f;
+        return new Rect(center.x - radius, center.y - radius, baseSize, baseSize);
+    }
+}
+```
+
+### ステップ2: ScriptableObjectクラスの作成
+
+`AreaShapeData`を継承したScriptableObjectクラスを作成します。
+
+```csharp
+[CreateAssetMenu(fileName = "StarShape", menuName = "Game/SinglePlayer/Area Shape/Star")]
+public class StarShapeData : AreaShapeData
+{
+    [Header("Star Settings")]
+    [Range(3, 12)]
+    [Tooltip("星の頂点数")]
+    public int points = 5;
+    
+    [Range(0.1f, 0.9f)]
+    [Tooltip("内側の半径の比率（外側の半径に対する）")]
+    public float innerRadiusRatio = 0.5f;
+    
+    public override IAreaShape CreateShape()
+    {
+        return new StarShape(points, innerRadiusRatio);
+    }
+}
+```
+
+### ステップ3: Unityでアセットを作成
+
+1. Unityメニューから`Game/SinglePlayer/Area Shape/Star`を選択
+2. アセットを保存（例: `StarShape_5Points.asset`）
+3. Inspectorで`points`や`innerRadiusRatio`を調整
+
+### ステップ4: ColorDefenseSettingsで使用
+
+1. `ColorDefenseSettings`アセットを開く
+2. `areaShapeData`フィールドに作成した形状アセットを設定
+3. これで完了！既存のコードを変更する必要はありません
+
+### メリット
+
+- ✅ **既存コードへの影響なし**: `ColorChangeArea`や`ColorDefenseMode`を変更する必要がない
+- ✅ **Inspectorで設定可能**: 形状のパラメータをInspectorで調整できる
+- ✅ **複数の形状を切り替え可能**: 異なる形状アセットを作成して、ゲーム中に切り替え可能
+- ✅ **テストが容易**: 各形状を個別にテストできる
+- ✅ **拡張性**: ポリゴン、スプライン、カスタム形状なども簡単に追加可能
+
+---
+
 ## 🧪 テスト項目
 
 ### 基本動作
@@ -1369,11 +1637,24 @@ public class GameHUD : MonoBehaviour
 
 ## 📝 Inspectorでの設定手順
 
-### 1. ColorDefenseSettingsアセットの作成
+### 1. 形状アセットの作成（変更しやすい設計）
+
+**既存の形状を使用する場合**:
+1. Unityメニューから`Game/SinglePlayer/Area Shape/Circle`（または`Square`、`Rectangle`）を選択
+2. アセットを保存（例: `CircleShape_Default.asset`）
+3. Inspectorで形状のパラメータを調整（長方形の場合は`widthRatio`、`heightRatio`など）
+
+**新しい形状を追加する場合**:
+1. 新しい形状クラス（`IAreaShape`を実装）とScriptableObjectクラス（`AreaShapeData`を継承）を作成
+2. Unityメニューから新しい形状アセットを作成
+3. Inspectorで形状のパラメータを調整
+
+### 2. ColorDefenseSettingsアセットの作成
 
 1. Unityメニューから`Game/SinglePlayer/Modes/Color Defense Settings`を選択
 2. アセットを保存（例: `ColorDefenseSettings_Default.asset`）
 3. Inspectorで各パラメータを調整
+4. **`areaShapeData`に作成した形状アセットを設定**（変更しやすい設計）
 
 ### 2. SinglePlayerGameModeSettingsアセットの設定
 
@@ -1387,6 +1668,452 @@ public class GameHUD : MonoBehaviour
 2. `SinglePlayerModeManager`の`settings`に`SinglePlayerGameModeSettings`アセットを設定
 3. `ColorDefenseMode`コンポーネントを追加し、`settings`に`ColorDefenseSettings`アセットを設定
 4. `ColorDefenseUI`コンポーネントを追加し、各UI要素を接続
+
+---
+
+## 🔥 将来の拡張: 「炎が広がる」設定への対応
+
+### 拡張の要件
+
+「炎が広がるのを声で場所を指定して水をかけることで防ぐ」という設定を後から追加するために、以下の拡張が必要です：
+
+1. **動作パターンの抽象化**: `IAreaBehavior`インターフェースを追加
+2. **防御方法の抽象化**: `IDefenseMethod`インターフェースを追加
+3. **視覚表現の抽象化**: `IVisualEffect`インターフェースを追加
+4. **領域サイズの動的変更**: `IAreaBehavior.GetCurrentSize()`で対応
+
+### 拡張設計の実装例
+
+#### 1. 動作パターンの抽象化
+
+```csharp
+/// <summary>
+/// 領域の動作パターンを定義するインターフェース
+/// 「色が変わる」「広がる」「縮む」「移動する」などの動作を抽象化
+/// </summary>
+public interface IAreaBehavior
+{
+    /// <summary>
+    /// 動作の進行度を更新
+    /// </summary>
+    void UpdateBehavior(float deltaTime, ColorChangeArea area, float defendedProgress);
+    
+    /// <summary>
+    /// 現在の動作の進行度（0.0～1.0）
+    /// </summary>
+    float Progress { get; }
+    
+    /// <summary>
+    /// 動作が完了したかどうか
+    /// </summary>
+    bool IsCompleted { get; }
+    
+    /// <summary>
+    /// 現在の領域サイズを取得（拡大・縮小に対応）
+    /// </summary>
+    float GetCurrentSize(float baseSize);
+}
+
+/// <summary>
+/// 色が変わる動作（現在の実装を抽象化）
+/// </summary>
+[CreateAssetMenu(fileName = "ColorChangeBehavior", menuName = "Game/SinglePlayer/Area Behavior/Color Change")]
+public class ColorChangeBehaviorData : ScriptableObject
+{
+    [Header("Color Change Settings")]
+    [Range(0.1f, 1f)]
+    public float colorChangeRate = 0.5f;
+    
+    [Range(0f, 1f)]
+    public float paintSlowdownEffect = 0.5f;
+    
+    public AnimationCurve changeProgressCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+    
+    public IAreaBehavior CreateBehavior()
+    {
+        return new ColorChangeBehavior(this);
+    }
+}
+
+public class ColorChangeBehavior : IAreaBehavior
+{
+    private ColorChangeBehaviorData data;
+    private float changeProgress = 0f;
+    
+    public float Progress => changeProgress;
+    public bool IsCompleted => changeProgress >= 1f;
+    
+    public ColorChangeBehavior(ColorChangeBehaviorData data)
+    {
+        this.data = data;
+    }
+    
+    public float GetCurrentSize(float baseSize)
+    {
+        return baseSize; // サイズは固定
+    }
+    
+    public void UpdateBehavior(float deltaTime, ColorChangeArea area, float defendedProgress)
+    {
+        float effectiveChangeRate = data.colorChangeRate;
+        if (defendedProgress > 0f)
+        {
+            effectiveChangeRate *= (1f - defendedProgress * data.paintSlowdownEffect);
+        }
+        
+        float curveValue = data.changeProgressCurve.Evaluate(changeProgress);
+        changeProgress += effectiveChangeRate * deltaTime * curveValue;
+        changeProgress = Mathf.Clamp01(changeProgress);
+    }
+}
+
+/// <summary>
+/// 炎が広がる動作（新しい実装）
+/// </summary>
+[CreateAssetMenu(fileName = "FireSpreadBehavior", menuName = "Game/SinglePlayer/Area Behavior/Fire Spread")]
+public class FireSpreadBehaviorData : ScriptableObject
+{
+    [Header("Fire Spread Settings")]
+    [Range(0.1f, 2f)]
+    [Tooltip("炎が広がる速度")]
+    public float spreadRate = 0.5f;
+    
+    [Range(1.5f, 5f)]
+    [Tooltip("最大サイズ倍率（初期サイズの何倍まで広がるか）")]
+    public float maxSizeMultiplier = 3f;
+    
+    [Range(0f, 1f)]
+    [Tooltip("防御による広がりの減速効果")]
+    public float defenseSlowdownEffect = 0.5f;
+    
+    public AnimationCurve spreadCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+    
+    public IAreaBehavior CreateBehavior()
+    {
+        return new FireSpreadBehavior(this);
+    }
+}
+
+public class FireSpreadBehavior : IAreaBehavior
+{
+    private FireSpreadBehaviorData data;
+    private float spreadProgress = 0f;
+    
+    public float Progress => spreadProgress;
+    public bool IsCompleted => spreadProgress >= 1f;
+    
+    public FireSpreadBehavior(FireSpreadBehaviorData data)
+    {
+        this.data = data;
+    }
+    
+    public float GetCurrentSize(float baseSize)
+    {
+        // 進行度に応じてサイズが拡大
+        float curveValue = data.spreadCurve.Evaluate(spreadProgress);
+        return baseSize * (1f + curveValue * (data.maxSizeMultiplier - 1f));
+    }
+    
+    public void UpdateBehavior(float deltaTime, ColorChangeArea area, float defendedProgress)
+    {
+        // 防御されている場合は広がりを遅らせる
+        float effectiveSpreadRate = data.spreadRate * (1f - defendedProgress * data.defenseSlowdownEffect);
+        spreadProgress += effectiveSpreadRate * deltaTime;
+        spreadProgress = Mathf.Clamp01(spreadProgress);
+    }
+}
+```
+
+#### 2. 防御方法の抽象化
+
+```csharp
+/// <summary>
+/// 防御方法を定義するインターフェース
+/// 「色を塗る」「水をかける」などの防御方法を抽象化
+/// </summary>
+public interface IDefenseMethod
+{
+    /// <summary>
+    /// 指定位置で防御が行われているかチェック
+    /// </summary>
+    bool IsDefendedAt(Vector2 position, PaintCanvas canvas);
+    
+    /// <summary>
+    /// 防御に必要な色（水の場合は青など）
+    /// </summary>
+    Color RequiredColor { get; }
+    
+    /// <summary>
+    /// 防御の効果（0.0～1.0）
+    /// </summary>
+    float DefenseEffectiveness { get; }
+}
+
+/// <summary>
+/// 色を塗る防御方法（現在の実装を抽象化）
+/// </summary>
+[CreateAssetMenu(fileName = "PaintDefenseMethod", menuName = "Game/SinglePlayer/Defense Method/Paint")]
+public class PaintDefenseMethodData : ScriptableObject
+{
+    public IDefenseMethod CreateMethod()
+    {
+        return new PaintDefenseMethod();
+    }
+}
+
+public class PaintDefenseMethod : IDefenseMethod
+{
+    public Color RequiredColor => Color.white; // 任意の色でOK
+    public float DefenseEffectiveness => 1f;
+    
+    public bool IsDefendedAt(Vector2 position, PaintCanvas canvas)
+    {
+        int playerId = canvas.GetPlayerIdAtCanvas(
+            Mathf.RoundToInt(position.x), 
+            Mathf.RoundToInt(position.y)
+        );
+        return playerId > 0;
+    }
+}
+
+/// <summary>
+/// 水をかける防御方法（新しい実装）
+/// </summary>
+[CreateAssetMenu(fileName = "WaterDefenseMethod", menuName = "Game/SinglePlayer/Defense Method/Water")]
+public class WaterDefenseMethodData : ScriptableObject
+{
+    [Header("Water Defense Settings")]
+    [Tooltip("水の色（HSVで判定）")]
+    public Color waterColor = Color.cyan;
+    
+    [Range(0.1f, 1f)]
+    [Tooltip("色の許容範囲（HSVのH値）")]
+    public float colorTolerance = 0.1f;
+    
+    [Range(0.3f, 1f)]
+    [Tooltip("最小彩度（S値）")]
+    public float minSaturation = 0.3f;
+    
+    [Range(0.3f, 1f)]
+    [Tooltip("最小明度（V値）")]
+    public float minValue = 0.3f;
+    
+    [Range(1f, 3f)]
+    [Tooltip("防御の効果倍率（水は炎に対して効果的）")]
+    public float effectivenessMultiplier = 1.5f;
+    
+    public IDefenseMethod CreateMethod()
+    {
+        return new WaterDefenseMethod(this);
+    }
+}
+
+public class WaterDefenseMethod : IDefenseMethod
+{
+    private WaterDefenseMethodData data;
+    
+    public Color RequiredColor => data.waterColor;
+    public float DefenseEffectiveness => data.effectivenessMultiplier;
+    
+    public WaterDefenseMethod(WaterDefenseMethodData data)
+    {
+        this.data = data;
+    }
+    
+    public bool IsDefendedAt(Vector2 position, PaintCanvas canvas)
+    {
+        Color paintedColor = canvas.GetColorAtCanvas(
+            Mathf.RoundToInt(position.x), 
+            Mathf.RoundToInt(position.y)
+        );
+        
+        // HSVで色を判定
+        float h, s, v;
+        float targetH, targetS, targetV;
+        Color.RGBToHSV(paintedColor, out h, out s, out v);
+        Color.RGBToHSV(data.waterColor, out targetH, out targetS, out targetV);
+        
+        // 青系の色かチェック
+        bool isWaterColor = Mathf.Abs(h - targetH) <= data.colorTolerance &&
+                            s >= data.minSaturation &&
+                            v >= data.minValue;
+        
+        return isWaterColor;
+    }
+}
+```
+
+#### 3. 視覚表現の抽象化
+
+```csharp
+/// <summary>
+/// 視覚表現を定義するインターフェース
+/// 「色変化」「炎」「水」などの視覚表現を抽象化
+/// </summary>
+public interface IVisualEffect
+{
+    /// <summary>
+    /// 視覚表現を更新
+    /// </summary>
+    void UpdateVisual(ColorChangeArea area, float progress, float defendedProgress);
+    
+    /// <summary>
+    /// 視覚表現を初期化
+    /// </summary>
+    void Initialize(GameObject targetObject);
+}
+
+/// <summary>
+/// 色変化の視覚表現（現在の実装を抽象化）
+/// </summary>
+[CreateAssetMenu(fileName = "ColorChangeVisual", menuName = "Game/SinglePlayer/Visual Effect/Color Change")]
+public class ColorChangeVisualData : ScriptableObject
+{
+    [Header("Color Settings")]
+    public Color warningColor = Color.yellow;
+    public Color dangerColor = Color.red;
+    public Color safeColor = Color.green;
+    
+    public IVisualEffect CreateEffect()
+    {
+        return new ColorChangeVisual(this);
+    }
+}
+
+public class ColorChangeVisual : IVisualEffect
+{
+    private ColorChangeVisualData data;
+    private Image image;
+    
+    public ColorChangeVisual(ColorChangeVisualData data)
+    {
+        this.data = data;
+    }
+    
+    public void Initialize(GameObject targetObject)
+    {
+        image = targetObject.GetComponent<Image>();
+    }
+    
+    public void UpdateVisual(ColorChangeArea area, float progress, float defendedProgress)
+    {
+        if (image != null)
+        {
+            Color currentColor;
+            if (defendedProgress > 0.5f)
+            {
+                currentColor = Color.Lerp(data.warningColor, data.safeColor, defendedProgress);
+            }
+            else
+            {
+                currentColor = Color.Lerp(data.warningColor, data.dangerColor, progress);
+            }
+            image.color = currentColor;
+        }
+    }
+}
+
+/// <summary>
+/// 炎の視覚表現（新しい実装）
+/// </summary>
+[CreateAssetMenu(fileName = "FireVisual", menuName = "Game/SinglePlayer/Visual Effect/Fire")]
+public class FireVisualData : ScriptableObject
+{
+    [Header("Fire Visual Settings")]
+    public GameObject fireParticlePrefab;
+    public Sprite fireSprite;
+    public Color fireColor = new Color(1f, 0.5f, 0f);
+    
+    [Range(0.5f, 2f)]
+    public float particleSizeMultiplier = 1f;
+    
+    public IVisualEffect CreateEffect()
+    {
+        return new FireVisual(this);
+    }
+}
+
+public class FireVisual : IVisualEffect
+{
+    private FireVisualData data;
+    private ParticleSystem fireParticles;
+    private SpriteRenderer fireSprite;
+    
+    public FireVisual(FireVisualData data)
+    {
+        this.data = data;
+    }
+    
+    public void Initialize(GameObject targetObject)
+    {
+        // パーティクルシステムを追加
+        if (data.fireParticlePrefab != null)
+        {
+            GameObject particles = Instantiate(data.fireParticlePrefab, targetObject.transform);
+            fireParticles = particles.GetComponent<ParticleSystem>();
+        }
+        
+        // スプライトレンダラーを追加
+        fireSprite = targetObject.GetComponent<SpriteRenderer>();
+        if (fireSprite == null)
+        {
+            fireSprite = targetObject.AddComponent<SpriteRenderer>();
+        }
+        fireSprite.sprite = data.fireSprite;
+    }
+    
+    public void UpdateVisual(ColorChangeArea area, float progress, float defendedProgress)
+    {
+        // 炎のパーティクルエフェクトを更新
+        if (fireParticles != null)
+        {
+            var main = fireParticles.main;
+            float currentSize = area.AreaSize * (1f + progress * 0.5f);
+            main.startSize = currentSize * data.particleSizeMultiplier;
+            main.startLifetime = 1f - defendedProgress * 0.5f;
+        }
+        
+        // 炎のスプライトを更新
+        if (fireSprite != null)
+        {
+            Color fireColor = data.fireColor;
+            fireColor.a = 1f - defendedProgress * 0.5f;
+            fireSprite.color = fireColor;
+            fireSprite.transform.localScale = Vector3.one * (1f + progress * 0.3f);
+        }
+    }
+}
+```
+
+### 拡張後の`ColorDefenseSettings`の構造
+
+```csharp
+public class ColorDefenseSettings : ScriptableObject
+{
+    // 既存の設定...
+    
+    [Header("Behavior Settings")]
+    [Tooltip("領域の動作パターン（色変化、炎の広がりなど）")]
+    public AreaBehaviorData areaBehaviorData;
+    
+    [Header("Defense Settings")]
+    [Tooltip("防御方法（色を塗る、水をかけるなど）")]
+    public DefenseMethodData defenseMethodData;
+    
+    [Header("Visual Settings")]
+    [Tooltip("視覚表現（色変化、炎など）")]
+    public VisualEffectData visualEffectData;
+    
+    // 既存の設定はそのまま...
+}
+```
+
+### 拡張のメリット
+
+- ✅ **既存コードへの影響なし**: 新しい動作パターンや防御方法を追加しても、既存のコードを変更する必要がない
+- ✅ **組み合わせ可能**: 異なる動作パターンと防御方法を組み合わせ可能（例: 炎が広がる + 水をかける）
+- ✅ **Inspectorで設定可能**: ScriptableObjectで動作パターンや防御方法を設定可能
+- ✅ **テストが容易**: 各動作パターンや防御方法を個別にテスト可能
 
 ---
 
