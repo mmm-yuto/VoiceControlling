@@ -12,19 +12,27 @@ using System.Collections.Generic;
 public class ColorDefenseSettings : ScriptableObject
 {
     [Header("Color Change Properties")]
-    [Tooltip("色が変わる速度（倍率）")]
-    [Range(0.1f, 5f)] 
-    public float colorChangeSpeed = 1f;
+    [Tooltip("塗り終わるまでの時間（秒）")]
+    [Range(1f, 60f)] 
+    public float timeToComplete = 10f;
     
-    [Tooltip("1秒あたりの色変化率（0.0～1.0）")]
-    [Range(0.1f, 1f)] 
-    public float colorChangeRate = 0.5f;
+    [Tooltip("色変化のアニメーションカーブを使用するか（falseの場合は時間ベースで均等に進行）")]
+    public bool useProgressCurve = false;
+    
+    [Tooltip("色変化のアニメーションカーブ（useProgressCurveがtrueの場合のみ使用）")]
+    public AnimationCurve changeProgressCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
     
     [Tooltip("変化する色（敵の色）")]
     public Color targetColor = Color.red;
     
-    [Tooltip("色変化のアニメーションカーブ（時間経過による変化率）")]
-    public AnimationCurve changeProgressCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+    [Header("Legacy Settings (後方互換性のため残しています)")]
+    [Tooltip("1秒あたりの色変化率（timeToCompleteが優先されます）")]
+    [Range(0.1f, 1f)] 
+    public float colorChangeRate = 0.5f;
+    
+    [Tooltip("色が変わる速度（倍率）（timeToCompleteが優先されます）")]
+    [Range(0.1f, 5f)] 
+    public float colorChangeSpeed = 1f;
     
     [Header("Area Properties")]
     [Tooltip("画面上に同時に存在できる領域の最大数")]
@@ -127,11 +135,16 @@ public class DifficultyPhase
     public int maxAreasOnScreen = 5;
     
     [Header("Color Change Settings")]
-    [Tooltip("このフェーズでの色変化速度（倍率）")]
+    [Tooltip("このフェーズでの塗り終わるまでの時間（秒、0の場合はデフォルト値を使用）")]
+    [Range(0f, 60f)]
+    public float timeToComplete = 0f; // 0の場合はデフォルト値を使用
+    
+    [Header("Legacy Settings (後方互換性のため残しています)")]
+    [Tooltip("このフェーズでの色変化速度（倍率）（timeToCompleteが優先されます）")]
     [Range(0.1f, 5f)]
     public float colorChangeSpeed = 1f;
     
-    [Tooltip("このフェーズでの1秒あたりの色変化率")]
+    [Tooltip("このフェーズでの1秒あたりの色変化率（timeToCompleteが優先されます）")]
     [Range(0.1f, 1f)]
     public float colorChangeRate = 0.5f;
     

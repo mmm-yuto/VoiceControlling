@@ -3011,7 +3011,7 @@ MonoBehaviour:
   markerColor: {r: 0, g: 0, b: 0, a: 1}
   markerSize: 50
   markerRectTransform: {fileID: 0}
-  showEnemyMarker: 1
+  showEnemyMarker: 0
   enemyMarkerColor: {r: 1, g: 0, b: 0, a: 1}
   enemyMarkerSize: 50
   enemyMarkerRectTransform: {fileID: 0}
@@ -5608,7 +5608,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98bb142ca17274241a8a6f210e110cba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VoiceDebugSimulator
-  enableDebugMode: 0
+  enableDebugMode: 1
   scatterPlot: {fileID: 0}
   maxVolume: 1
   minPitch: 80

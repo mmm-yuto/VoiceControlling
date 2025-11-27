@@ -12,9 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 194f7e435d3fe00408669a6469b28847, type: 3}
   m_Name: ColorDefenseSettings
   m_EditorClassIdentifier: Assembly-CSharp::ColorDefenseSettings
-  colorChangeSpeed: 1
-  colorChangeRate: 0.5
-  targetColor: {r: 1, g: 0, b: 0, a: 1}
+  timeToComplete: 10
+  useProgressCurve: 0
   changeProgressCurve:
     serializedVersion: 2
     m_Curve:
@@ -39,16 +38,19 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  targetColor: {r: 0, g: 0.060248375, b: 1, a: 1}
+  colorChangeRate: 0.5
+  colorChangeSpeed: 5
   maxAreasOnScreen: 20
   areaSize: 100
-  areaShapeData: {fileID: 11400000, guid: c7f0dafe55f3cbf4bb488d7f72d4238f, type: 2}
-  spawnInterval: 3
+  areaShapeData: {fileID: 0}
+  spawnInterval: 10
   spawnAwayFromPlayer: 0.3
   defenseThreshold: 0.9
-  fullDefenseThreshold: 0.95
+  fullDefenseThreshold: 0.7
   paintSlowdownEffect: 0.5
   scorePerDefendedArea: 50
-  penaltyPerChangedArea: -20
+  penaltyPerChangedArea: 0
   partialDefenseScoreMultiplier: 10
   comboBonusPerDefense: 5
   scalingMode: 0

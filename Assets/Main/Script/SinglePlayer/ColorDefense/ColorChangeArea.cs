@@ -14,6 +14,10 @@ public class ColorChangeArea : MonoBehaviour
     private IAreaShape shape;              // 形状判定ロジック（変更しやすい設計）
     private int totalPixelsInArea = 0;
     private bool isInitialized = false;
+    private float elapsedTime = 0f;         // 経過時間（秒）
+    private float effectiveTimeToComplete = 10f; // 有効な塗り終わるまでの時間（防御による減速を考慮）
+    private PaintCanvas subscribedCanvas = null; // 購読しているPaintCanvas
+    private bool isAutoPaintCancelled = false; // 自動塗りがキャンセルされたか
     
     // イベント
     public event System.Action<ColorChangeArea> OnFullyChanged;
@@ -48,6 +52,9 @@ public class ColorChangeArea : MonoBehaviour
         
         this.changeProgress = 0f;
         this.defendedProgress = 0f;
+        this.elapsedTime = 0f;
+        this.effectiveTimeToComplete = settings.timeToComplete;
+        this.isAutoPaintCancelled = false; // フラグをリセット
         this.isInitialized = true;
         
         // 領域内の総ピクセル数を計算
@@ -62,51 +69,68 @@ public class ColorChangeArea : MonoBehaviour
     /// </summary>
     /// <param name="deltaTime">経過時間</param>
     /// <param name="canvas">ペイントキャンバス</param>
-    /// <param name="effectiveColorChangeRate">有効な色変化速度（フェーズから取得した値、nullの場合は設定から取得）</param>
-    public void UpdateArea(float deltaTime, PaintCanvas canvas, float? effectiveColorChangeRate = null)
+    /// <param name="effectiveTimeToComplete">有効な塗り終わるまでの時間（フェーズから取得した値、0の場合は設定から取得）</param>
+    public void UpdateArea(float deltaTime, PaintCanvas canvas, float effectiveTimeToComplete = 0f)
     {
         if (!isInitialized || settings == null) return;
+        
+        // 自動塗りがキャンセルされている場合は、敵の色を塗らない
+        if (isAutoPaintCancelled)
+        {
+            // プレイヤーが塗った領域をチェック（スコア判定のため）
+            CheckPlayerPaint(canvas);
+            
+            // 完全に防げたかチェック（念のため）
+            if (IsFullyDefended())
+            {
+                Debug.Log($"[ColorChangeArea] UpdateArea - 自動塗りキャンセル中に完全に防げました: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}");
+                OnFullyDefended?.Invoke(this);
+            }
+            return; // 自動塗りを停止
+        }
         
         // プレイヤーが塗った領域をチェック
         CheckPlayerPaint(canvas);
         
-        // 色変化の進行
-        // フェーズから取得した色変化速度を使用、そうでなければ設定から取得
-        float baseChangeRate = effectiveColorChangeRate ?? settings.colorChangeRate;
-        float effectiveChangeRate = baseChangeRate;
+        // 有効な塗り終わるまでの時間を取得（フェーズから指定されていない場合は設定から取得）
+        float baseTimeToComplete = effectiveTimeToComplete > 0f ? effectiveTimeToComplete : settings.timeToComplete;
+        float currentTimeToComplete = baseTimeToComplete;
         
-        Debug.Log($"[ColorChangeArea] UpdateArea - 初期値: baseChangeRate={baseChangeRate:F4}, effectiveColorChangeRate={effectiveColorChangeRate}, settings.colorChangeRate={settings.colorChangeRate:F4}");
-        
-        // プレイヤーが塗った分だけ色変化を遅らせる
+        // プレイヤーが塗った分だけ色変化を遅らせる（elapsedTimeの増加を遅らせる）
         if (defendedProgress > 0f)
         {
-            float slowdownFactor = (1f - defendedProgress * settings.paintSlowdownEffect);
-            effectiveChangeRate *= slowdownFactor;
-            Debug.Log($"[ColorChangeArea] UpdateArea - 防御による減速: defendedProgress={defendedProgress:F4}, slowdownFactor={slowdownFactor:F4}, effectiveChangeRate={effectiveChangeRate:F4}");
+            float slowdownFactor = Mathf.Max(0.1f, 1f - defendedProgress * settings.paintSlowdownEffect); // 最小値を0.1に設定して完全停止を防ぐ
+            // elapsedTimeの増加を遅らせる
+            elapsedTime += deltaTime * slowdownFactor;
         }
-        
-        // アニメーションカーブを適用
-        float curveValue = settings.changeProgressCurve.Evaluate(changeProgress);
-        
-        // カーブが0の場合、デフォルトで1.0を使用（カーブが設定されていない場合のフォールバック）
-        if (curveValue <= 0f && changeProgress < 0.01f)
+        else
         {
-            Debug.LogWarning($"[ColorChangeArea] UpdateArea - アニメーションカーブが0を返しています。デフォルト値1.0を使用します。changeProgress={changeProgress:F4}");
-            curveValue = 1f;
+            elapsedTime += deltaTime;
         }
         
-        float previousProgress = changeProgress; // 前回の進行度を保存
-        float progressIncrement = effectiveChangeRate * deltaTime * curveValue;
-        changeProgress += progressIncrement;
-        changeProgress = Mathf.Clamp01(changeProgress);
+        // 時間ベースで進行度を計算
+        float previousProgress = changeProgress;
         
-        Debug.Log($"[ColorChangeArea] UpdateArea - 進行度計算: deltaTime={deltaTime:F4}, curveValue={curveValue:F4}, progressIncrement={progressIncrement:F4}, 前回={previousProgress:F4}, 現在={changeProgress:F4}");
+        if (settings.useProgressCurve)
+        {
+            // アニメーションカーブを使用する場合
+            float normalizedTime = Mathf.Clamp01(elapsedTime / currentTimeToComplete);
+            changeProgress = settings.changeProgressCurve.Evaluate(normalizedTime);
+        }
+        else
+        {
+            // 時間ベースで均等に進行
+            changeProgress = Mathf.Clamp01(elapsedTime / currentTimeToComplete);
+        }
         
-        // 敵の色を自動的に塗る処理
-        if (canvas != null && changeProgress > previousProgress)
+        Debug.Log($"[ColorChangeArea] UpdateArea - 進行度計算: elapsedTime={elapsedTime:F4}, currentTimeToComplete={currentTimeToComplete:F4}, パラメータeffectiveTimeToComplete={effectiveTimeToComplete:F4}, settings.timeToComplete={settings.timeToComplete:F4}, 前回={previousProgress:F4}, 現在={changeProgress:F4}, defendedProgress={defendedProgress:F4}");
+        
+        // 敵の色を自動的に塗る処理（自動塗りがキャンセルされていない場合のみ）
+        if (canvas != null && changeProgress > previousProgress && !isAutoPaintCancelled)
         {
             float progressDelta = changeProgress - previousProgress;
-            Debug.Log($"[ColorChangeArea] 進行度更新 - 前回: {previousProgress:F4}, 現在: {changeProgress:F4}, 差分: {progressDelta:F4}, 変化速度: {effectiveChangeRate:F4}");
+            float progressRate = 1.0f / effectiveTimeToComplete; // 1秒あたりの進行率
+            Debug.Log($"[ColorChangeArea] 進行度更新 - 前回: {previousProgress:F4}, 現在: {changeProgress:F4}, 差分: {progressDelta:F4}, 残り時間: {effectiveTimeToComplete - elapsedTime:F2}秒");
             PaintEnemyColor(canvas, previousProgress, changeProgress);
         }
         else if (canvas == null)
@@ -127,10 +151,13 @@ public class ColorChangeArea : MonoBehaviour
             OnFullyChanged?.Invoke(this);
         }
         
-        // 完全に防げたかチェック
-        if (IsFullyDefended())
+        // 完全に防げたかチェック（UpdateArea内でもチェック）
+        if (IsFullyDefended() && !isAutoPaintCancelled)
         {
+            isAutoPaintCancelled = true; // 自動塗りを停止
+            Debug.Log($"[ColorChangeArea] UpdateArea - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}, changeProgress={changeProgress:F4}");
             OnFullyDefended?.Invoke(this);
+            Debug.Log($"[ColorChangeArea] UpdateArea - OnFullyDefendedイベント発火完了");
         }
     }
     
@@ -142,25 +169,71 @@ public class ColorChangeArea : MonoBehaviour
         if (canvas == null) return;
         
         int paintedPixels = GetPaintedPixelsInArea(canvas);
+        float previousDefendedProgress = defendedProgress;
         defendedProgress = (float)paintedPixels / totalPixelsInArea;
         defendedProgress = Mathf.Clamp01(defendedProgress);
+        
+        // デバッグログ（変化があった場合のみ）
+        if (Mathf.Abs(defendedProgress - previousDefendedProgress) > 0.001f)
+        {
+            Debug.Log($"[ColorChangeArea] CheckPlayerPaint - 更新: paintedPixels={paintedPixels}, totalPixelsInArea={totalPixelsInArea}, defendedProgress={defendedProgress:F4} (前回={previousDefendedProgress:F4})");
+        }
     }
     
     /// <summary>
     /// 領域内の総ピクセル数を計算
     /// </summary>
-    private void CalculateTotalPixels()
+    private void CalculateTotalPixels(PaintCanvas canvas = null)
     {
+        // PaintCanvasが利用可能な場合は、実際のピクセル数をカウント
+        if (canvas != null)
+        {
+            PaintSettings paintSettings = canvas.GetSettings();
+            if (paintSettings != null)
+            {
+                // キャンバス座標系で実際のピクセル数をカウント
+                Vector2 canvasCenter = ScreenToCanvas(centerPosition, canvas);
+                float canvasSize = ScreenToCanvasSize(areaSize, canvas);
+                
+                Rect boundingBox = shape != null 
+                    ? shape.GetBoundingBox(canvasCenter, canvasSize)
+                    : new Rect(canvasCenter.x - canvasSize * 0.5f, canvasCenter.y - canvasSize * 0.5f, 
+                              canvasSize, canvasSize);
+                
+                int minX = Mathf.Max(0, Mathf.RoundToInt(boundingBox.xMin));
+                int maxX = Mathf.Min(paintSettings.textureWidth - 1, Mathf.RoundToInt(boundingBox.xMax));
+                int minY = Mathf.Max(0, Mathf.RoundToInt(boundingBox.yMin));
+                int maxY = Mathf.Min(paintSettings.textureHeight - 1, Mathf.RoundToInt(boundingBox.yMax));
+                
+                totalPixelsInArea = 0;
+                for (int x = minX; x <= maxX; x++)
+                {
+                    for (int y = minY; y <= maxY; y++)
+                    {
+                        Vector2 pixelPos = new Vector2(x, y);
+                        if (IsPixelInArea(pixelPos, canvasCenter, canvasSize))
+                        {
+                            totalPixelsInArea++;
+                        }
+                    }
+                }
+                
+                Debug.Log($"[ColorChangeArea] CalculateTotalPixels - 実際のピクセル数をカウント: totalPixelsInArea={totalPixelsInArea}, キャンバス座標系でのサイズ={canvasSize:F2}");
+                return;
+            }
+        }
+        
+        // フォールバック: 理論値を使用（PaintCanvasが利用できない場合）
         if (shape != null)
         {
-            // 形状クラスから総ピクセル数を取得（変更しやすい設計）
             totalPixelsInArea = shape.CalculateAreaInPixels(areaSize);
+            Debug.Log($"[ColorChangeArea] CalculateTotalPixels - 理論値を使用: totalPixelsInArea={totalPixelsInArea}, areaSize={areaSize:F2}");
         }
         else
         {
-            // フォールバック: 円形として計算
             float radius = areaSize * 0.5f;
             totalPixelsInArea = Mathf.RoundToInt(Mathf.PI * radius * radius);
+            Debug.Log($"[ColorChangeArea] CalculateTotalPixels - 理論値を使用（円形）: totalPixelsInArea={totalPixelsInArea}, areaSize={areaSize:F2}");
         }
     }
     
@@ -400,6 +473,87 @@ public class ColorChangeArea : MonoBehaviour
         float screenY = (canvasPos.y / paintSettings.textureHeight) * Screen.height;
         
         return new Vector2(screenX, screenY);
+    }
+    
+    /// <summary>
+    /// PaintCanvasのイベントを購読
+    /// </summary>
+    public void SubscribeToPaintCanvas(PaintCanvas canvas)
+    {
+        // 既存の購読を解除
+        if (subscribedCanvas != null)
+        {
+            subscribedCanvas.OnPaintCompleted -= OnPaintCanvasCompleted;
+            Debug.Log($"[ColorChangeArea] SubscribeToPaintCanvas - 既存の購読を解除: {subscribedCanvas.name}");
+        }
+        
+        subscribedCanvas = canvas;
+        if (canvas != null)
+        {
+            canvas.OnPaintCompleted += OnPaintCanvasCompleted;
+            
+            // PaintCanvasが利用可能になったので、実際のピクセル数を再計算
+            CalculateTotalPixels(canvas);
+            
+            Debug.Log($"[ColorChangeArea] SubscribeToPaintCanvas - イベント購読完了: {canvas.name}, 領域中心={centerPosition}, サイズ={areaSize}, totalPixelsInArea={totalPixelsInArea}");
+        }
+        else
+        {
+            Debug.LogWarning("[ColorChangeArea] SubscribeToPaintCanvas - canvasがnullです");
+        }
+    }
+    
+    /// <summary>
+    /// PaintCanvasの塗り完了イベントハンドラー
+    /// </summary>
+    private void OnPaintCanvasCompleted(Vector2 screenPosition, int playerId, float intensity)
+    {
+        // プレイヤーが塗った場合のみ処理
+        if (playerId > 0 && subscribedCanvas != null)
+        {
+            Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - イベント受信: 画面座標({screenPosition.x:F1}, {screenPosition.y:F1}), playerId={playerId}, intensity={intensity:F4}");
+            
+            // 領域外チェックを削除（PaintAtWithRadiusは半径で塗るため、中心が領域外でも領域内のピクセルが塗られる可能性がある）
+            // 常にCheckPlayerPaintを呼んで、実際に塗られたピクセル数を確認する
+            
+            // 更新前のdefendedProgressを保存
+            float previousDefendedProgress = defendedProgress;
+            
+            // 即座にdefendedProgressを更新
+            CheckPlayerPaint(subscribedCanvas);
+            
+            Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - defendedProgress更新: 前回={previousDefendedProgress:F4}, 現在={defendedProgress:F4}, fullDefenseThreshold={settings.fullDefenseThreshold:F4}, IsFullyDefended={IsFullyDefended()}");
+            
+            // 完全に防げた場合、自動塗りをキャンセル
+            if (IsFullyDefended())
+            {
+                isAutoPaintCancelled = true; // 自動塗りを停止
+                Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}, changeProgress={changeProgress:F4}");
+                OnFullyDefended?.Invoke(this);
+                Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - OnFullyDefendedイベント発火完了");
+            }
+        }
+        else
+        {
+            if (playerId <= 0)
+            {
+                Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - スキップ: playerId={playerId} (プレイヤーではない)");
+            }
+            if (subscribedCanvas == null)
+            {
+                Debug.LogWarning($"[ColorChangeArea] OnPaintCanvasCompleted - スキップ: subscribedCanvasがnull");
+            }
+        }
+    }
+    
+    void OnDestroy()
+    {
+        // イベント購読を解除
+        if (subscribedCanvas != null)
+        {
+            subscribedCanvas.OnPaintCompleted -= OnPaintCanvasCompleted;
+            subscribedCanvas = null;
+        }
     }
     
     // プロパティ

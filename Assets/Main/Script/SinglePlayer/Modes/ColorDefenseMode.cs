@@ -115,11 +115,11 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         {
             ColorChangeArea area = activeAreas[i];
             
-            // 色変化速度を取得（TimeBasedモードの場合はフェーズから）
-            float effectiveColorChangeRate = GetEffectiveColorChangeRate(currentPhase);
+            // 塗り終わるまでの時間を取得（TimeBasedモードの場合はフェーズから）
+            float effectiveTimeToComplete = GetEffectiveTimeToComplete(currentPhase);
             
-            // 領域の更新（色変化速度を渡す）
-            area.UpdateArea(deltaTime, paintCanvas, effectiveColorChangeRate);
+            // 領域の更新（塗り終わるまでの時間を渡す）
+            area.UpdateArea(deltaTime, paintCanvas, effectiveTimeToComplete);
             
             // 完全に変色した場合
             if (area.IsFullyChanged())
@@ -158,6 +158,12 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         }
         
         area.Initialize(settings, spawnPosition, areaSize);
+        
+        // PaintCanvasのイベントを購読（プレイヤーが塗った直後にdefendedProgressを更新）
+        if (paintCanvas != null)
+        {
+            area.SubscribeToPaintCanvas(paintCanvas);
+        }
         
         // イベント購読
         area.OnFullyChanged += HandleAreaChanged;
@@ -240,6 +246,8 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     /// </summary>
     private void HandleAreaDefended(ColorChangeArea area)
     {
+        Debug.Log($"[ColorDefenseMode] HandleAreaDefended - 呼び出されました: defendedProgress={area.DefendedProgress:F4}, fullDefenseThreshold={settings.fullDefenseThreshold:F4}");
+        
         // スコア計算
         int baseScore = settings.scorePerDefendedArea;
         
@@ -256,6 +264,7 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         currentCombo++;
         int comboBonus = currentCombo * settings.comboBonusPerDefense;
         
+        int previousScore = currentScore;
         currentScore += baseScore + comboBonus;
         
         // イベント発火
@@ -263,7 +272,7 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         OnScoreUpdated?.Invoke(currentScore);
         OnComboUpdated?.Invoke(currentCombo);
         
-        Debug.Log($"ColorDefenseMode: 領域を防衛 - スコア: {currentScore}, コンボ: {currentCombo}");
+        Debug.Log($"[ColorDefenseMode] HandleAreaDefended - スコア加算: 前回={previousScore}, 加算={baseScore + comboBonus} (基本={baseScore}, コンボ={comboBonus}), 現在={currentScore}, コンボ={currentCombo}");
     }
     
     /// <summary>
@@ -351,7 +360,27 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     }
     
     /// <summary>
-    /// 有効な色変化速度を取得
+    /// 有効な塗り終わるまでの時間を取得
+    /// </summary>
+    private float GetEffectiveTimeToComplete(DifficultyPhase phase)
+    {
+        if (settings == null) return 10f; // デフォルト値
+        
+        if (settings.scalingMode == DifficultyScalingMode.TimeBased && phase != null)
+        {
+            // フェーズでtimeToCompleteが指定されている場合はそれを使用
+            if (phase.timeToComplete > 0f)
+            {
+                return phase.timeToComplete;
+            }
+        }
+        
+        // デフォルト値を使用
+        return settings.timeToComplete;
+    }
+    
+    /// <summary>
+    /// 有効な色変化速度を取得（後方互換性のため残しています）
     /// </summary>
     private float GetEffectiveColorChangeRate(DifficultyPhase phase)
     {
