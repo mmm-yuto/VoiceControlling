@@ -112,14 +112,36 @@
 
 #### 2.4 ColorChangeAreaRendererの設定（オプション）
 
-1. 空のGameObjectを作成（名前: `ColorChangeAreaRenderer`）
-2. `ColorChangeAreaRenderer`コンポーネントを追加
-3. Inspectorで設定:
-   - **`Area Indicator Prefab`**: 領域表示用のプレハブ（Imageコンポーネントを持つGameObject）
-   - **`Warning Color`**: 警告色（デフォルト: 黄色）
-   - **`Danger Color`**: 危険色（デフォルト: 赤）
-   - **`Safe Color`**: 安全色（デフォルト: 緑）
-4. `ColorDefenseMode`の`Area Renderer`フィールドに設定
+**目的**: `ColorChangeAreaRenderer`は、色変化領域を視覚的に表示するためのコンポーネントです。プレイヤーがどこに色変化領域があるかを視覚的に示します。
+
+**動作**:
+- 領域が出現すると、その位置に視覚インジケーターを表示
+- 領域の進行度に応じて色が変化（黄色 → 赤：危険度が上がる、黄色 → 緑：防御されている）
+- 領域が完全に変色または防衛されると、インジケーターを自動削除
+
+**設定手順**:
+
+1. **Area Indicator Prefabの作成**:
+   - Canvas内に空のGameObjectを作成（名前: `AreaIndicator`）
+   - `Image`コンポーネントを追加
+   - Imageの設定:
+     - **`Source Image`**: 円形や四角形のスプライト（またはデフォルトの白い四角形）
+     - **`Color`**: 初期色（後で自動的に変更されるため、任意の色でOK）
+     - **`Raycast Target`**: オフ（パフォーマンス向上のため）
+   - サイズを設定（例: 100x100ピクセル、領域のサイズに合わせて調整）
+   - このGameObjectをプレハブとして保存（例: `AreaIndicator.prefab`）
+
+2. **ColorChangeAreaRendererの設定**:
+   - 空のGameObjectを作成（名前: `ColorChangeAreaRenderer`）
+   - `ColorChangeAreaRenderer`コンポーネントを追加
+   - Inspectorで設定:
+     - **`Area Indicator Prefab`**: Step 1で作成したプレハブを設定
+     - **`Warning Color`**: 警告色（デフォルト: 黄色）- 領域が出現した時の色
+     - **`Danger Color`**: 危険色（デフォルト: 赤）- 領域が完全に変色した時の色
+     - **`Safe Color`**: 安全色（デフォルト: 緑）- 領域が防衛されている時の色
+   - `ColorDefenseMode`の`Area Renderer`フィールドに設定
+
+**注意**: このコンポーネントは**オプション**です。設定しなくてもゲームは動作しますが、プレイヤーは色変化領域の位置を視覚的に確認できません。プレイヤーの塗りが領域の上に表示されるため、UIレイヤーでの表示は補助的な役割です。
 
 ---
 

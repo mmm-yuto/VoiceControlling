@@ -15,4 +15,4 @@ MonoBehaviour:
   selectedMode: 1
   gameDuration: 180
   difficultyLevel: 1
-  colorDefenseSettings: {fileID: 0}
+  colorDefenseSettings: {fileID: 11400000, guid: 7dab3799686961f449dbb8339f20b386, type: 2}

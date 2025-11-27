@@ -20,18 +20,18 @@ MonoBehaviour:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1.0003052
       inSlope: 0
-      outSlope: 1
+      outSlope: 0
       tangentMode: 0
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
       time: 1
-      value: 1
+      value: 1.9995728
       inSlope: 1
-      outSlope: 0
+      outSlope: 1
       tangentMode: 0
       weightedMode: 0
       inWeight: 0
@@ -39,9 +39,9 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  maxAreasOnScreen: 5
+  maxAreasOnScreen: 20
   areaSize: 100
-  areaShapeData: {fileID: 0}
+  areaShapeData: {fileID: 11400000, guid: c7f0dafe55f3cbf4bb488d7f72d4238f, type: 2}
   spawnInterval: 3
   spawnAwayFromPlayer: 0.3
   defenseThreshold: 0.9

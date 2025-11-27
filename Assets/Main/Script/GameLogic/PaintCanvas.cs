@@ -102,6 +102,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
         if (effectiveIntensity < settings.minVolumeThreshold)
         {
+            if (playerId == -1) // 敵の色の場合のみデバッグログ
+            {
+                Debug.LogWarning($"[PaintCanvas] PaintAt - 強度が閾値以下でスキップ: effectiveIntensity={effectiveIntensity:F4}, minVolumeThreshold={settings.minVolumeThreshold:F4}, playerId={playerId}");
+            }
             return;
         }
         
@@ -109,6 +113,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         paintData[canvasX, canvasY] = playerId;
         colorData[canvasX, canvasY] = color;
         intensityData[canvasX, canvasY] = effectiveIntensity;
+        
+        if (playerId == -1) // 敵の色の場合のみデバッグログ
+        {
+            Debug.Log($"[PaintCanvas] PaintAt - 敵の色を塗りました: キャンバス座標({canvasX}, {canvasY}), 画面座標({screenPosition.x:F1}, {screenPosition.y:F1}), 色: {color}, 強度: {effectiveIntensity:F4}");
+        }
         
         // テクスチャを更新
         UpdateTexturePixel(canvasX, canvasY, color);
