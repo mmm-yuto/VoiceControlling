@@ -109,7 +109,23 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             return;
         }
         
-        // 塗り処理（最初は単純に上書き、後から上塗り機能を追加）
+        // 塗り処理（優先順位ロジックを追加）
+        int existingPlayerId = paintData[canvasX, canvasY];
+        
+        // 敵の色を塗る場合、プレイヤーが既に塗っている領域は上塗りしない
+        if (playerId == -1 && existingPlayerId > 0)
+        {
+            // プレイヤーの色を上塗りしない（デバッグログ）
+            if (showDebugGizmos)
+            {
+                Debug.Log($"[PaintCanvas] PaintAt - 敵の色がプレイヤーの色でブロック: キャンバス座標({canvasX}, {canvasY}), 既存playerId={existingPlayerId}");
+            }
+            return;
+        }
+        
+        // プレイヤーの色を塗る場合、敵の色を上塗り可能
+        // （既存のロジックで上書きされるため、追加処理不要）
+        
         paintData[canvasX, canvasY] = playerId;
         colorData[canvasX, canvasY] = color;
         intensityData[canvasX, canvasY] = effectiveIntensity;
@@ -176,6 +192,15 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 float distance = Vector2.Distance(new Vector2(x, y), new Vector2(centerX, centerY));
                 if (distance <= radiusPixels)
                 {
+                    // 優先順位ロジックを追加
+                    int existingPlayerId = paintData[x, y];
+                    
+                    // 敵の色を塗る場合、プレイヤーが既に塗っている領域は上塗りしない
+                    if (playerId == -1 && existingPlayerId > 0)
+                    {
+                        continue; // このピクセルはスキップ
+                    }
+                    
                     // 塗り処理
                     paintData[x, y] = playerId;
                     colorData[x, y] = color;

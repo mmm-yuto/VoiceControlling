@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PaintSettings
   m_EditorClassIdentifier: Assembly-CSharp::PaintSettings
   paintIntensityMultiplier: 1
-  updateFrequency: 1
+  updateFrequency: 3
   textureWidth: 960
   textureHeight: 540
   stopPaintingOnSilence: 1

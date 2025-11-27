@@ -3011,6 +3011,16 @@ MonoBehaviour:
   markerColor: {r: 0, g: 0, b: 0, a: 1}
   markerSize: 50
   markerRectTransform: {fileID: 0}
+  showEnemyMarker: 1
+  enemyMarkerColor: {r: 1, g: 0, b: 0, a: 1}
+  enemyMarkerSize: 50
+  enemyMarkerRectTransform: {fileID: 0}
+  useEnemyEffect: 0
+  enemyParticleSystem: {fileID: 0}
+  enemyParticleColor: {r: 1, g: 0, b: 0, a: 1}
+  enemyParticleSize: 0.5
+  enemyParticleLifetime: 1
+  enemyParticleCount: 10
   paintCanvas: {fileID: 1098085713}
 --- !u!4 &612787507
 Transform:
