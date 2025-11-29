@@ -13,6 +13,12 @@ public class CalibrationPanel : MonoBehaviour
     [SerializeField] private Slider progressSlider;
     [SerializeField] private TextMeshProUGUI statusLabel;
     [SerializeField] private TextMeshProUGUI stepLabel;
+    
+    [Header("Individual Calibration Buttons")]
+    [SerializeField] private Button calibrateMinVolumeButton;
+    [SerializeField] private Button calibrateMaxVolumeButton;
+    [SerializeField] private Button calibrateMinPitchButton;
+    [SerializeField] private Button calibrateMaxPitchButton;
 
     [Header("Step Messages")]
     [TextArea(2, 4)]
@@ -86,6 +92,55 @@ public class CalibrationPanel : MonoBehaviour
                 if (voiceCalibrator != null)
                 {
                     voiceCalibrator.CancelCalibration();
+                }
+            });
+        }
+        
+        // 個別カリブレーションボタン
+        if (calibrateMinVolumeButton != null)
+        {
+            calibrateMinVolumeButton.onClick.RemoveAllListeners();
+            calibrateMinVolumeButton.onClick.AddListener(() =>
+            {
+                if (voiceCalibrator != null)
+                {
+                    voiceCalibrator.CalibrateMinVolume();
+                }
+            });
+        }
+        
+        if (calibrateMaxVolumeButton != null)
+        {
+            calibrateMaxVolumeButton.onClick.RemoveAllListeners();
+            calibrateMaxVolumeButton.onClick.AddListener(() =>
+            {
+                if (voiceCalibrator != null)
+                {
+                    voiceCalibrator.CalibrateMaxVolume();
+                }
+            });
+        }
+        
+        if (calibrateMinPitchButton != null)
+        {
+            calibrateMinPitchButton.onClick.RemoveAllListeners();
+            calibrateMinPitchButton.onClick.AddListener(() =>
+            {
+                if (voiceCalibrator != null)
+                {
+                    voiceCalibrator.CalibrateMinPitch();
+                }
+            });
+        }
+        
+        if (calibrateMaxPitchButton != null)
+        {
+            calibrateMaxPitchButton.onClick.RemoveAllListeners();
+            calibrateMaxPitchButton.onClick.AddListener(() =>
+            {
+                if (voiceCalibrator != null)
+                {
+                    voiceCalibrator.CalibrateMaxPitch();
                 }
             });
         }

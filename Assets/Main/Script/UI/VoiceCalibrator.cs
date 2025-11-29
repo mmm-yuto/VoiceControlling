@@ -59,6 +59,11 @@ public class VoiceCalibrator : MonoBehaviour
     private List<float> step3PitchSamples = new List<float>();  // 低い声のピッチ
     private List<float> step4PitchSamples = new List<float>();  // 高い声のピッチ
     
+    // 個別カリブレーション用のデータ
+    private List<float> individualCalibrationSamples = new List<float>();
+    private bool isIndividualCalibrating = false;
+    private System.Action<float> individualCalibrationCallback = null;
+    
     // カリブレーション結果
     private float minVolume = 0f;
     private float maxVolume = 1f;
@@ -414,5 +419,302 @@ public class VoiceCalibrator : MonoBehaviour
     void OnDestroy()
     {
         UnsubscribeFromEvents();
+    }
+    
+    // ========== 個別カリブレーションメソッド ==========
+    
+    /// <summary>
+    /// 音量最小値の個別カリブレーション
+    /// </summary>
+    public void CalibrateMinVolume()
+    {
+        if (isCalibrating || isIndividualCalibrating) return;
+        StartCoroutine(CalibrateMinVolumeCoroutine());
+    }
+    
+    /// <summary>
+    /// 音量最大値の個別カリブレーション
+    /// </summary>
+    public void CalibrateMaxVolume()
+    {
+        if (isCalibrating || isIndividualCalibrating) return;
+        StartCoroutine(CalibrateMaxVolumeCoroutine());
+    }
+    
+    /// <summary>
+    /// ピッチ最小値の個別カリブレーション
+    /// </summary>
+    public void CalibrateMinPitch()
+    {
+        if (isCalibrating || isIndividualCalibrating) return;
+        StartCoroutine(CalibrateMinPitchCoroutine());
+    }
+    
+    /// <summary>
+    /// ピッチ最大値の個別カリブレーション
+    /// </summary>
+    public void CalibrateMaxPitch()
+    {
+        if (isCalibrating || isIndividualCalibrating) return;
+        StartCoroutine(CalibrateMaxPitchCoroutine());
+    }
+    
+    private IEnumerator CalibrateMinVolumeCoroutine()
+    {
+        isIndividualCalibrating = true;
+        individualCalibrationSamples.Clear();
+        
+        float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
+        float startTime = Time.time;
+        
+        UpdateCalibrationStatus($"Calibrating minimum volume... Please remain silent for {duration:F1} seconds");
+        
+        // イベント購読
+        if (volumeAnalyzer != null)
+            volumeAnalyzer.OnVolumeDetected += OnIndividualVolumeDetected;
+        
+        // サンプル収集
+        while (Time.time - startTime < duration)
+        {
+            float progress = (Time.time - startTime) / duration;
+            if (calibrationProgressSlider != null)
+                calibrationProgressSlider.value = progress;
+            OnCalibrationProgressUpdated?.Invoke(progress);
+            yield return null;
+        }
+        
+        // イベント購読解除
+        if (volumeAnalyzer != null)
+            volumeAnalyzer.OnVolumeDetected -= OnIndividualVolumeDetected;
+        
+        // 平均値を計算
+        if (individualCalibrationSamples.Count > 0)
+        {
+            minVolume = CalculateAverage(individualCalibrationSamples);
+            if (calibrationSettings != null)
+                minVolume *= calibrationSettings.minVolumeMargin;
+            
+            // 静的プロパティを更新
+            MinVolume = minVolume;
+            CenterVolume = (minVolume + maxVolume) / 2f;
+            
+            // 結果を適用
+            ApplyCalibrationResults();
+            
+            // イベント通知
+            OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
+            
+            UpdateCalibrationStatus($"Minimum volume calibrated: {minVolume:F3}");
+            Debug.Log($"Individual calibration complete - Min Volume: {minVolume:F3}");
+        }
+        else
+        {
+            UpdateCalibrationStatus("Calibration failed: No samples collected");
+            Debug.LogWarning("CalibrateMinVolume: No samples collected");
+        }
+        
+        if (calibrationProgressSlider != null)
+            calibrationProgressSlider.value = 0f;
+        
+        isIndividualCalibrating = false;
+    }
+    
+    private IEnumerator CalibrateMaxVolumeCoroutine()
+    {
+        isIndividualCalibrating = true;
+        individualCalibrationSamples.Clear();
+        
+        float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
+        float startTime = Time.time;
+        
+        UpdateCalibrationStatus($"Calibrating maximum volume... Please speak loudly for {duration:F1} seconds");
+        
+        // イベント購読
+        if (volumeAnalyzer != null)
+            volumeAnalyzer.OnVolumeDetected += OnIndividualVolumeDetected;
+        
+        // サンプル収集
+        while (Time.time - startTime < duration)
+        {
+            float progress = (Time.time - startTime) / duration;
+            if (calibrationProgressSlider != null)
+                calibrationProgressSlider.value = progress;
+            OnCalibrationProgressUpdated?.Invoke(progress);
+            yield return null;
+        }
+        
+        // イベント購読解除
+        if (volumeAnalyzer != null)
+            volumeAnalyzer.OnVolumeDetected -= OnIndividualVolumeDetected;
+        
+        // 平均値を計算
+        if (individualCalibrationSamples.Count > 0)
+        {
+            float avgVolume = CalculateAverage(individualCalibrationSamples);
+            maxVolume = avgVolume;
+            if (calibrationSettings != null)
+                maxVolume *= calibrationSettings.maxVolumeMargin;
+            
+            // 静的プロパティを更新
+            MaxVolume = maxVolume;
+            CenterVolume = (minVolume + maxVolume) / 2f;
+            
+            // 結果を適用
+            ApplyCalibrationResults();
+            
+            // イベント通知
+            OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
+            
+            UpdateCalibrationStatus($"Maximum volume calibrated: {maxVolume:F3}");
+            Debug.Log($"Individual calibration complete - Max Volume: {maxVolume:F3}");
+        }
+        else
+        {
+            UpdateCalibrationStatus("Calibration failed: No samples collected");
+            Debug.LogWarning("CalibrateMaxVolume: No samples collected");
+        }
+        
+        if (calibrationProgressSlider != null)
+            calibrationProgressSlider.value = 0f;
+        
+        isIndividualCalibrating = false;
+    }
+    
+    private IEnumerator CalibrateMinPitchCoroutine()
+    {
+        isIndividualCalibrating = true;
+        individualCalibrationSamples.Clear();
+        
+        float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
+        float startTime = Time.time;
+        
+        UpdateCalibrationStatus($"Calibrating minimum pitch... Please speak in a low voice for {duration:F1} seconds");
+        
+        // イベント購読
+        if (improvedPitchAnalyzer != null)
+            improvedPitchAnalyzer.OnPitchDetected += OnIndividualPitchDetected;
+        
+        // サンプル収集
+        while (Time.time - startTime < duration)
+        {
+            float progress = (Time.time - startTime) / duration;
+            if (calibrationProgressSlider != null)
+                calibrationProgressSlider.value = progress;
+            OnCalibrationProgressUpdated?.Invoke(progress);
+            yield return null;
+        }
+        
+        // イベント購読解除
+        if (improvedPitchAnalyzer != null)
+            improvedPitchAnalyzer.OnPitchDetected -= OnIndividualPitchDetected;
+        
+        // 平均値を計算
+        if (individualCalibrationSamples.Count > 0)
+        {
+            float avgPitch = CalculateAverage(individualCalibrationSamples);
+            minPitch = avgPitch;
+            if (calibrationSettings != null)
+                minPitch *= calibrationSettings.minPitchMargin;
+            
+            // 静的プロパティを更新
+            MinPitch = minPitch;
+            CenterPitch = (minPitch + maxPitch) / 2f;
+            
+            // 結果を適用
+            ApplyCalibrationResults();
+            
+            // イベント通知
+            OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
+            
+            UpdateCalibrationStatus($"Minimum pitch calibrated: {minPitch:F1} Hz");
+            Debug.Log($"Individual calibration complete - Min Pitch: {minPitch:F1} Hz");
+        }
+        else
+        {
+            UpdateCalibrationStatus("Calibration failed: No samples collected");
+            Debug.LogWarning("CalibrateMinPitch: No samples collected");
+        }
+        
+        if (calibrationProgressSlider != null)
+            calibrationProgressSlider.value = 0f;
+        
+        isIndividualCalibrating = false;
+    }
+    
+    private IEnumerator CalibrateMaxPitchCoroutine()
+    {
+        isIndividualCalibrating = true;
+        individualCalibrationSamples.Clear();
+        
+        float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
+        float startTime = Time.time;
+        
+        UpdateCalibrationStatus($"Calibrating maximum pitch... Please speak in a high voice for {duration:F1} seconds");
+        
+        // イベント購読
+        if (improvedPitchAnalyzer != null)
+            improvedPitchAnalyzer.OnPitchDetected += OnIndividualPitchDetected;
+        
+        // サンプル収集
+        while (Time.time - startTime < duration)
+        {
+            float progress = (Time.time - startTime) / duration;
+            if (calibrationProgressSlider != null)
+                calibrationProgressSlider.value = progress;
+            OnCalibrationProgressUpdated?.Invoke(progress);
+            yield return null;
+        }
+        
+        // イベント購読解除
+        if (improvedPitchAnalyzer != null)
+            improvedPitchAnalyzer.OnPitchDetected -= OnIndividualPitchDetected;
+        
+        // 平均値を計算
+        if (individualCalibrationSamples.Count > 0)
+        {
+            float avgPitch = CalculateAverage(individualCalibrationSamples);
+            maxPitch = avgPitch;
+            if (calibrationSettings != null)
+                maxPitch *= calibrationSettings.maxPitchMargin;
+            
+            // 静的プロパティを更新
+            MaxPitch = maxPitch;
+            CenterPitch = (minPitch + maxPitch) / 2f;
+            
+            // 結果を適用
+            ApplyCalibrationResults();
+            
+            // イベント通知
+            OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
+            
+            UpdateCalibrationStatus($"Maximum pitch calibrated: {maxPitch:F1} Hz");
+            Debug.Log($"Individual calibration complete - Max Pitch: {maxPitch:F1} Hz");
+        }
+        else
+        {
+            UpdateCalibrationStatus("Calibration failed: No samples collected");
+            Debug.LogWarning("CalibrateMaxPitch: No samples collected");
+        }
+        
+        if (calibrationProgressSlider != null)
+            calibrationProgressSlider.value = 0f;
+        
+        isIndividualCalibrating = false;
+    }
+    
+    private void OnIndividualVolumeDetected(float volume)
+    {
+        if (isIndividualCalibrating)
+        {
+            individualCalibrationSamples.Add(volume);
+        }
+    }
+    
+    private void OnIndividualPitchDetected(float pitch)
+    {
+        if (isIndividualCalibrating && pitch > 0f)
+        {
+            individualCalibrationSamples.Add(pitch);
+        }
     }
 }
