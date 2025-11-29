@@ -113,7 +113,23 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         // 各領域の更新
         for (int i = activeAreas.Count - 1; i >= 0; i--)
         {
+            // インデックスが有効かチェック
+            if (i < 0 || i >= activeAreas.Count)
+            {
+                continue;
+            }
+            
             ColorChangeArea area = activeAreas[i];
+            
+            // 領域が既に削除されている場合はリストから削除してスキップ
+            if (area == null || area.gameObject == null)
+            {
+                if (i >= 0 && i < activeAreas.Count)
+                {
+                    activeAreas.RemoveAt(i);
+                }
+                continue;
+            }
             
             // 塗り終わるまでの時間を取得（TimeBasedモードの場合はフェーズから）
             float effectiveTimeToComplete = GetEffectiveTimeToComplete(currentPhase);
@@ -121,20 +137,8 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
             // 領域の更新（塗り終わるまでの時間を渡す）
             area.UpdateArea(deltaTime, paintCanvas, effectiveTimeToComplete);
             
-            // 完全に変色した場合（イベント経由で処理されるが、念のためチェック）
-            if (area.IsFullyChanged())
-            {
-                // イベント経由で処理されるため、ここでは削除のみ
-                activeAreas.RemoveAt(i);
-                Destroy(area.gameObject);
-            }
-            // 完全に防げた場合（イベント経由で処理されるが、念のためチェック）
-            else if (area.IsFullyDefended())
-            {
-                // イベント経由で処理されるため、ここでは削除のみ
-                activeAreas.RemoveAt(i);
-                Destroy(area.gameObject);
-            }
+            // イベント経由で処理されるため、ここでは削除処理は行わない
+            // （HandleAreaChanged()とHandleAreaDefended()内で削除される）
         }
     }
     
