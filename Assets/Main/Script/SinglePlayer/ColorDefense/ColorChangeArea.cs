@@ -18,6 +18,7 @@ public class ColorChangeArea : MonoBehaviour
     private float effectiveTimeToComplete = 10f; // 有効な塗り終わるまでの時間（防御による減速を考慮）
     private PaintCanvas subscribedCanvas = null; // 購読しているPaintCanvas
     private bool isAutoPaintCancelled = false; // 自動塗りがキャンセルされたか
+    private bool hasFullyDefendedEventFired = false; // OnFullyDefendedイベントが発火済みか（重複発火防止）
     
     // イベント
     public event System.Action<ColorChangeArea> OnFullyChanged;
@@ -55,6 +56,7 @@ public class ColorChangeArea : MonoBehaviour
         this.elapsedTime = 0f;
         this.effectiveTimeToComplete = settings.timeToComplete;
         this.isAutoPaintCancelled = false; // フラグをリセット
+        this.hasFullyDefendedEventFired = false; // イベント発火フラグをリセット
         this.isInitialized = true;
         
         // 領域内の総ピクセル数を計算
@@ -81,8 +83,9 @@ public class ColorChangeArea : MonoBehaviour
             CheckPlayerPaint(canvas);
             
             // 完全に防げたかチェック（念のため）
-            if (IsFullyDefended())
+            if (IsFullyDefended() && !hasFullyDefendedEventFired)
             {
+                hasFullyDefendedEventFired = true;
                 Debug.Log($"[ColorChangeArea] UpdateArea - 自動塗りキャンセル中に完全に防げました: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}");
                 OnFullyDefended?.Invoke(this);
             }
@@ -152,8 +155,9 @@ public class ColorChangeArea : MonoBehaviour
         }
         
         // 完全に防げたかチェック（UpdateArea内でもチェック）
-        if (IsFullyDefended() && !isAutoPaintCancelled)
+        if (IsFullyDefended() && !isAutoPaintCancelled && !hasFullyDefendedEventFired)
         {
+            hasFullyDefendedEventFired = true;
             isAutoPaintCancelled = true; // 自動塗りを停止
             Debug.Log($"[ColorChangeArea] UpdateArea - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}, changeProgress={changeProgress:F4}");
             OnFullyDefended?.Invoke(this);
@@ -525,8 +529,9 @@ public class ColorChangeArea : MonoBehaviour
             Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - defendedProgress更新: 前回={previousDefendedProgress:F4}, 現在={defendedProgress:F4}, fullDefenseThreshold={settings.fullDefenseThreshold:F4}, IsFullyDefended={IsFullyDefended()}");
             
             // 完全に防げた場合、自動塗りをキャンセル
-            if (IsFullyDefended())
+            if (IsFullyDefended() && !hasFullyDefendedEventFired)
             {
+                hasFullyDefendedEventFired = true;
                 isAutoPaintCancelled = true; // 自動塗りを停止
                 Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}, changeProgress={changeProgress:F4}");
                 OnFullyDefended?.Invoke(this);

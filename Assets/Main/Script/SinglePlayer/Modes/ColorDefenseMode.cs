@@ -121,17 +121,17 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
             // 領域の更新（塗り終わるまでの時間を渡す）
             area.UpdateArea(deltaTime, paintCanvas, effectiveTimeToComplete);
             
-            // 完全に変色した場合
+            // 完全に変色した場合（イベント経由で処理されるが、念のためチェック）
             if (area.IsFullyChanged())
             {
-                HandleAreaChanged(area);
+                // イベント経由で処理されるため、ここでは削除のみ
                 activeAreas.RemoveAt(i);
                 Destroy(area.gameObject);
             }
-            // 完全に防げた場合
+            // 完全に防げた場合（イベント経由で処理されるが、念のためチェック）
             else if (area.IsFullyDefended())
             {
-                HandleAreaDefended(area);
+                // イベント経由で処理されるため、ここでは削除のみ
                 activeAreas.RemoveAt(i);
                 Destroy(area.gameObject);
             }
@@ -226,6 +226,12 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     /// </summary>
     private void HandleAreaChanged(ColorChangeArea area)
     {
+        // activeAreasから削除（重複チェック）
+        if (activeAreas.Contains(area))
+        {
+            activeAreas.Remove(area);
+        }
+        
         // ペナルティ
         currentScore += settings.penaltyPerChangedArea;
         currentScore = Mathf.Max(0, currentScore); // スコアが負にならないように
@@ -239,6 +245,12 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         OnComboUpdated?.Invoke(currentCombo);
         
         Debug.Log($"ColorDefenseMode: 領域が変色 - スコア: {currentScore}");
+        
+        // 領域を削除
+        if (area != null)
+        {
+            Destroy(area.gameObject);
+        }
     }
     
     /// <summary>
@@ -247,6 +259,12 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     private void HandleAreaDefended(ColorChangeArea area)
     {
         Debug.Log($"[ColorDefenseMode] HandleAreaDefended - 呼び出されました: defendedProgress={area.DefendedProgress:F4}, fullDefenseThreshold={settings.fullDefenseThreshold:F4}");
+        
+        // activeAreasから削除（重複チェック）
+        if (activeAreas.Contains(area))
+        {
+            activeAreas.Remove(area);
+        }
         
         // スコア計算
         int baseScore = settings.scorePerDefendedArea;
@@ -273,6 +291,12 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         OnComboUpdated?.Invoke(currentCombo);
         
         Debug.Log($"[ColorDefenseMode] HandleAreaDefended - スコア加算: 前回={previousScore}, 加算={baseScore + comboBonus} (基本={baseScore}, コンボ={comboBonus}), 現在={currentScore}, コンボ={currentCombo}");
+        
+        // 領域を削除
+        if (area != null)
+        {
+            Destroy(area.gameObject);
+        }
     }
     
     /// <summary>
