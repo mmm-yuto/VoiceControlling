@@ -126,8 +126,8 @@ public class CreativeModeManager : MonoBehaviour
             return;
         }
         
-        // カリブレーション中は塗り処理をスキップ（パフォーマンス維持）
-        if (VoiceCalibrator.IsCalibrating)
+        // カリブレーション中（順次または個別）は塗り処理をスキップ（パフォーマンス維持）
+        if (VoiceCalibrator.IsCalibrating || VoiceCalibrator.IsIndividualCalibrating)
         {
             return;
         }

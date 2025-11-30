@@ -27,6 +27,7 @@ public class VoiceCalibrator : MonoBehaviour
     
     // カリブレーション状態（外部から確認可能）
     public static bool IsCalibrating { get; private set; } = false;
+    public static bool IsIndividualCalibrating { get; private set; } = false;
     
     // イベント
     public static System.Action<string> OnCalibrationStatusUpdated;
@@ -462,6 +463,7 @@ public class VoiceCalibrator : MonoBehaviour
     private IEnumerator CalibrateMinVolumeCoroutine()
     {
         isIndividualCalibrating = true;
+        IsIndividualCalibrating = true;
         individualCalibrationSamples.Clear();
         
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
@@ -517,11 +519,13 @@ public class VoiceCalibrator : MonoBehaviour
             calibrationProgressSlider.value = 0f;
         
         isIndividualCalibrating = false;
+        IsIndividualCalibrating = false;
     }
     
     private IEnumerator CalibrateMaxVolumeCoroutine()
     {
         isIndividualCalibrating = true;
+        IsIndividualCalibrating = true;
         individualCalibrationSamples.Clear();
         
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
@@ -578,11 +582,13 @@ public class VoiceCalibrator : MonoBehaviour
             calibrationProgressSlider.value = 0f;
         
         isIndividualCalibrating = false;
+        IsIndividualCalibrating = false;
     }
     
     private IEnumerator CalibrateMinPitchCoroutine()
     {
         isIndividualCalibrating = true;
+        IsIndividualCalibrating = true;
         individualCalibrationSamples.Clear();
         
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
@@ -639,11 +645,13 @@ public class VoiceCalibrator : MonoBehaviour
             calibrationProgressSlider.value = 0f;
         
         isIndividualCalibrating = false;
+        IsIndividualCalibrating = false;
     }
     
     private IEnumerator CalibrateMaxPitchCoroutine()
     {
         isIndividualCalibrating = true;
+        IsIndividualCalibrating = true;
         individualCalibrationSamples.Clear();
         
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
@@ -700,6 +708,7 @@ public class VoiceCalibrator : MonoBehaviour
             calibrationProgressSlider.value = 0f;
         
         isIndividualCalibrating = false;
+        IsIndividualCalibrating = false;
     }
     
     private void OnIndividualVolumeDetected(float volume)
