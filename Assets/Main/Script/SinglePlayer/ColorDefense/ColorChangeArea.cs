@@ -19,6 +19,7 @@ public class ColorChangeArea : MonoBehaviour
     private PaintCanvas subscribedCanvas = null; // 購読しているPaintCanvas
     private bool isAutoPaintCancelled = false; // 自動塗りがキャンセルされたか
     private bool hasFullyDefendedEventFired = false; // OnFullyDefendedイベントが発火済みか（重複発火防止）
+    private bool hasEnemyColorErased = false; // 敵の色を消したか（重複実行防止）
     
     // イベント
     public event System.Action<ColorChangeArea> OnFullyChanged;
@@ -57,6 +58,7 @@ public class ColorChangeArea : MonoBehaviour
         this.effectiveTimeToComplete = settings.timeToComplete;
         this.isAutoPaintCancelled = false; // フラグをリセット
         this.hasFullyDefendedEventFired = false; // イベント発火フラグをリセット
+        this.hasEnemyColorErased = false; // 敵の色を消したフラグをリセット
         this.isInitialized = true;
         
         // 領域内の総ピクセル数を計算
@@ -157,6 +159,14 @@ public class ColorChangeArea : MonoBehaviour
         // 完全に防げたかチェック（UpdateArea内でもチェック）
         if (IsFullyDefended() && !isAutoPaintCancelled && !hasFullyDefendedEventFired)
         {
+            // 敵の色を消す（まだ消していない場合）
+            if (!hasEnemyColorErased && canvas != null)
+            {
+                hasEnemyColorErased = true;
+                canvas.ErasePlayerIdInArea(centerPosition, areaSize, -1, settings.areaShapeData);
+                Debug.Log($"[ColorChangeArea] UpdateArea - 敵の色を消しました: centerPosition={centerPosition}, areaSize={areaSize}");
+            }
+            
             hasFullyDefendedEventFired = true;
             isAutoPaintCancelled = true; // 自動塗りを停止
             Debug.Log($"[ColorChangeArea] UpdateArea - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= defenseThreshold={settings.defenseThreshold:F4}, changeProgress={changeProgress:F4}");
@@ -531,6 +541,14 @@ public class ColorChangeArea : MonoBehaviour
             // 完全に防げた場合、自動塗りをキャンセル
             if (IsFullyDefended() && !hasFullyDefendedEventFired)
             {
+                // 敵の色を消す（まだ消していない場合）
+                if (!hasEnemyColorErased && subscribedCanvas != null)
+                {
+                    hasEnemyColorErased = true;
+                    subscribedCanvas.ErasePlayerIdInArea(centerPosition, areaSize, -1, settings.areaShapeData);
+                    Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - 敵の色を消しました: centerPosition={centerPosition}, areaSize={areaSize}");
+                }
+                
                 hasFullyDefendedEventFired = true;
                 isAutoPaintCancelled = true; // 自動塗りを停止
                 Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= defenseThreshold={settings.defenseThreshold:F4}, changeProgress={changeProgress:F4}");

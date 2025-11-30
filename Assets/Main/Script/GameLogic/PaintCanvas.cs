@@ -405,6 +405,86 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     }
     
     /// <summary>
+    /// 領域内の特定のplayerIdの色を消す（playerIdを0に戻し、色と強度もリセット）
+    /// </summary>
+    /// <param name="centerPosition">領域の中心位置（画面座標）</param>
+    /// <param name="areaSize">領域のサイズ（画面座標）</param>
+    /// <param name="targetPlayerId">消す対象のplayerId（例：-1で敵の色）</param>
+    /// <param name="shapeData">領域の形状データ（nullの場合は円形として扱う）</param>
+    public void ErasePlayerIdInArea(Vector2 centerPosition, float areaSize, int targetPlayerId, AreaShapeData shapeData = null)
+    {
+        if (!isInitialized || settings == null) return;
+        
+        // 画面座標をキャンバス座標に変換
+        Vector2 canvasCenter = new Vector2(
+            (centerPosition.x / Screen.width) * settings.textureWidth,
+            (centerPosition.y / Screen.height) * settings.textureHeight
+        );
+        float canvasSize = (areaSize / Screen.width) * settings.textureWidth;
+        
+        // 形状を取得
+        IAreaShape shape = null;
+        if (shapeData != null)
+        {
+            shape = shapeData.CreateShape();
+        }
+        
+        // バウンディングボックスを取得
+        Rect boundingBox = shape != null 
+            ? shape.GetBoundingBox(canvasCenter, canvasSize)
+            : new Rect(canvasCenter.x - canvasSize * 0.5f, canvasCenter.y - canvasSize * 0.5f, 
+                      canvasSize, canvasSize);
+        
+        // 領域の範囲を計算
+        int minX = Mathf.Max(0, Mathf.RoundToInt(boundingBox.xMin));
+        int maxX = Mathf.Min(settings.textureWidth - 1, Mathf.RoundToInt(boundingBox.xMax));
+        int minY = Mathf.Max(0, Mathf.RoundToInt(boundingBox.yMin));
+        int maxY = Mathf.Min(settings.textureHeight - 1, Mathf.RoundToInt(boundingBox.yMax));
+        
+        bool hasErased = false;
+        
+        // 領域内の各ピクセルをチェック
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int y = minY; y <= maxY; y++)
+            {
+                Vector2 pixelPos = new Vector2(x, y);
+                
+                // 領域内かチェック（形状に応じて）
+                bool isInArea = false;
+                if (shape != null)
+                {
+                    isInArea = shape.IsPointInArea(pixelPos, canvasCenter, canvasSize);
+                }
+                else
+                {
+                    // フォールバック: 円形として判定
+                    float radius = canvasSize * 0.5f;
+                    isInArea = Vector2.Distance(pixelPos, canvasCenter) <= radius;
+                }
+                
+                if (!isInArea) continue;
+                
+                // 対象のplayerIdの色を消す
+                if (paintData[x, y] == targetPlayerId)
+                {
+                    paintData[x, y] = 0;
+                    colorData[x, y] = Color.clear;
+                    intensityData[x, y] = 0;
+                    UpdateTexturePixel(x, y, Color.clear);
+                    hasErased = true;
+                }
+            }
+        }
+        
+        // テクスチャの更新をフラッシュ
+        if (hasErased)
+        {
+            FlushTextureUpdates();
+        }
+    }
+    
+    /// <summary>
     /// キャンバスの状態を取得（Undo/Redo用）
     /// </summary>
     public CanvasState GetState()
