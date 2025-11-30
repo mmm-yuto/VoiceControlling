@@ -86,7 +86,7 @@ public class ColorChangeArea : MonoBehaviour
             if (IsFullyDefended() && !hasFullyDefendedEventFired)
             {
                 hasFullyDefendedEventFired = true;
-                Debug.Log($"[ColorChangeArea] UpdateArea - 自動塗りキャンセル中に完全に防げました: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}");
+                Debug.Log($"[ColorChangeArea] UpdateArea - 自動塗りキャンセル中に完全に防げました: defendedProgress={defendedProgress:F4} >= defenseThreshold={settings.defenseThreshold:F4}");
                 OnFullyDefended?.Invoke(this);
             }
             return; // 自動塗りを停止
@@ -159,7 +159,7 @@ public class ColorChangeArea : MonoBehaviour
         {
             hasFullyDefendedEventFired = true;
             isAutoPaintCancelled = true; // 自動塗りを停止
-            Debug.Log($"[ColorChangeArea] UpdateArea - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}, changeProgress={changeProgress:F4}");
+            Debug.Log($"[ColorChangeArea] UpdateArea - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= defenseThreshold={settings.defenseThreshold:F4}, changeProgress={changeProgress:F4}");
             OnFullyDefended?.Invoke(this);
             Debug.Log($"[ColorChangeArea] UpdateArea - OnFullyDefendedイベント発火完了");
         }
@@ -345,7 +345,7 @@ public class ColorChangeArea : MonoBehaviour
     /// </summary>
     public bool IsFullyDefended()
     {
-        return defendedProgress >= settings.fullDefenseThreshold;
+        return defendedProgress >= settings.defenseThreshold;
     }
     
     /// <summary>
@@ -353,7 +353,7 @@ public class ColorChangeArea : MonoBehaviour
     /// </summary>
     public bool IsPartiallyDefended()
     {
-        return defendedProgress > 0f && defendedProgress < settings.fullDefenseThreshold;
+        return defendedProgress > 0f && defendedProgress < settings.defenseThreshold;
     }
     
     /// <summary>
@@ -526,14 +526,14 @@ public class ColorChangeArea : MonoBehaviour
             // 即座にdefendedProgressを更新
             CheckPlayerPaint(subscribedCanvas);
             
-            Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - defendedProgress更新: 前回={previousDefendedProgress:F4}, 現在={defendedProgress:F4}, fullDefenseThreshold={settings.fullDefenseThreshold:F4}, IsFullyDefended={IsFullyDefended()}");
+            Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - defendedProgress更新: 前回={previousDefendedProgress:F4}, 現在={defendedProgress:F4}, defenseThreshold={settings.defenseThreshold:F4}, IsFullyDefended={IsFullyDefended()}");
             
             // 完全に防げた場合、自動塗りをキャンセル
             if (IsFullyDefended() && !hasFullyDefendedEventFired)
             {
                 hasFullyDefendedEventFired = true;
                 isAutoPaintCancelled = true; // 自動塗りを停止
-                Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= fullDefenseThreshold={settings.fullDefenseThreshold:F4}, changeProgress={changeProgress:F4}");
+                Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - 完全に防げました！自動塗りをキャンセル: defendedProgress={defendedProgress:F4} >= defenseThreshold={settings.defenseThreshold:F4}, changeProgress={changeProgress:F4}");
                 OnFullyDefended?.Invoke(this);
                 Debug.Log($"[ColorChangeArea] OnPaintCanvasCompleted - OnFullyDefendedイベント発火完了");
             }

@@ -55,13 +55,9 @@ public class ColorDefenseSettings : ScriptableObject
     public float spawnAwayFromPlayer = 0.3f;
     
     [Header("Defense Properties")]
-    [Tooltip("防げたと判定するために必要な塗り具合（0.0～1.0）")]
+    [Tooltip("完全に防げたと判定するために必要な塗り具合（0.0～1.0）。この値以上塗ると敵の自動塗りが停止し、スコアが加算されます")]
     [Range(0.5f, 1f)] 
     public float defenseThreshold = 0.9f;
-    
-    [Tooltip("色変化を完全に阻止するために必要な塗り具合（0.0～1.0）")]
-    [Range(0.7f, 1f)] 
-    public float fullDefenseThreshold = 0.95f;
     
     [Tooltip("プレイヤーの塗りが色変化を遅らせる効果（倍率）")]
     [Range(0f, 1f)] 

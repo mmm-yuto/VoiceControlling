@@ -262,7 +262,7 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     /// </summary>
     private void HandleAreaDefended(ColorChangeArea area)
     {
-        Debug.Log($"[ColorDefenseMode] HandleAreaDefended - 呼び出されました: defendedProgress={area.DefendedProgress:F4}, fullDefenseThreshold={settings.fullDefenseThreshold:F4}");
+        Debug.Log($"[ColorDefenseMode] HandleAreaDefended - 呼び出されました: defendedProgress={area.DefendedProgress:F4}, defenseThreshold={settings.defenseThreshold:F4}");
         
         // activeAreasから削除（重複チェック）
         if (activeAreas.Contains(area))

@@ -46,9 +46,8 @@ MonoBehaviour:
   areaShapeData: {fileID: 0}
   spawnInterval: 10
   spawnAwayFromPlayer: 0.3
-  defenseThreshold: 0.9
-  fullDefenseThreshold: 0.7
-  paintSlowdownEffect: 0.5
+  defenseThreshold: 0.5
+  paintSlowdownEffect: 0
   scorePerDefendedArea: 50
   penaltyPerChangedArea: 0
   partialDefenseScoreMultiplier: 10
