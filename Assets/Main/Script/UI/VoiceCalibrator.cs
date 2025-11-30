@@ -466,6 +466,9 @@ public class VoiceCalibrator : MonoBehaviour
         IsIndividualCalibrating = true;
         individualCalibrationSamples.Clear();
         
+        // カリブレーション開始を通知
+        OnCalibrationRunningStateChanged?.Invoke(true);
+        
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
         float startTime = Time.time;
         
@@ -520,6 +523,9 @@ public class VoiceCalibrator : MonoBehaviour
         
         isIndividualCalibrating = false;
         IsIndividualCalibrating = false;
+        
+        // カリブレーション終了を通知
+        OnCalibrationRunningStateChanged?.Invoke(false);
     }
     
     private IEnumerator CalibrateMaxVolumeCoroutine()
@@ -527,6 +533,9 @@ public class VoiceCalibrator : MonoBehaviour
         isIndividualCalibrating = true;
         IsIndividualCalibrating = true;
         individualCalibrationSamples.Clear();
+        
+        // カリブレーション開始を通知
+        OnCalibrationRunningStateChanged?.Invoke(true);
         
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
         float startTime = Time.time;
@@ -583,6 +592,9 @@ public class VoiceCalibrator : MonoBehaviour
         
         isIndividualCalibrating = false;
         IsIndividualCalibrating = false;
+        
+        // カリブレーション終了を通知
+        OnCalibrationRunningStateChanged?.Invoke(false);
     }
     
     private IEnumerator CalibrateMinPitchCoroutine()
@@ -590,6 +602,9 @@ public class VoiceCalibrator : MonoBehaviour
         isIndividualCalibrating = true;
         IsIndividualCalibrating = true;
         individualCalibrationSamples.Clear();
+        
+        // カリブレーション開始を通知
+        OnCalibrationRunningStateChanged?.Invoke(true);
         
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
         float startTime = Time.time;
@@ -646,6 +661,9 @@ public class VoiceCalibrator : MonoBehaviour
         
         isIndividualCalibrating = false;
         IsIndividualCalibrating = false;
+        
+        // カリブレーション終了を通知
+        OnCalibrationRunningStateChanged?.Invoke(false);
     }
     
     private IEnumerator CalibrateMaxPitchCoroutine()
@@ -653,6 +671,9 @@ public class VoiceCalibrator : MonoBehaviour
         isIndividualCalibrating = true;
         IsIndividualCalibrating = true;
         individualCalibrationSamples.Clear();
+        
+        // カリブレーション開始を通知
+        OnCalibrationRunningStateChanged?.Invoke(true);
         
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
         float startTime = Time.time;
@@ -709,6 +730,9 @@ public class VoiceCalibrator : MonoBehaviour
         
         isIndividualCalibrating = false;
         IsIndividualCalibrating = false;
+        
+        // カリブレーション終了を通知
+        OnCalibrationRunningStateChanged?.Invoke(false);
     }
     
     private void OnIndividualVolumeDetected(float volume)

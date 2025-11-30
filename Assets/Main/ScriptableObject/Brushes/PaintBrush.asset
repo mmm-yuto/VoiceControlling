@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6f5cd06c405063140a24bbde5695e49e, type: 3}
   m_Name: PaintBrush
   m_EditorClassIdentifier: Assembly-CSharp::PaintBrush
-  radius: 50
+  radius: 30
   displayName: Paint Brush
   icon: {fileID: 0}

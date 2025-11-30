@@ -5379,8 +5379,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ImprovedPitchAnalyzer
   pitchSensitivity: 1
-  minFrequency: 50
-  maxFrequency: 1000
+  minFrequency: 80
+  maxFrequency: 500
   volumeThreshold: 0.01
   smoothingFactor: 1
   autocorrelationThreshold: 0.5

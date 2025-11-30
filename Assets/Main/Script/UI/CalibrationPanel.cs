@@ -173,23 +173,47 @@ public class CalibrationPanel : MonoBehaviour
         {
             cancelButton.interactable = isRunning;
         }
+        
+        // カリブレーション中以外はステータスなどのテキストを非表示
+        bool isCalibrating = VoiceCalibrator.IsCalibrating || VoiceCalibrator.IsIndividualCalibrating;
+        
+        if (statusLabel != null)
+        {
+            statusLabel.gameObject.SetActive(isCalibrating);
+        }
+        
+        if (stepLabel != null)
+        {
+            stepLabel.gameObject.SetActive(isCalibrating);
+        }
+        
+        if (progressSlider != null)
+        {
+            progressSlider.gameObject.SetActive(isCalibrating);
+        }
     }
 
     private void UpdateUI()
     {
+        // 初期状態ではカリブレーション中ではないので、UI要素を非表示
+        bool isCalibrating = VoiceCalibrator.IsCalibrating || VoiceCalibrator.IsIndividualCalibrating;
+        
         if (progressSlider != null)
         {
             progressSlider.value = 0f;
+            progressSlider.gameObject.SetActive(isCalibrating);
         }
 
         if (statusLabel != null)
         {
             statusLabel.text = "Please start calibration";
+            statusLabel.gameObject.SetActive(isCalibrating);
         }
 
         if (stepLabel != null)
         {
             stepLabel.text = "";
+            stepLabel.gameObject.SetActive(isCalibrating);
         }
     }
 
