@@ -151,6 +151,23 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     }
     
     /// <summary>
+    /// 指定位置に色を塗る（アルファ値を指定可能）
+    /// </summary>
+    /// <param name="screenPosition">画面座標</param>
+    /// <param name="playerId">プレイヤーID</param>
+    /// <param name="intensity">塗り強度</param>
+    /// <param name="color">色（アルファ値は無視される）</param>
+    /// <param name="alpha">アルファ値（0.0～1.0）</param>
+    public void PaintAtWithAlpha(Vector2 screenPosition, int playerId, float intensity, Color color, float alpha)
+    {
+        // アルファ値を設定した色を作成
+        Color colorWithAlpha = new Color(color.r, color.g, color.b, Mathf.Clamp01(alpha));
+        
+        // 既存のPaintAt()を呼び出す（アルファ値が設定された色で）
+        PaintAt(screenPosition, playerId, intensity, colorWithAlpha);
+    }
+    
+    /// <summary>
     /// 半径指定で塗る（ブラシタイプ用）
     /// </summary>
     public void PaintAtWithRadius(Vector2 screenPosition, int playerId, float intensity, Color color, float radius)
@@ -298,7 +315,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     /// <summary>
     /// テクスチャの更新をフラッシュ（まとめてApply()を実行）
     /// </summary>
-    private void FlushTextureUpdates()
+    public void FlushTextureUpdates()
     {
         if (textureNeedsFlush && canvasTexture != null)
         {

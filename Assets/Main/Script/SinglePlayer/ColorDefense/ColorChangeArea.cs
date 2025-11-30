@@ -20,6 +20,7 @@ public class ColorChangeArea : MonoBehaviour
     private bool isAutoPaintCancelled = false; // 自動塗りがキャンセルされたか
     private bool hasFullyDefendedEventFired = false; // OnFullyDefendedイベントが発火済みか（重複発火防止）
     private bool hasEnemyColorErased = false; // 敵の色を消したか（重複実行防止）
+    private float lastPaintProgress = 0f; // 前回塗り更新時の進行度（0.1刻み）
     
     // イベント
     public event System.Action<ColorChangeArea> OnFullyChanged;
@@ -59,6 +60,7 @@ public class ColorChangeArea : MonoBehaviour
         this.isAutoPaintCancelled = false; // フラグをリセット
         this.hasFullyDefendedEventFired = false; // イベント発火フラグをリセット
         this.hasEnemyColorErased = false; // 敵の色を消したフラグをリセット
+        this.lastPaintProgress = 0f; // 前回塗り更新時の進行度をリセット
         this.isInitialized = true;
         
         // 領域内の総ピクセル数を計算
@@ -367,12 +369,10 @@ public class ColorChangeArea : MonoBehaviour
     }
     
     /// <summary>
-    /// 敵の色を領域内に自動的に塗る
+    /// 敵の色を領域内に自動的に塗る（領域全体を透明度で塗る）
     /// </summary>
     private void PaintEnemyColor(PaintCanvas canvas, float previousProgress, float currentProgress)
     {
-        Debug.Log($"[ColorChangeArea] PaintEnemyColor 呼び出し - 前回: {previousProgress:F4}, 現在: {currentProgress:F4}");
-        
         if (canvas == null || settings == null)
         {
             Debug.LogWarning($"[ColorChangeArea] PaintEnemyColor - canvasまたはsettingsがnullです (canvas: {canvas != null}, settings: {settings != null})");
@@ -386,7 +386,17 @@ public class ColorChangeArea : MonoBehaviour
             return;
         }
         
-        Debug.Log($"[ColorChangeArea] PaintEnemyColor - 領域中心: {centerPosition}, サイズ: {areaSize}");
+        // 進行度を0.1刻みに丸める
+        float currentStep = Mathf.Floor(currentProgress * 10f) / 10f;
+        float previousStep = lastPaintProgress;
+        
+        // 0.1刻みで増えていない場合は更新しない
+        if (currentStep <= previousStep)
+        {
+            return;
+        }
+        
+        Debug.Log($"[ColorChangeArea] PaintEnemyColor - 更新: 前回進行度={previousStep:F1}, 現在進行度={currentStep:F1}, アルファ値={currentStep:F1}");
         
         // 画面座標をキャンバス座標に変換
         Vector2 canvasCenter = ScreenToCanvas(centerPosition, canvas);
@@ -404,75 +414,41 @@ public class ColorChangeArea : MonoBehaviour
         int minY = Mathf.Max(0, Mathf.RoundToInt(boundingBox.yMin));
         int maxY = Mathf.Min(paintSettings.textureHeight - 1, Mathf.RoundToInt(boundingBox.yMax));
         
-        // 進行度の差分に応じて塗るピクセル数を計算
-        float progressDelta = currentProgress - previousProgress;
-        if (progressDelta <= 0f)
-        {
-            Debug.LogWarning($"[ColorChangeArea] PaintEnemyColor - progressDeltaが0以下です: {progressDelta:F4}");
-            return;
-        }
+        // アルファ値を現在の進行度に設定
+        float alpha = currentStep;
         
-        Debug.Log($"[ColorChangeArea] PaintEnemyColor - バウンディングボックス: ({minX}, {minY}) ～ ({maxX}, {maxY})");
+        int paintedCount = 0;
         
-        // 領域内の総ピクセル数を計算
-        int totalPixelsInBounds = 0;
+        // 領域内の全ピクセルを処理
         for (int x = minX; x <= maxX; x++)
         {
             for (int y = minY; y <= maxY; y++)
             {
                 Vector2 pixelPos = new Vector2(x, y);
-                if (IsPixelInArea(pixelPos, canvasCenter, canvasSize))
-                {
-                    totalPixelsInBounds++;
-                }
-            }
-        }
-        
-        if (totalPixelsInBounds == 0)
-        {
-            Debug.LogWarning($"[ColorChangeArea] PaintEnemyColor - 領域内のピクセル数が0です (canvasCenter: {canvasCenter}, canvasSize: {canvasSize})");
-            return;
-        }
-        
-        // 塗るべきピクセル数を計算（進行度に応じて）
-        int pixelsToPaint = Mathf.Max(1, Mathf.RoundToInt(totalPixelsInBounds * progressDelta));
-        
-        Debug.Log($"[ColorChangeArea] PaintEnemyColor - 総ピクセル数: {totalPixelsInBounds}, 進行度差分: {progressDelta:F4}, 塗るべきピクセル数: {pixelsToPaint}");
-        
-        // ランダムにピクセルを選択して塗る（パフォーマンス最適化）
-        int paintedCount = 0;
-        int attempts = 0;
-        const int maxAttemptsMultiplier = 3; // 無限ループ防止のための倍率
-        int maxAttempts = pixelsToPaint * maxAttemptsMultiplier;
-        
-        while (paintedCount < pixelsToPaint && attempts < maxAttempts)
-        {
-            int x = Random.Range(minX, maxX + 1);
-            int y = Random.Range(minY, maxY + 1);
-            Vector2 pixelPos = new Vector2(x, y);
-            
-            // 領域内かチェック
-            if (IsPixelInArea(pixelPos, canvasCenter, canvasSize))
-            {
+                
+                // 領域内かチェック
+                if (!IsPixelInArea(pixelPos, canvasCenter, canvasSize))
+                    continue;
+                
                 // プレイヤーが既に塗っている場合はスキップ（上塗りしない）
                 int playerId = canvas.GetPlayerIdAtCanvas(x, y);
-                if (playerId <= 0) // 未塗り（0）または敵の色（負の値）のみ塗る
-                {
-                    // 敵の色を塗る（playerId = -1 で敵を表現）
-                    Vector2 screenPos = CanvasToScreen(pixelPos, canvas);
-                    Debug.Log($"[ColorChangeArea] PaintEnemyColor - 塗り実行: 画面座標({screenPos.x:F1}, {screenPos.y:F1}), キャンバス座標({x}, {y}), 色: {settings.targetColor}");
-                    canvas.PaintAt(screenPos, -1, 1f, settings.targetColor);
-                    paintedCount++;
-                }
-                else
-                {
-                    Debug.Log($"[ColorChangeArea] PaintEnemyColor - スキップ: プレイヤーが既に塗っています (playerId: {playerId})");
-                }
+                if (playerId > 0)
+                    continue;
+                
+                // アルファ値を指定して塗る
+                Vector2 screenPos = CanvasToScreen(pixelPos, canvas);
+                canvas.PaintAtWithAlpha(screenPos, -1, 1f, settings.targetColor, alpha);
+                paintedCount++;
             }
-            attempts++;
         }
         
-        Debug.Log($"[ColorChangeArea] PaintEnemyColor - 完了: {paintedCount}/{pixelsToPaint}ピクセルを塗りました (試行回数: {attempts}/{maxAttempts})");
+        // テクスチャの更新をフラッシュ（全ピクセル更新後に一度だけ）
+        canvas.FlushTextureUpdates();
+        
+        // 前回の更新進行度を記録
+        lastPaintProgress = currentStep;
+        
+        Debug.Log($"[ColorChangeArea] PaintEnemyColor - 完了: {paintedCount}ピクセルをアルファ値{alpha:F1}で塗りました");
     }
     
     /// <summary>

@@ -42,7 +42,7 @@ MonoBehaviour:
   colorChangeRate: 0.5
   colorChangeSpeed: 5
   maxAreasOnScreen: 20
-  areaSize: 300
+  areaSize: 50
   areaShapeData: {fileID: 0}
   spawnInterval: 10
   spawnAwayFromPlayer: 0.3
