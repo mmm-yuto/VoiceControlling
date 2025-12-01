@@ -133,7 +133,9 @@ public class ColorChangeArea : MonoBehaviour
         Debug.Log($"[ColorChangeArea] UpdateArea - 進行度計算: elapsedTime={elapsedTime:F4}, currentTimeToComplete={currentTimeToComplete:F4}, パラメータeffectiveTimeToComplete={effectiveTimeToComplete:F4}, settings.timeToComplete={settings.timeToComplete:F4}, 前回={previousProgress:F4}, 現在={changeProgress:F4}, defendedProgress={defendedProgress:F4}");
         
         // 敵の色を自動的に塗る処理（自動塗りがキャンセルされていない場合のみ）
-        if (canvas != null && changeProgress > previousProgress && !isAutoPaintCancelled)
+        // 敵ペンモードのときは、ここでの自動塗りは無効化する
+        bool useAreaAutoPaint = settings.enemyPaintMode == EnemyPaintMode.AreaAuto;
+        if (canvas != null && changeProgress > previousProgress && !isAutoPaintCancelled && useAreaAutoPaint)
         {
             float progressDelta = changeProgress - previousProgress;
             float progressRate = 1.0f / effectiveTimeToComplete; // 1秒あたりの進行率

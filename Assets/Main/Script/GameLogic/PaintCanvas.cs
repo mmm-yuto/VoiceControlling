@@ -196,7 +196,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             return;
         }
         
-        // 円形のブラシで塗る
+        // 円形のブラシで塗る（常に後から塗った色が優先される）
         bool hasPainted = false;
         for (int x = centerX - radiusPixels; x <= centerX + radiusPixels; x++)
         {
@@ -209,16 +209,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 float distance = Vector2.Distance(new Vector2(x, y), new Vector2(centerX, centerY));
                 if (distance <= radiusPixels)
                 {
-                    // 優先順位ロジックを追加
-                    int existingPlayerId = paintData[x, y];
-                    
-                    // 敵の色を塗る場合、プレイヤーが既に塗っている領域は上塗りしない
-                    if (playerId == -1 && existingPlayerId > 0)
-                    {
-                        continue; // このピクセルはスキップ
-                    }
-                    
-                    // 塗り処理
+                    // 塗り処理（プレイヤー／敵ともに後から塗った方が優先）
                     paintData[x, y] = playerId;
                     colorData[x, y] = color;
                     intensityData[x, y] = effectiveIntensity;

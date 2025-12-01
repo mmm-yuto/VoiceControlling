@@ -80,3 +80,8 @@ MonoBehaviour:
     m_RotationOrder: 4
   maxDifficultyMultiplier: 2
   minSpawnInterval: 1
+  enemyPaintMode: 1
+  enemyPainterCount: 1
+  enemyMoveSpeed: 200
+  enemyStrokeInterval: 0.2
+  enemyPaintRadius: 40

@@ -95,6 +95,36 @@ public class ColorDefenseSettings : ScriptableObject
     [Tooltip("難易度が上がった時の出現間隔の短縮率（scalingModeがCurveBasedの場合）")]
     [Range(0.5f, 1f)] 
     public float minSpawnInterval = 1f;
+    
+    [Header("Enemy Paint Mode")]
+    [Tooltip("敵の塗り方を選択（従来のランダム領域塗り or キャンバス上を動く敵ペン）")]
+    public EnemyPaintMode enemyPaintMode = EnemyPaintMode.AreaAuto;
+    
+    [Header("Enemy Painter Settings")]
+    [Tooltip("敵ペンの本数（キャンバス上を動き回る敵の数）")]
+    [Range(1, 10)]
+    public int enemyPainterCount = 1;
+    
+    [Tooltip("敵ペンの移動速度（画面座標系、px/sec の目安）")]
+    [Range(50f, 800f)]
+    public float enemyMoveSpeed = 200f;
+    
+    [Tooltip("敵ペンが新しい目標点を決める間隔（秒）")]
+    [Range(0.05f, 1f)]
+    public float enemyStrokeInterval = 0.2f;
+    
+    [Tooltip("敵ペンのブラシ半径（画面座標系、ピクセル単位）")]
+    [Range(5f, 150f)]
+    public float enemyPaintRadius = 40f;
+}
+
+/// <summary>
+/// 敵の塗り方モード
+/// </summary>
+public enum EnemyPaintMode
+{
+    AreaAuto,      // 従来のColorChangeAreaごとの自動塗り
+    GlobalPainters // キャンバス上を動く複数の敵ペン
 }
 
 /// <summary>

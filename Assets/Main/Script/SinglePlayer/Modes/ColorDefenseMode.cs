@@ -15,6 +15,9 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     [SerializeField] private PaintCanvas paintCanvas;
     [SerializeField] private ColorChangeAreaRenderer areaRenderer; // 視覚表現用（オプション）
     
+    // 敵ペン（キャンバス上を動きながら塗る敵）のリスト
+    private readonly List<EnemyPainter> enemyPainters = new List<EnemyPainter>();
+    
     private List<ColorChangeArea> activeAreas = new List<ColorChangeArea>();
     private float spawnTimer = 0f;
     private int currentScore = 0;
@@ -63,11 +66,18 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         currentCombo = 0;
         activeAreas.Clear();
         spawnTimer = 0f;
+        enemyPainters.Clear();
         
         // キャンバスをクリア
         if (paintCanvas != null)
         {
             paintCanvas.ResetCanvas();
+        }
+        
+        // 敵ペンを初期化（モードがGlobalPaintersのときのみ）
+        if (settings != null && settings.enemyPaintMode == EnemyPaintMode.GlobalPainters)
+        {
+            InitializeEnemyPainters();
         }
         
         // イベント発火
@@ -139,6 +149,15 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
             
             // イベント経由で処理されるため、ここでは削除処理は行わない
             // （HandleAreaChanged()とHandleAreaDefended()内で削除される）
+        }
+        
+        // 敵ペンの更新（キャンバス全体を人間のように塗る）
+        if (paintCanvas != null && settings.enemyPaintMode == EnemyPaintMode.GlobalPainters && enemyPainters.Count > 0)
+        {
+            for (int i = 0; i < enemyPainters.Count; i++)
+            {
+                enemyPainters[i]?.Update(deltaTime);
+            }
         }
     }
     
@@ -440,7 +459,30 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         }
         activeAreas.Clear();
         
+        // 敵ペンをクリア
+        enemyPainters.Clear();
+        
         Debug.Log($"ColorDefenseMode: ゲーム終了 - 最終スコア: {currentScore}");
+    }
+    
+    /// <summary>
+    /// 敵ペンを設定に基づいて初期化
+    /// </summary>
+    private void InitializeEnemyPainters()
+    {
+        enemyPainters.Clear();
+        
+        if (paintCanvas == null || settings == null)
+        {
+            return;
+        }
+        
+        int count = Mathf.Max(1, settings.enemyPainterCount);
+        for (int i = 0; i < count; i++)
+        {
+            var painter = new EnemyPainter(paintCanvas, settings);
+            enemyPainters.Add(painter);
+        }
     }
     
     public void Pause() 
