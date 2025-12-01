@@ -23,8 +23,17 @@ public class PaintBattleGameManager : MonoBehaviour
     [Range(0.1f, 5f)]
     public float paintSpeedMultiplier = 1f;
     
+    [Tooltip("プレイヤーのインク色（ColorDefenseモード時に使用される色）")]
+    public Color playerInkColor = Color.white;
+
+    [Header("Brush Settings")]
+    [Tooltip("声で塗るときに使用するブラシ（PaintBrush などの ScriptableObject）")]
+    public BrushStrategyBase brush;
+    
     // 内部状態
     private bool isGameActive = true;
+    private Vector2 lastPaintPosition = Vector2.zero;
+    private bool hasLastPosition = false;
     
     void Start()
     {
@@ -69,7 +78,12 @@ public class PaintBattleGameManager : MonoBehaviour
             {
                 // 塗り処理（デバッグモード時は固定の強度を使用）
                 float debugIntensity = 0.5f * paintSpeedMultiplier; // デバッグモード時の固定強度
-                paintCanvas.PaintAt(mouseScreenPos, playerId, debugIntensity);
+                PaintAt(mouseScreenPos, debugIntensity);
+            }
+            else
+            {
+                // マウスが画面外などで無効な場合は線をリセット
+                hasLastPosition = false;
             }
             return; // デバッグモード時は通常の処理をスキップ
         }
@@ -79,6 +93,8 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             // 無音時は塗らない
             paintCanvas.NotifyPaintingSuppressed();
+            // 線の継続をリセット（次の発声から新しい線として扱う）
+            hasLastPosition = false;
             return;
         }
         
@@ -88,7 +104,7 @@ public class PaintBattleGameManager : MonoBehaviour
         
         // 塗り処理
         float intensity = volume * paintSpeedMultiplier;
-        paintCanvas.PaintAt(screenPos, playerId, intensity);
+        PaintAt(screenPos, intensity);
     }
     
     /// <summary>
@@ -97,6 +113,78 @@ public class PaintBattleGameManager : MonoBehaviour
     public void SetGameActive(bool active)
     {
         isGameActive = active;
+    }
+
+    /// <summary>
+    /// 指定位置に塗る（ブラシを使って線を補間しながら塗る）
+    /// </summary>
+    private void PaintAt(Vector2 position, float intensity)
+    {
+        if (paintCanvas == null)
+        {
+            return;
+        }
+
+        // ブラシが設定されていない場合は、従来通り1点塗り（後方互換用）
+        if (brush == null)
+        {
+            paintCanvas.PaintAt(position, playerId, intensity, playerInkColor);
+            return;
+        }
+
+        if (hasLastPosition)
+        {
+            // 前回の位置と現在の位置の間を補間して連続線を描く
+            PaintLineBetween(lastPaintPosition, position, intensity);
+        }
+        else
+        {
+            // 最初の点はそのまま塗る
+            brush.Paint(paintCanvas, position, playerId, playerInkColor, intensity);
+        }
+
+        // 現在の位置を記録
+        lastPaintPosition = position;
+        hasLastPosition = true;
+    }
+
+    /// <summary>
+    /// 2点間を補間して連続線を描く
+    /// </summary>
+    private void PaintLineBetween(Vector2 startPos, Vector2 endPos, float intensity)
+    {
+        if (paintCanvas == null || brush == null)
+        {
+            return;
+        }
+
+        // ブラシの半径を取得
+        float radius = brush.GetRadius();
+
+        // 距離を計算
+        float distance = Vector2.Distance(startPos, endPos);
+
+        // 距離が短い場合は補間をスキップ（半径の1/4以下）
+        if (distance < radius * 0.25f)
+        {
+            brush.Paint(paintCanvas, endPos, playerId, playerInkColor, intensity);
+            return;
+        }
+
+        // 補間ステップ数を計算（半径の半分ごとに点を打つ）
+        int steps = Mathf.Max(1, Mathf.CeilToInt(distance / (radius * 0.5f)));
+
+        // 最大ステップ数を制限（パフォーマンス対策）
+        const int maxSteps = 50;
+        steps = Mathf.Min(steps, maxSteps);
+
+        // 各ステップで塗る
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = (float)i / steps;
+            Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
+            brush.Paint(paintCanvas, interpolatedPos, playerId, playerInkColor, intensity);
+        }
     }
 }
 
