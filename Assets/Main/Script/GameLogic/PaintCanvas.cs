@@ -62,6 +62,41 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     }
     
     /// <summary>
+    /// 現在のキャンバス上のプレイヤー／敵ピクセル数を集計する
+    /// </summary>
+    /// <param name="playerPixels">playerId > 0 のピクセル数</param>
+    /// <param name="enemyPixels">playerId == -1 のピクセル数</param>
+    public void GetPlayerAndEnemyPixelCounts(out int playerPixels, out int enemyPixels)
+    {
+        playerPixels = 0;
+        enemyPixels = 0;
+        
+        if (!isInitialized || settings == null || paintData == null)
+        {
+            return;
+        }
+        
+        int width = settings.textureWidth;
+        int height = settings.textureHeight;
+        
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                int id = paintData[x, y];
+                if (id > 0)
+                {
+                    playerPixels++;
+                }
+                else if (id == -1)
+                {
+                    enemyPixels++;
+                }
+            }
+        }
+    }
+    
+    /// <summary>
     /// 指定位置に色を塗る（後方互換性のため、デフォルト色は白）
     /// </summary>
     public void PaintAt(Vector2 screenPosition, int playerId, float intensity)

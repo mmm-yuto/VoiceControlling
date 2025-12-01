@@ -27,12 +27,20 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     private bool isGameActive = false;
     private Vector2 lastPlayerPaintPosition = Vector2.zero;
     
+    public enum GameResult
+    {
+        PlayerWin,
+        EnemyWin,
+        Draw
+    }
+    
     // イベント
     public static event System.Action<int> OnScoreUpdated;
     public static event System.Action<int> OnComboUpdated;
     public static event System.Action<ColorChangeArea> OnAreaSpawned;
     public static event System.Action<ColorChangeArea> OnAreaDefended;
     public static event System.Action<ColorChangeArea> OnAreaChanged;
+    public static event System.Action<GameResult, float, float> OnGameEnded; // (結果, playerRatio, enemyRatio)
     
     public SinglePlayerGameModeType GetModeType() => SinglePlayerGameModeType.ColorDefense;
     
@@ -447,6 +455,35 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     {
         isGameActive = false;
         
+        // 終了時のプレイヤー／敵ピクセル数を集計して勝敗判定
+        GameResult result = GameResult.Draw;
+        float playerRatio = 0f;
+        float enemyRatio = 0f;
+        
+        if (paintCanvas != null)
+        {
+            paintCanvas.GetPlayerAndEnemyPixelCounts(out int playerPixels, out int enemyPixels);
+            int total = playerPixels + enemyPixels;
+            if (total > 0)
+            {
+                playerRatio = (float)playerPixels / total;
+                enemyRatio = (float)enemyPixels / total;
+            }
+            
+            if (playerPixels > enemyPixels)
+            {
+                result = GameResult.PlayerWin;
+            }
+            else if (playerPixels < enemyPixels)
+            {
+                result = GameResult.EnemyWin;
+            }
+            else
+            {
+                result = GameResult.Draw;
+            }
+        }
+        
         // 全ての領域をクリーンアップ
         foreach (var area in activeAreas)
         {
@@ -462,7 +499,10 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         // 敵ペンをクリア
         enemyPainters.Clear();
         
-        Debug.Log($"ColorDefenseMode: ゲーム終了 - 最終スコア: {currentScore}");
+        Debug.Log($"ColorDefenseMode: ゲーム終了 - 最終スコア: {currentScore}, 結果={result}, PlayerRatio={playerRatio:P1}, EnemyRatio={enemyRatio:P1}");
+        
+        // 勝敗結果イベントを発火
+        OnGameEnded?.Invoke(result, playerRatio, enemyRatio);
     }
     
     /// <summary>

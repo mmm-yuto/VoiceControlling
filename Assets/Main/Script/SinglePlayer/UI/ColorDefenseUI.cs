@@ -20,6 +20,8 @@ public class ColorDefenseUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI finalScoreText;
     [SerializeField] private TextMeshProUGUI defendedAreasText;
     [SerializeField] private TextMeshProUGUI changedAreasText;
+    [SerializeField] private TextMeshProUGUI resultText;
+    [SerializeField] private TextMeshProUGUI ratioText;
     [SerializeField] private Button retryButton;
     [SerializeField] private Button mainMenuButton;
     
@@ -40,6 +42,7 @@ public class ColorDefenseUI : MonoBehaviour
         ColorDefenseMode.OnAreaSpawned += OnAreaSpawned;
         ColorDefenseMode.OnAreaDefended += OnAreaDefended;
         ColorDefenseMode.OnAreaChanged += OnAreaChanged;
+        ColorDefenseMode.OnGameEnded += OnGameEnded;
         
         // ボタン設定
         if (retryButton != null)
@@ -60,6 +63,7 @@ public class ColorDefenseUI : MonoBehaviour
         ColorDefenseMode.OnAreaSpawned -= OnAreaSpawned;
         ColorDefenseMode.OnAreaDefended -= OnAreaDefended;
         ColorDefenseMode.OnAreaChanged -= OnAreaChanged;
+        ColorDefenseMode.OnGameEnded -= OnGameEnded;
     }
     
     private void UpdateScore(int score)
@@ -119,6 +123,35 @@ public class ColorDefenseUI : MonoBehaviour
                 defendedAreasText.text = $"Defended: {defendedCount}";
             if (changedAreasText != null)
                 changedAreasText.text = $"Changed: {changedCount}";
+        }
+    }
+    
+    private void OnGameEnded(ColorDefenseMode.GameResult result, float playerRatio, float enemyRatio)
+    {
+        // 既存のスコア情報と合わせてゲームオーバーパネルを表示
+        ShowGameOver(currentScore, defendedAreasCount, changedAreasCount);
+        
+        if (resultText != null)
+        {
+                switch (result)
+                {
+                    case ColorDefenseMode.GameResult.PlayerWin:
+                        resultText.text = "Result: WIN";
+                        break;
+                    case ColorDefenseMode.GameResult.EnemyWin:
+                        resultText.text = "Result: LOSE";
+                        break;
+                    default:
+                        resultText.text = "Result: DRAW";
+                        break;
+                }
+        }
+        
+        if (ratioText != null)
+        {
+            int playerPercent = Mathf.RoundToInt(playerRatio * 100f);
+            int enemyPercent = Mathf.RoundToInt(enemyRatio * 100f);
+            ratioText.text = $"Player {playerPercent}% : Enemy {enemyPercent}%";
         }
     }
     
