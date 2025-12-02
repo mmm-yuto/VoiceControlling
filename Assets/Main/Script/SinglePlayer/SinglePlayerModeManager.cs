@@ -12,10 +12,18 @@ public class SinglePlayerModeManager : MonoBehaviour
     
     [Header("Mode Components")]
     [SerializeField] private ColorDefenseMode colorDefenseMode;
+    [SerializeField] private CreativeModeManager creativeModeManager;
     // 他のモードは後から追加
     // [SerializeField] private MonsterHuntMode monsterHuntMode;
     // [SerializeField] private TracingMode tracingMode;
     // [SerializeField] private AIBattleMode aiBattleMode;
+    
+    [Header("Mode UI Roots")]
+    [Tooltip("カラーディフェンス用UIのルート（インスペクターで直接指定）")]
+    [SerializeField] private GameObject colorDefenseUIRoot;
+    
+    [Tooltip("クリエイティブモード用UIのルート（インスペクターで直接指定）")]
+    [SerializeField] private GameObject creativeModeUIRoot;
     
     [Header("Shared Components")]
     [SerializeField] private PaintCanvas paintCanvas;
@@ -27,12 +35,29 @@ public class SinglePlayerModeManager : MonoBehaviour
     public static event Action<int> OnScoreUpdated;
     public static event Action<float> OnProgressUpdated;
     
-    void Start()
+    // Start()での自動実行を停止
+    // GameModeSelectionPanelから手動で呼び出される
+    // void Start()
+    // {
+    //     InitializeMode();
+    // }
+    
+    /// <summary>
+    /// 指定されたモードで初期化（ボタン選択時に使用）
+    /// </summary>
+    public void InitializeMode(SinglePlayerGameModeType mode)
     {
-        InitializeMode();
+        if (settings != null)
+        {
+            settings.selectedMode = mode;
+        }
+        InitializeMode(); // 既存のメソッドを呼び出し
     }
     
-    private void InitializeMode()
+    /// <summary>
+    /// ゲームモードを初期化（外部から呼び出し可能）
+    /// </summary>
+    public void InitializeMode()
     {
         if (settings == null)
         {
@@ -40,16 +65,36 @@ public class SinglePlayerModeManager : MonoBehaviour
             return;
         }
         
-        // 全てのモードを無効化
+        // 全てのモードとUIルートを無効化
         DisableAllModes();
+        DisableAllUIRoots();
         
         // 選択されたモードを有効化
         switch (settings.selectedMode)
         {
+            case SinglePlayerGameModeType.Creative:
+                if (creativeModeManager != null)
+                {
+                    currentMode = creativeModeManager;
+                    // UIルートを有効化（インスペクターで指定されたオブジェクト）
+                    if (creativeModeUIRoot != null)
+                    {
+                        creativeModeUIRoot.SetActive(true);
+                    }
+                    // 子オブジェクトを有効化
+                    creativeModeManager.gameObject.SetActive(true);
+                }
+                break;
             case SinglePlayerGameModeType.ColorDefense:
                 if (colorDefenseMode != null)
                 {
                     currentMode = colorDefenseMode;
+                    // UIルートを有効化（インスペクターで指定されたオブジェクト）
+                    if (colorDefenseUIRoot != null)
+                    {
+                        colorDefenseUIRoot.SetActive(true);
+                    }
+                    // 子オブジェクトを有効化
                     colorDefenseMode.gameObject.SetActive(true);
                 }
                 break;
@@ -96,10 +141,17 @@ public class SinglePlayerModeManager : MonoBehaviour
     private void DisableAllModes()
     {
         if (colorDefenseMode != null) colorDefenseMode.gameObject.SetActive(false);
+        if (creativeModeManager != null) creativeModeManager.gameObject.SetActive(false);
         // 他のモードは後から追加
         // if (monsterHuntMode != null) monsterHuntMode.gameObject.SetActive(false);
         // if (tracingMode != null) tracingMode.gameObject.SetActive(false);
         // if (aiBattleMode != null) aiBattleMode.gameObject.SetActive(false);
+    }
+    
+    private void DisableAllUIRoots()
+    {
+        if (colorDefenseUIRoot != null) colorDefenseUIRoot.SetActive(false);
+        if (creativeModeUIRoot != null) creativeModeUIRoot.SetActive(false);
     }
     
     /// <summary>

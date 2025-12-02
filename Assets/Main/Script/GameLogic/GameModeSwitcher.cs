@@ -1,12 +1,12 @@
 using UnityEngine;
 
 /// <summary>
-/// ゲーム全体のモード切り替え（ColorDefense / Creative）を担当するクラス
+/// UIの表示/非表示を管理するクラス
 /// 
-/// SinglePlayerGameModeSettings の selectedMode を見て、
-/// - ColorDefense の場合: シングルプレイ（ColorDefense）関連を有効化
-/// - Creative の場合: クリエイティブモード関連を有効化
-/// します。
+/// SinglePlayerGameModeSettings の selectedMode に基づいて、
+/// 各モード用のUIルートの表示/非表示を切り替えます。
+/// 
+/// 注意: モードの初期化・管理はSinglePlayerModeManagerが担当します。
 /// </summary>
 public class GameModeSwitcher : MonoBehaviour
 {
@@ -14,27 +14,35 @@ public class GameModeSwitcher : MonoBehaviour
     [Tooltip("シングルプレイゲームモードの設定（ScriptableObject）")]
     [SerializeField] private SinglePlayerGameModeSettings singlePlayerSettings;
 
-    [Header("Mode Managers")]
-    [Tooltip("シングルプレイ用モードマネージャー（ColorDefense など）")]
-    [SerializeField] private SinglePlayerModeManager singlePlayerModeManager;
+    [Header("Mode Components")]
+    [Tooltip("カラーディフェンスモードコンポーネント（親オブジェクトの有効化に使用）")]
+    [SerializeField] private ColorDefenseMode colorDefenseMode;
 
-    [Tooltip("クリエイティブモードマネージャー")]
+    [Tooltip("クリエイティブモードマネージャー（親オブジェクトの有効化に使用）")]
     [SerializeField] private CreativeModeManager creativeModeManager;
 
-    [Header("Mode UI Roots")]
-    [Tooltip("カラーディフェンス用UIのルート（Canvas配下のルートオブジェクトなど）")]
-    [SerializeField] private GameObject colorDefenseUIRoot;
+    // Awake()での自動実行を停止
+    // GameModeSelectionPanelから手動で呼び出される
+    // private void Awake()
+    // {
+    //     ApplyModeFromSettings();
+    // }
 
-    [Tooltip("クリエイティブモード用UIのルート（Canvas配下のルートオブジェクトなど）")]
-    [SerializeField] private GameObject creativeModeUIRoot;
-
-    private void Awake()
+    /// <summary>
+    /// 指定されたモードを直接適用（ボタン選択時に使用）
+    /// </summary>
+    public void ApplyMode(SinglePlayerGameModeType mode)
     {
+        if (singlePlayerSettings != null)
+        {
+            singlePlayerSettings.selectedMode = mode;
+        }
         ApplyModeFromSettings();
     }
 
     /// <summary>
-    /// ScriptableObject の設定に基づいてモードを切り替える
+    /// ScriptableObject の設定に基づいて親オブジェクトを有効化
+    /// モードの初期化・UI管理はSinglePlayerModeManagerが担当
     /// </summary>
     public void ApplyModeFromSettings()
     {
@@ -44,35 +52,34 @@ public class GameModeSwitcher : MonoBehaviour
             return;
         }
 
-        // ScriptableObject の selectedMode に応じて有効化するモードを決定
+        // ScriptableObject の selectedMode に応じて親オブジェクトを有効化
         var mode = singlePlayerSettings.selectedMode;
 
         bool useColorDefense = (mode == SinglePlayerGameModeType.ColorDefense);
         bool useCreative = (mode == SinglePlayerGameModeType.Creative);
 
-        // シングルプレイ（ColorDefense）側の有効/無効
-        if (singlePlayerModeManager != null)
+        // 各モードで使うオブジェクトの親オブジェクトを有効化
+        if (useColorDefense && colorDefenseMode != null)
         {
-            singlePlayerModeManager.gameObject.SetActive(useColorDefense);
+            // ColorDefenseModeの親オブジェクトを有効化
+            Transform parent = colorDefenseMode.transform.parent;
+            if (parent != null)
+            {
+                parent.gameObject.SetActive(true);
+            }
         }
 
-        if (colorDefenseUIRoot != null)
+        if (useCreative && creativeModeManager != null)
         {
-            colorDefenseUIRoot.SetActive(useColorDefense);
+            // CreativeModeManagerの親オブジェクトを有効化
+            Transform parent = creativeModeManager.transform.parent;
+            if (parent != null)
+            {
+                parent.gameObject.SetActive(true);
+            }
         }
 
-        // クリエイティブモード側の有効/無効
-        if (creativeModeManager != null)
-        {
-            creativeModeManager.gameObject.SetActive(useCreative);
-        }
-
-        if (creativeModeUIRoot != null)
-        {
-            creativeModeUIRoot.SetActive(useCreative);
-        }
-
-        Debug.Log($"GameModeSwitcher: モード切り替え完了 - selectedMode={mode}, useColorDefense={useColorDefense}, useCreative={useCreative}");
+        Debug.Log($"GameModeSwitcher: 親オブジェクトを有効化しました - selectedMode={mode}");
     }
 }
 

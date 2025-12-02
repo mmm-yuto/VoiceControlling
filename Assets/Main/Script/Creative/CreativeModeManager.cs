@@ -6,7 +6,7 @@ using UnityEngine.Events;
 /// クリエイティブモードのマネージャー
 /// ツール切り替え、履歴管理、音声入力からの塗り処理を担当
 /// </summary>
-public class CreativeModeManager : MonoBehaviour
+public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
 {
     [Header("References")]
     [Tooltip("音声入力処理コンポーネント（Inspectorで接続）")]
@@ -39,6 +39,7 @@ public class CreativeModeManager : MonoBehaviour
     private Vector2 lastPaintPosition = Vector2.zero; // 前回の塗り位置
     private bool hasLastPosition = false; // 前回の位置が有効かどうか
     private CanvasState lastSavedState = null; // 前回保存した状態（変更検出用）
+    private bool isInitialized = false; // ISinglePlayerGameMode経由で初期化されたかどうか
     
     // イベント
     public event System.Action<CreativeToolMode> OnToolModeChanged;
@@ -50,7 +51,10 @@ public class CreativeModeManager : MonoBehaviour
     public UnityEvent<bool> OnUndoAvailabilityChangedUnityEvent;
     public UnityEvent<BrushStrategyBase> OnBrushChangedUnityEvent;
     
-    void Start()
+    // ISinglePlayerGameMode インターフェースの実装
+    public SinglePlayerGameModeType GetModeType() => SinglePlayerGameModeType.Creative;
+    
+    public void Initialize(SinglePlayerGameModeSettings modeSettings)
     {
         // 参照の自動検索
         if (voiceInputHandler == null)
@@ -107,19 +111,16 @@ public class CreativeModeManager : MonoBehaviour
             currentColor = colorSelectionSystem.GetCurrentColor();
         }
         
+        isInitialized = true;
+    }
+    
+    public void StartGame()
+    {
         // 初期状態を履歴に保存
         PushHistorySnapshot();
     }
     
-    void OnDestroy()
-    {
-        if (colorSelectionSystem != null)
-        {
-            colorSelectionSystem.OnColorChanged -= OnColorSelectionChanged;
-        }
-    }
-    
-    void Update()
+    public void UpdateGame(float deltaTime)
     {
         if (voiceInputHandler == null || paintCanvas == null || settings == null)
         {
@@ -137,6 +138,56 @@ public class CreativeModeManager : MonoBehaviour
         
         // 履歴保存のタイミング管理
         ManageHistorySaving();
+    }
+    
+    public void EndGame()
+    {
+        // クリーンアップ処理（OnDestroy()の処理を移行）
+        if (colorSelectionSystem != null)
+        {
+            colorSelectionSystem.OnColorChanged -= OnColorSelectionChanged;
+        }
+    }
+    
+    public void Pause()
+    {
+        // Creativeモードは一時停止機能は不要（必要に応じて実装）
+    }
+    
+    public void Resume()
+    {
+        // Creativeモードは再開機能は不要（必要に応じて実装）
+    }
+    
+    public int GetScore() => 0; // Creativeモードはスコアなし
+    
+    public float GetProgress() => 0f; // Creativeモードは進捗なし
+    
+    public bool IsGameOver() => false; // Creativeモードは終了条件なし
+    
+    // 後方互換性のため、Start()とUpdate()も維持（既存のコードが動作するように）
+    void Start()
+    {
+        // ISinglePlayerGameMode経由で初期化されない場合のフォールバック
+        // （既存のコードとの互換性のため）
+        if (!isInitialized)
+        {
+            Initialize(null);
+            StartGame();
+        }
+    }
+    
+    void Update()
+    {
+        // ISinglePlayerGameMode経由で更新されない場合のフォールバック
+        // （既存のコードとの互換性のため）
+        // SinglePlayerModeManagerがUpdateGame()を呼ぶため、ここでは何もしない
+        // ただし、既存のコードとの互換性のために残しておく
+    }
+    
+    void OnDestroy()
+    {
+        EndGame();
     }
     
     /// <summary>
