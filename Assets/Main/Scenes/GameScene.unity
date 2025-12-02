@@ -4059,6 +4059,7 @@ MonoBehaviour:
   enemyParticleLifetime: 1
   enemyParticleCount: 10
   paintCanvas: {fileID: 1098085713}
+  markerParent: {fileID: 574533158}
 --- !u!4 &612787507
 Transform:
   m_ObjectHideFlags: 0
@@ -4421,7 +4422,6 @@ MonoBehaviour:
   colorDefenseUIRoot: {fileID: 1245001716}
   creativeModeUIRoot: {fileID: 778116802}
   paintCanvas: {fileID: 1098085713}
-  inkEffect: {fileID: 0}
 --- !u!1 &711885814
 GameObject:
   m_ObjectHideFlags: 0
