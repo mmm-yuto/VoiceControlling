@@ -84,6 +84,9 @@ public class InkEffect : MonoBehaviour
     [Tooltip("塗りキャンバス（Inspectorで接続）")]
     public PaintCanvas paintCanvas;
     
+    [Tooltip("EffectMarkerを生成する親オブジェクト（設定されていない場合はPaintCanvasを使用）")]
+    public Transform markerParent;
+    
     private Image markerImage;
     private Image enemyMarkerImage;
     private Canvas uiCanvas;
@@ -313,20 +316,33 @@ public class InkEffect : MonoBehaviour
     
     void CreateMarkerUI()
     {
-        // Canvasを取得または作成
-        uiCanvas = FindObjectOfType<Canvas>();
+        // 親オブジェクトを決定（インスペクターで設定されていない場合はPaintCanvasを使用）
+        Transform parentTransform = markerParent;
+        if (parentTransform == null && paintCanvas != null)
+        {
+            parentTransform = paintCanvas.transform;
+        }
+        
+        if (parentTransform == null)
+        {
+            Debug.LogError("InkEffect: マーカーの親オブジェクトが設定されていません。PaintCanvasまたはMarkerParentを設定してください。");
+            return;
+        }
+        
+        // 親オブジェクトにCanvasコンポーネントがあるか確認
+        uiCanvas = parentTransform.GetComponent<Canvas>();
         if (uiCanvas == null)
         {
-            GameObject canvasObj = new GameObject("MarkerCanvas");
-            uiCanvas = canvasObj.AddComponent<Canvas>();
+            // Canvasコンポーネントがない場合は、親オブジェクトに追加
+            uiCanvas = parentTransform.gameObject.AddComponent<Canvas>();
             uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasObj.AddComponent<CanvasScaler>();
-            canvasObj.AddComponent<GraphicRaycaster>();
+            parentTransform.gameObject.AddComponent<CanvasScaler>();
+            parentTransform.gameObject.AddComponent<GraphicRaycaster>();
         }
         
         // マーカー用のGameObjectを作成
         GameObject markerObj = new GameObject("EffectMarker");
-        markerObj.transform.SetParent(uiCanvas.transform, false);
+        markerObj.transform.SetParent(parentTransform, false);
         
         // RectTransformを設定
         markerRectTransform = markerObj.AddComponent<RectTransform>();
@@ -364,23 +380,36 @@ public class InkEffect : MonoBehaviour
     
     void CreateEnemyMarkerUI()
     {
-        // Canvasを取得または作成（既に作成されている場合は再利用）
+        // 親オブジェクトを決定（インスペクターで設定されていない場合はPaintCanvasを使用）
+        Transform parentTransform = markerParent;
+        if (parentTransform == null && paintCanvas != null)
+        {
+            parentTransform = paintCanvas.transform;
+        }
+        
+        if (parentTransform == null)
+        {
+            Debug.LogError("InkEffect: マーカーの親オブジェクトが設定されていません。PaintCanvasまたはMarkerParentを設定してください。");
+            return;
+        }
+        
+        // Canvasコンポーネントを取得（既にCreateMarkerUI()で作成されている場合は再利用）
         if (uiCanvas == null)
         {
-            uiCanvas = FindObjectOfType<Canvas>();
+            uiCanvas = parentTransform.GetComponent<Canvas>();
             if (uiCanvas == null)
             {
-                GameObject canvasObj = new GameObject("MarkerCanvas");
-                uiCanvas = canvasObj.AddComponent<Canvas>();
+                // Canvasコンポーネントがない場合は、親オブジェクトに追加
+                uiCanvas = parentTransform.gameObject.AddComponent<Canvas>();
                 uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvasObj.AddComponent<CanvasScaler>();
-                canvasObj.AddComponent<GraphicRaycaster>();
+                parentTransform.gameObject.AddComponent<CanvasScaler>();
+                parentTransform.gameObject.AddComponent<GraphicRaycaster>();
             }
         }
         
         // 敵用マーカー用のGameObjectを作成
         GameObject markerObj = new GameObject("EnemyEffectMarker");
-        markerObj.transform.SetParent(uiCanvas.transform, false);
+        markerObj.transform.SetParent(parentTransform, false);
         
         // RectTransformを設定
         enemyMarkerRectTransform = markerObj.AddComponent<RectTransform>();

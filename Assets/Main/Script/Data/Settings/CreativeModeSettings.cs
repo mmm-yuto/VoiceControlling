@@ -48,6 +48,10 @@ public class CreativeModeSettings : ScriptableObject
     [Tooltip("履歴保存モード")]
     public HistorySaveMode historySaveMode = HistorySaveMode.OnOperation;
     
+    [Header("Effect Settings")]
+    [Tooltip("インクエフェクト（CreativeModeで使用するエフェクト）")]
+    public InkEffect inkEffect;
+    
     public enum HistorySaveMode
     {
         OnOperation, // 操作開始/終了時に保存

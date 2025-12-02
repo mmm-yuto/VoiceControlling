@@ -18,6 +18,9 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     [Tooltip("色選択システム（Inspectorで接続）")]
     [SerializeField] private ColorSelectionSystem colorSelectionSystem;
     
+    [Tooltip("インクエフェクト（Inspectorで接続、またはCreativeModeSettingsから取得）")]
+    [SerializeField] private InkEffect inkEffect;
+    
     [Header("Settings")]
     [Tooltip("クリエイティブモード設定（Inspectorで接続）")]
     [SerializeField] private CreativeModeSettings settings;
@@ -111,6 +114,27 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
             currentColor = colorSelectionSystem.GetCurrentColor();
         }
         
+        // InkEffectの参照を取得（CreativeModeSettingsから、または自動検索）
+        if (inkEffect == null && settings != null && settings.inkEffect != null)
+        {
+            inkEffect = settings.inkEffect;
+        }
+        
+        if (inkEffect == null)
+        {
+            inkEffect = FindObjectOfType<InkEffect>();
+            if (inkEffect == null)
+            {
+                Debug.LogWarning("CreativeModeManager: InkEffectが見つかりません。エフェクトは表示されません。");
+            }
+        }
+        
+        // InkEffectを有効化
+        if (inkEffect != null)
+        {
+            inkEffect.gameObject.SetActive(true);
+        }
+        
         isInitialized = true;
     }
     
@@ -147,6 +171,13 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
         {
             colorSelectionSystem.OnColorChanged -= OnColorSelectionChanged;
         }
+        
+        // InkEffectを無効化（必要に応じて）
+        // 注意: 他のモードでも使用する場合は無効化しない
+        // if (inkEffect != null)
+        // {
+        //     inkEffect.gameObject.SetActive(false);
+        // }
     }
     
     public void Pause()
@@ -663,6 +694,14 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     public BrushStrategyBase GetCurrentBrush()
     {
         return currentBrush;
+    }
+    
+    /// <summary>
+    /// 現在のInkEffectを取得
+    /// </summary>
+    public InkEffect GetInkEffect()
+    {
+        return inkEffect;
     }
     
     /// <summary>
