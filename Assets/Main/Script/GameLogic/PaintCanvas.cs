@@ -207,13 +207,32 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     /// </summary>
     public void PaintAtWithRadius(Vector2 screenPosition, int playerId, float intensity, Color color, float radius)
     {
+        PaintAtWithRadiusInternal(screenPosition, playerId, intensity, color, radius, checkUpdateFrequency: true);
+    }
+
+    /// <summary>
+    /// 半径指定で塗る（更新頻度チェックをスキップする版、爆発時などに使用）
+    /// </summary>
+    public void PaintAtWithRadiusForced(Vector2 screenPosition, int playerId, float intensity, Color color, float radius)
+    {
+        PaintAtWithRadiusInternal(screenPosition, playerId, intensity, color, radius, checkUpdateFrequency: false);
+    }
+
+    /// <summary>
+    /// 半径指定で塗る（内部実装）
+    /// </summary>
+    private void PaintAtWithRadiusInternal(Vector2 screenPosition, int playerId, float intensity, Color color, float radius, bool checkUpdateFrequency)
+    {
         if (!isInitialized || settings == null) return;
         
-        // 更新頻度チェック
-        frameCount++;
-        if (frameCount % settings.updateFrequency != 0)
+        // 更新頻度チェック（checkUpdateFrequency が true の場合のみ）
+        if (checkUpdateFrequency)
         {
-            return;
+            frameCount++;
+            if (frameCount % settings.updateFrequency != 0)
+            {
+                return;
+            }
         }
         
         // 画面座標をキャンバス座標に変換

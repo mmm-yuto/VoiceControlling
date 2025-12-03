@@ -391,6 +391,7 @@ public class VolumeTriggeredBombController : MonoBehaviour
 
     /// <summary>
     /// 指定された画面座標で爆発塗りを行う。
+    /// 更新頻度チェックをスキップして、必ず塗り処理を実行する。
     /// </summary>
     /// <param name="screenPosition">爆発位置（画面座標）</param>
     private void ExplodeAt(Vector2 screenPosition)
@@ -414,9 +415,9 @@ public class VolumeTriggeredBombController : MonoBehaviour
         // デバッグログ：爆発位置を出力
         Debug.Log($"VolumeTriggeredBombController: 爆発実行 - 位置: ({screenPosition.x:F1}, {screenPosition.y:F1}), 強度: {bombIntensity}, 半径: {bombRadius}, 色: {bombColor}");
 
-        // PaintCanvas の PaintAtWithRadius を使用して円形塗りを実行
-        // intensity は bombIntensity をそのまま渡す（PaintCanvas 側でしきい値判定される）
-        paintCanvas.PaintAtWithRadius(screenPosition, bombPlayerId, bombIntensity, bombColor, bombRadius);
+        // PaintCanvas の PaintAtWithRadiusForced を使用して円形塗りを実行
+        // 更新頻度チェックをスキップして、必ず塗り処理を実行する
+        paintCanvas.PaintAtWithRadiusForced(screenPosition, bombPlayerId, bombIntensity, bombColor, bombRadius);
     }
 }
 
