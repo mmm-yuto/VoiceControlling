@@ -7,6 +7,12 @@ public class VolumeAnalyzer : MonoBehaviour
     public float volumeThreshold = 0.01f;
     
     private VoiceDetector voiceDetector;
+
+    /// <summary>
+    /// 直近フレームで計算された生の音量値（しきい値判定前）。
+    /// 他コンポーネントから現在の音量を参照するために使用する。
+    /// </summary>
+    public float CurrentVolume { get; private set; } = 0f;
     
     void Start()
     {
@@ -29,6 +35,7 @@ public class VolumeAnalyzer : MonoBehaviour
         if (samples != null)
         {
             float volume = CalculateVolume(samples);
+            CurrentVolume = Mathf.Max(0f, volume);
             ProcessVolume(volume);
         }
     }
@@ -45,12 +52,12 @@ public class VolumeAnalyzer : MonoBehaviour
     
     void ProcessVolume(float volume)
     {
-        // 音量が閾値以上の場合のみ処理
+        // 音量が閾値以上の場合のみ追加処理
         if (volume > volumeThreshold)
         {
             // 音量に基づく処理をここに実装
             Debug.Log($"Volume: {volume:F3}");
-            
+
             // イベント発火
             OnVolumeDetected?.Invoke(volume);
         }
