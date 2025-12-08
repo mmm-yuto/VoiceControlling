@@ -286,44 +286,26 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     }
     
     /// <summary>
-    /// 指定位置に塗る（ツールモードに応じて処理を分岐）
+    /// 指定位置に塗る（現在のブラシを使用）
     /// 前回の位置と現在の位置の間を補間して連続線を描く
     /// </summary>
     private void PaintAt(Vector2 position, float intensity)
     {
-        if (paintCanvas == null) return;
+        if (paintCanvas == null || currentBrush == null) return;
         
-        switch (currentToolMode)
+        if (hasLastPosition)
         {
-            case CreativeToolMode.Paint:
-                if (hasLastPosition)
-                {
-                    // 前回の位置と現在の位置の間を補間
-                    PaintLineBetween(lastPaintPosition, position, intensity);
-                }
-                else
-                {
-                    // 最初の点はそのまま塗る
-                    PaintWithCurrentBrush(position, intensity);
-                }
-                // 現在の位置を記録
-                lastPaintPosition = position;
-                hasLastPosition = true;
-                break;
-            case CreativeToolMode.Eraser:
-                if (hasLastPosition)
-                {
-                    // 消しツールも連続線で消す
-                    EraseLineBetween(lastPaintPosition, position);
-                }
-                else
-                {
-                    EraseAt(position);
-                }
-                lastPaintPosition = position;
-                hasLastPosition = true;
-                break;
+            // 前回の位置と現在の位置の間を補間
+            PaintLineBetween(lastPaintPosition, position, intensity);
         }
+        else
+        {
+            // 最初の点はそのまま塗る
+            PaintWithCurrentBrush(position, intensity);
+        }
+        // 現在の位置を記録
+        lastPaintPosition = position;
+        hasLastPosition = true;
     }
     
     /// <summary>
@@ -335,17 +317,6 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
         
         float finalIntensity = intensity * settings.paintIntensity;
         currentBrush.Paint(paintCanvas, position, currentPlayerId, currentColor, finalIntensity);
-    }
-    
-    /// <summary>
-    /// 消しツールで消す
-    /// </summary>
-    private void EraseAt(Vector2 position)
-    {
-        if (paintCanvas == null) return;
-        
-        float radius = settings.eraserRadius;
-        paintCanvas.EraseAt(position, radius);
     }
     
     /// <summary>
@@ -381,41 +352,6 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
             float t = (float)i / steps;
             Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
             PaintWithCurrentBrush(interpolatedPos, intensity);
-        }
-    }
-    
-    /// <summary>
-    /// 2点間を補間して連続線を消す（消しツール用）
-    /// </summary>
-    private void EraseLineBetween(Vector2 startPos, Vector2 endPos)
-    {
-        if (paintCanvas == null) return;
-        
-        float radius = settings.eraserRadius;
-        
-        // 距離を計算
-        float distance = Vector2.Distance(startPos, endPos);
-        
-        // 距離が短い場合は補間をスキップ（半径の1/4以下）
-        if (distance < radius * 0.25f)
-        {
-            paintCanvas.EraseAt(endPos, radius);
-            return;
-        }
-        
-        // 補間ステップ数を計算（半径の半分ごとに点を消す）
-        int steps = Mathf.Max(1, Mathf.CeilToInt(distance / (radius * 0.5f)));
-        
-        // 最大ステップ数を制限（パフォーマンス対策）
-        const int maxSteps = 50;
-        steps = Mathf.Min(steps, maxSteps);
-        
-        // 各ステップで消す
-        for (int i = 0; i <= steps; i++)
-        {
-            float t = (float)i / steps;
-            Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
-            paintCanvas.EraseAt(interpolatedPos, radius);
         }
     }
     

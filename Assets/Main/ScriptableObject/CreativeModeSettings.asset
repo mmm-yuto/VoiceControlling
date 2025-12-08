@@ -20,6 +20,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 41d94d9c2e3345743ba8d62e6fece555, type: 2}
   - {fileID: 11400000, guid: 00ce56b7a68e2004ab58c5f5920e8798, type: 2}
   - {fileID: 11400000, guid: b80f74c0b4b89ab499d18b918f34444d, type: 2}
+  - {fileID: 11400000, guid: 489b844f80f8e1b42b71b850dca1d9e6, type: 2}
   defaultBrush: {fileID: 11400000, guid: 41d94d9c2e3345743ba8d62e6fece555, type: 2}
   eraserRadius: 30
   maxHistorySize: 10
