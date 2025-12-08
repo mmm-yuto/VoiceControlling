@@ -7,7 +7,7 @@ public class VolumeAnalyzer : MonoBehaviour
     public float volumeThreshold = 0.01f;
     
     private VoiceDetector voiceDetector;
-
+    
     /// <summary>
     /// 直近フレームで計算された生の音量値（しきい値判定前）。
     /// 他コンポーネントから現在の音量を参照するために使用する。
@@ -57,7 +57,7 @@ public class VolumeAnalyzer : MonoBehaviour
         {
             // 音量に基づく処理をここに実装
             Debug.Log($"Volume: {volume:F3}");
-
+            
             // イベント発火
             OnVolumeDetected?.Invoke(volume);
         }
