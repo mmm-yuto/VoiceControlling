@@ -14,14 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PaintSplatterBackgroundSettings
   timeScale: 1
   scrollSpeed: {x: 0.1, y: 0.1}
-  rotationSpeed: 0.5
-  splatterCount: 8
+  rotationSpeed: 0.772
+  fadeSpeed: 0.5
+  fadeCycle: 7.88
+  splatterCount: 20
   splatterColors:
+  - {r: 1, g: 0.9618522, b: 0, a: 1}
   - {r: 1, g: 0, b: 0, a: 1}
-  - {r: 0, g: 0, b: 1, a: 1}
-  - {r: 1, g: 1, b: 0, a: 1}
-  - {r: 0, g: 1, b: 0, a: 1}
-  - {r: 1, g: 0, b: 1, a: 1}
-  splatterSizeRange: {x: 0.2, y: 0.8}
-  blendAmount: 0.3
-  backgroundColor: {r: 1, g: 1, b: 1, a: 1}
+  - {r: 0, g: 0.16513157, b: 1, a: 1}
+  - {r: 0, g: 1, b: 0.24332261, a: 1}
+  - {r: 1, g: 0, b: 0.9622731, a: 1}
+  splatterSizeRange: {x: 1, y: 10}
+  blendAmount: 0.406
+  backgroundColor: {r: 0, g: 0, b: 0, a: 1}

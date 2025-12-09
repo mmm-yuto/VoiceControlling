@@ -9,12 +9,14 @@ Shader "Custom/PaintSplatterBackground"
         _SplatterSizeMin ("Splatter Size Min", Range(0.1, 1)) = 0.2
         _SplatterSizeMax ("Splatter Size Max", Range(0.1, 1)) = 0.8
         _BlendAmount ("Blend Amount", Range(0, 1)) = 0.3
-        _Color1 ("Color 1", Color) = (1, 0, 0, 1)
-        _Color2 ("Color 2", Color) = (0, 0, 1, 1)
-        _Color3 ("Color 3", Color) = (1, 1, 0, 1)
-        _Color4 ("Color 4", Color) = (0, 1, 0, 1)
-        _Color5 ("Color 5", Color) = (1, 0, 1, 1)
-        _BackgroundColor ("Background Color", Color) = (1, 1, 1, 1)
+        _Color1 ("Color 1", Color) = (1, 0, 1, 1)
+        _Color2 ("Color 2", Color) = (1, 1, 0, 1)
+        _Color3 ("Color 3", Color) = (0, 0.5, 1, 1)
+        _Color4 ("Color 4", Color) = (1, 0.5, 0, 1)
+        _Color5 ("Color 5", Color) = (0.5, 1, 0, 1)
+        _BackgroundColor ("Background Color", Color) = (0, 0, 0, 1)
+        _FadeSpeed ("Fade Speed", Range(0.1, 2)) = 0.5
+        _FadeCycle ("Fade Cycle", Range(2, 20)) = 8
     }
     
     SubShader
@@ -64,6 +66,8 @@ Shader "Custom/PaintSplatterBackground"
                 float4 _Color4;
                 float4 _Color5;
                 float4 _BackgroundColor;
+                float _FadeSpeed;
+                float _FadeCycle;
             CBUFFER_END
             
             // Simple noise function
@@ -101,7 +105,7 @@ Shader "Custom/PaintSplatterBackground"
                 return value;
             }
             
-            // Create a splatter shape
+            // Create a splatter shape with splash paint effect
             float createSplatter(float2 uv, float2 center, float size, float rotation, float time)
             {
                 // Rotate UV around center
@@ -119,12 +123,26 @@ Shader "Custom/PaintSplatterBackground"
                 // Distance from center
                 float dist = length(rotated);
                 
-                // Base circular shape with noise
+                // Base circular shape with noise - より滑らかなエッジ
                 float noiseValue = fractalNoise(rotated * 3.0 + time * 0.1);
-                float shape = 1.0 - smoothstep(0.3, 0.8 + noiseValue * 0.3, dist);
+                // エッジをより広範囲に滑らかにする
+                float edgeStart = 0.2;
+                float edgeEnd = 1.2 + noiseValue * 0.4;
+                float shape = 1.0 - smoothstep(edgeStart, edgeEnd, dist);
                 
-                // Add noise variation
-                shape *= (0.7 + noiseValue * 0.3);
+                // ノイズで形状を柔らかくする（エッジをより自然に）
+                shape *= (0.6 + noiseValue * 0.4);
+                
+                // スプラッシュペイント効果：中心から放射状の滴を追加
+                float angle = atan2(rotated.y, rotated.x);
+                float radialNoise = fractalNoise(float2(angle * 2.0, dist * 2.0) + time * 0.05);
+                // 滴の効果を追加（距離が遠いほど強く）
+                float dropletEffect = radialNoise * (1.0 - smoothstep(0.3, 1.0, dist));
+                shape += dropletEffect * 0.3;
+                shape = saturate(shape); // 0-1にクランプ
+                
+                // エッジをさらに滑らかにする（フェードアウト）
+                shape = pow(shape, 0.7);
                 
                 return shape;
             }
@@ -193,9 +211,43 @@ Shader "Custom/PaintSplatterBackground"
                     else if (colorIndex == 3) splatterColor = _Color4;
                     else splatterColor = _Color5;
                     
-                    // Blend splatters
-                    float splatterAlpha = splatterShape * (1.0 - _BlendAmount);
-                    finalColor = lerp(finalColor, splatterColor, splatterAlpha);
+                    // フェードイン/フェードアウトアニメーション
+                    // 各スプラッターに異なるフェードオフセットを設定
+                    float fadeOffset = seed * _FadeCycle;
+                    float fadeTime = (wrappedTime * _FadeSpeed + fadeOffset) % _FadeCycle;
+                    // フェードイン/フェードアウトの周期（0から1にフェードイン、1から2にフェードアウト）
+                    float fadePhase = fadeTime / _FadeCycle;
+                    float fadeAlpha = 0.0;
+                    if (fadePhase < 0.25)
+                    {
+                        // フェードイン（0 → 1）
+                        fadeAlpha = fadePhase / 0.25;
+                    }
+                    else if (fadePhase < 0.75)
+                    {
+                        // 完全表示
+                        fadeAlpha = 1.0;
+                    }
+                    else
+                    {
+                        // フェードアウト（1 → 0）
+                        fadeAlpha = 1.0 - (fadePhase - 0.75) / 0.25;
+                    }
+                    
+                    // スプラッターの形状にフェードを適用
+                    splatterShape *= fadeAlpha;
+                    
+                    // Blend splatters - より滑らかなブレンド
+                    // スプラッターの形状をそのまま使用（既に滑らかになっている）
+                    float splatterAlpha = splatterShape;
+                    
+                    // 加算ブレンド風に色を混ぜる（境目を目立たなくする）
+                    float3 colorBlend = lerp(finalColor.rgb, splatterColor.rgb, splatterAlpha * 0.8);
+                    // より強い色を優先する（スクリーンブレンド風）
+                    colorBlend = max(finalColor.rgb, splatterColor.rgb * splatterAlpha);
+                    // 最終的に滑らかにブレンド
+                    finalColor.rgb = lerp(finalColor.rgb, colorBlend, splatterAlpha * 0.6);
+                    
                     alpha = max(alpha, splatterShape);
                 }
                 

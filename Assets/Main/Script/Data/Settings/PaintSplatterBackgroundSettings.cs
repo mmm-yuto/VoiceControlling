@@ -19,6 +19,15 @@ public class PaintSplatterBackgroundSettings : ScriptableObject
     [Range(0f, 2f)]
     public float rotationSpeed = 0.5f;
     
+    [Header("Fade Animation")]
+    [Tooltip("フェードイン/フェードアウトの速度")]
+    [Range(0.1f, 2f)]
+    public float fadeSpeed = 0.5f;
+    
+    [Tooltip("フェードの周期（秒）")]
+    [Range(2f, 20f)]
+    public float fadeCycle = 8f;
+    
     [Header("Splatter Properties")]
     [Tooltip("スプラッターの数")]
     [Range(1, 20)]
@@ -27,11 +36,11 @@ public class PaintSplatterBackgroundSettings : ScriptableObject
     [Tooltip("スプラッターの色（最大5色）")]
     public Color[] splatterColors = new Color[] 
     { 
-        new Color(1f, 0f, 0f, 1f),      // Red
-        new Color(0f, 0f, 1f, 1f),      // Blue
+        new Color(1f, 0f, 1f, 1f),      // Magenta
         new Color(1f, 1f, 0f, 1f),      // Yellow
-        new Color(0f, 1f, 0f, 1f),      // Green
-        new Color(1f, 0f, 1f, 1f)       // Magenta
+        new Color(0f, 0.5f, 1f, 1f),    // Bright Blue
+        new Color(1f, 0.5f, 0f, 1f),    // Orange
+        new Color(0.5f, 1f, 0f, 1f)     // Bright Green
     };
     
     [Tooltip("スプラッターのサイズ範囲（最小、最大）")]
@@ -43,7 +52,7 @@ public class PaintSplatterBackgroundSettings : ScriptableObject
     
     [Header("Background")]
     [Tooltip("背景色")]
-    public Color backgroundColor = Color.white;
+    public Color backgroundColor = Color.black; // Pure black
     
     void OnValidate()
     {
@@ -58,14 +67,14 @@ public class PaintSplatterBackgroundSettings : ScriptableObject
                     newColors[i] = splatterColors[i];
                 }
             }
-            // デフォルト色を設定
+            // デフォルト色を設定（明るい鮮やかな色）
             if (splatterColors == null || splatterColors.Length == 0)
             {
-                newColors[0] = new Color(1f, 0f, 0f, 1f);      // Red
-                newColors[1] = new Color(0f, 0f, 1f, 1f);      // Blue
-                newColors[2] = new Color(1f, 1f, 0f, 1f);      // Yellow
-                newColors[3] = new Color(0f, 1f, 0f, 1f);      // Green
-                newColors[4] = new Color(1f, 0f, 1f, 1f);      // Magenta
+                newColors[0] = new Color(1f, 0f, 1f, 1f);      // Magenta
+                newColors[1] = new Color(1f, 1f, 0f, 1f);      // Yellow
+                newColors[2] = new Color(0f, 0.5f, 1f, 1f);    // Bright Blue
+                newColors[3] = new Color(1f, 0.5f, 0f, 1f);    // Orange
+                newColors[4] = new Color(0.5f, 1f, 0f, 1f);     // Bright Green
             }
             splatterColors = newColors;
         }
