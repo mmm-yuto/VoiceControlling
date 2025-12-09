@@ -2,9 +2,8 @@ Shader "Custom/PaintSplatterBackground"
 {
     Properties
     {
+        _MainTex ("Texture", 2D) = "white" {}
         _TimeScale ("Time Scale", Range(0, 5)) = 1.0
-        _ScrollSpeed ("Scroll Speed", Vector) = (0.1, 0.1, 0, 0)
-        _RotationSpeed ("Rotation Speed", Range(0, 2)) = 0.5
         _SplatterCount ("Splatter Count", Range(1, 20)) = 8
         _SplatterSizeMin ("Splatter Size Min", Range(0.1, 1)) = 0.2
         _SplatterSizeMax ("Splatter Size Max", Range(0.1, 1)) = 0.8
@@ -15,8 +14,13 @@ Shader "Custom/PaintSplatterBackground"
         _Color4 ("Color 4", Color) = (1, 0.5, 0, 1)
         _Color5 ("Color 5", Color) = (0.5, 1, 0, 1)
         _BackgroundColor ("Background Color", Color) = (0, 0, 0, 1)
-        _FadeSpeed ("Fade Speed", Range(0.1, 2)) = 0.5
-        _FadeCycle ("Fade Cycle", Range(2, 20)) = 8
+        [Header(CRT Emulation)]
+        _ScanlineIntensity ("Scanline Intensity", Range(0, 1)) = 0.3
+        _ScanlineSpeed ("Scanline Speed", Range(0, 5)) = 1
+        _ChromaticAberration ("Chromatic Aberration", Range(0, 0.1)) = 0.02
+        _ScreenCurvature ("Screen Curvature", Range(0, 0.1)) = 0.05
+        _Brightness ("Brightness", Range(0, 1)) = 0.6
+        _Contrast ("Contrast", Range(0.5, 2)) = 1.2
     }
     
     SubShader
@@ -52,10 +56,12 @@ Shader "Custom/PaintSplatterBackground"
                 float2 uv : TEXCOORD0;
             };
             
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
+            
             CBUFFER_START(UnityPerMaterial)
+                float4 _MainTex_ST;
                 float _TimeScale;
-                float2 _ScrollSpeed;
-                float _RotationSpeed;
                 float _SplatterCount;
                 float _SplatterSizeMin;
                 float _SplatterSizeMax;
@@ -66,8 +72,12 @@ Shader "Custom/PaintSplatterBackground"
                 float4 _Color4;
                 float4 _Color5;
                 float4 _BackgroundColor;
-                float _FadeSpeed;
-                float _FadeCycle;
+                float _ScanlineIntensity;
+                float _ScanlineSpeed;
+                float _ChromaticAberration;
+                float _ScreenCurvature;
+                float _Brightness;
+                float _Contrast;
             CBUFFER_END
             
             // Simple noise function
@@ -158,14 +168,14 @@ Shader "Custom/PaintSplatterBackground"
             half4 frag(Varyings input) : SV_Target
             {
                 float time = _Time.y * _TimeScale;
-                // Use wrapped time for animations to prevent overflow issues
-                float wrappedTime = frac(time * 0.01) * 100.0; // Wrap every 100 seconds
                 
                 float2 uv = input.uv;
                 
-                // Scroll UV with wrapping (loop)
-                float2 scrollOffset = _ScrollSpeed * time;
-                uv = frac(uv + scrollOffset);
+                // CRT画面の歪み（バレル歪み）
+                float2 centeredUV = uv - 0.5;
+                float dist = length(centeredUV);
+                float2 distortedUV = centeredUV * (1.0 + dist * dist * _ScreenCurvature) + 0.5;
+                uv = distortedUV;
                 
                 // Initialize color
                 float4 finalColor = _BackgroundColor;
@@ -181,23 +191,15 @@ Shader "Custom/PaintSplatterBackground"
                         frac(sin(seed * 78.233) * 43758.5453)
                     );
                     
-                    // Animate center position slightly (using wrapped time to prevent overflow)
-                    center += float2(
-                        sin(wrappedTime * 0.3 + seed * 2.0) * 0.1,
-                        cos(wrappedTime * 0.4 + seed * 3.0) * 0.1
-                    );
-                    // Ensure center stays within bounds
+                    // Static center position (ensure stays within bounds)
                     center = frac(center);
                     
                     // Random size
                     float sizeSeed = frac(sin(seed * 45.6789) * 43758.5453);
                     float size = lerp(_SplatterSizeMin, _SplatterSizeMax, sizeSeed);
                     
-                    // Animate size (using wrapped time)
-                    size *= (1.0 + sin(wrappedTime * 0.5 + seed * 4.0) * 0.2);
-                    
-                    // Random rotation (continuous rotation, no wrapping needed)
-                    float rotation = (seed * 6.28318) + time * _RotationSpeed;
+                    // Random rotation (static)
+                    float rotation = seed * 6.28318;
                     
                     // Create splatter shape
                     float splatterShape = createSplatter(uv, center, size, rotation, time);
@@ -210,32 +212,6 @@ Shader "Custom/PaintSplatterBackground"
                     else if (colorIndex == 2) splatterColor = _Color3;
                     else if (colorIndex == 3) splatterColor = _Color4;
                     else splatterColor = _Color5;
-                    
-                    // フェードイン/フェードアウトアニメーション
-                    // 各スプラッターに異なるフェードオフセットを設定
-                    float fadeOffset = seed * _FadeCycle;
-                    float fadeTime = (wrappedTime * _FadeSpeed + fadeOffset) % _FadeCycle;
-                    // フェードイン/フェードアウトの周期（0から1にフェードイン、1から2にフェードアウト）
-                    float fadePhase = fadeTime / _FadeCycle;
-                    float fadeAlpha = 0.0;
-                    if (fadePhase < 0.25)
-                    {
-                        // フェードイン（0 → 1）
-                        fadeAlpha = fadePhase / 0.25;
-                    }
-                    else if (fadePhase < 0.75)
-                    {
-                        // 完全表示
-                        fadeAlpha = 1.0;
-                    }
-                    else
-                    {
-                        // フェードアウト（1 → 0）
-                        fadeAlpha = 1.0 - (fadePhase - 0.75) / 0.25;
-                    }
-                    
-                    // スプラッターの形状にフェードを適用
-                    splatterShape *= fadeAlpha;
                     
                     // Blend splatters - より滑らかなブレンド
                     // スプラッターの形状をそのまま使用（既に滑らかになっている）
@@ -253,6 +229,34 @@ Shader "Custom/PaintSplatterBackground"
                 
                 // Ensure minimum alpha for visibility
                 alpha = max(alpha, 0.1);
+                
+                // 明るさとコントラストの調整
+                finalColor.rgb = (finalColor.rgb - 0.5) * _Contrast + 0.5;
+                finalColor.rgb *= _Brightness;
+                
+                // 色収差効果（CRTの色ずれを再現）
+                float2 caOffset = float2(_ChromaticAberration, 0.0);
+                float3 colorShifted;
+                colorShifted.r = finalColor.r;
+                colorShifted.g = finalColor.g;
+                colorShifted.b = finalColor.b;
+                // エッジ部分でより強く色収差を適用
+                float edgeDist = length(input.uv - 0.5) * 2.0;
+                float caStrength = smoothstep(0.5, 1.0, edgeDist);
+                colorShifted.r = lerp(finalColor.r, finalColor.r + caOffset.x * caStrength, caStrength);
+                colorShifted.b = lerp(finalColor.b, finalColor.b - caOffset.x * caStrength, caStrength);
+                finalColor.rgb = colorShifted;
+                
+                // 適当な模様が上から下に移動する効果
+                float2 patternUV = float2(input.uv.x * 4.0, input.uv.y * 2.0 - _Time.y * _ScanlineSpeed);
+                float pattern = fractalNoise(patternUV);
+                // 模様をより強調
+                pattern = pow(pattern, 0.7);
+                // 模様を適用（暗い部分を作る）
+                finalColor.rgb *= (1.0 - pattern * _ScanlineIntensity * 0.5);
+                
+                // ガンマ補正（全体的に暗くする）
+                finalColor.rgb = pow(finalColor.rgb, 1.2);
                 
                 return half4(finalColor.rgb, alpha);
             }

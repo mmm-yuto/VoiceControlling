@@ -12,21 +12,30 @@ public class PaintSplatterBackgroundSettings : ScriptableObject
     [Range(0f, 5f)]
     public float timeScale = 1f;
     
-    [Tooltip("スクロール速度（X, Y）")]
-    public Vector2 scrollSpeed = new Vector2(0.1f, 0.1f);
+    [Header("CRT Emulation")]
+    [Tooltip("スキャンラインの強度")]
+    [Range(0f, 1f)]
+    public float scanlineIntensity = 0.3f;
     
-    [Tooltip("回転速度")]
-    [Range(0f, 2f)]
-    public float rotationSpeed = 0.5f;
+    [Tooltip("スキャンラインの速度")]
+    [Range(0f, 5f)]
+    public float scanlineSpeed = 1f;
     
-    [Header("Fade Animation")]
-    [Tooltip("フェードイン/フェードアウトの速度")]
-    [Range(0.1f, 2f)]
-    public float fadeSpeed = 0.5f;
+    [Tooltip("色収差の強度")]
+    [Range(0f, 0.1f)]
+    public float chromaticAberration = 0.02f;
     
-    [Tooltip("フェードの周期（秒）")]
-    [Range(2f, 20f)]
-    public float fadeCycle = 8f;
+    [Tooltip("画面の歪みの強度")]
+    [Range(0f, 0.1f)]
+    public float screenCurvature = 0.05f;
+    
+    [Tooltip("明るさ")]
+    [Range(0f, 1f)]
+    public float brightness = 0.6f;
+    
+    [Tooltip("コントラスト")]
+    [Range(0.5f, 2f)]
+    public float contrast = 1.2f;
     
     [Header("Splatter Properties")]
     [Tooltip("スプラッターの数")]

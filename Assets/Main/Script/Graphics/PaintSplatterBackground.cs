@@ -95,8 +95,6 @@ public class PaintSplatterBackground : MonoBehaviour
         
         // アニメーションプロパティ
         backgroundMaterial.SetFloat("_TimeScale", settings.timeScale);
-        backgroundMaterial.SetVector("_ScrollSpeed", settings.scrollSpeed);
-        backgroundMaterial.SetFloat("_RotationSpeed", settings.rotationSpeed);
         
         // スプラッタープロパティ
         backgroundMaterial.SetFloat("_SplatterCount", settings.splatterCount);
@@ -104,9 +102,13 @@ public class PaintSplatterBackground : MonoBehaviour
         backgroundMaterial.SetFloat("_SplatterSizeMax", settings.splatterSizeRange.y);
         backgroundMaterial.SetFloat("_BlendAmount", settings.blendAmount);
         
-        // フェードアニメーションプロパティ
-        backgroundMaterial.SetFloat("_FadeSpeed", settings.fadeSpeed);
-        backgroundMaterial.SetFloat("_FadeCycle", settings.fadeCycle);
+        // CRTエミュレーションプロパティ
+        backgroundMaterial.SetFloat("_ScanlineIntensity", settings.scanlineIntensity);
+        backgroundMaterial.SetFloat("_ScanlineSpeed", settings.scanlineSpeed);
+        backgroundMaterial.SetFloat("_ChromaticAberration", settings.chromaticAberration);
+        backgroundMaterial.SetFloat("_ScreenCurvature", settings.screenCurvature);
+        backgroundMaterial.SetFloat("_Brightness", settings.brightness);
+        backgroundMaterial.SetFloat("_Contrast", settings.contrast);
         
         // 色プロパティ
         if (settings.splatterColors != null && settings.splatterColors.Length >= 5)
