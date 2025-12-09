@@ -1102,7 +1102,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &157868237
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2077,7 +2077,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 0, g: 0, b: 0, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -3968,8 +3968,8 @@ RectTransform:
   m_Children:
   - {fileID: 201881637}
   - {fileID: 333058051}
-  - {fileID: 1017919965}
   - {fileID: 485657144}
+  - {fileID: 1017919965}
   - {fileID: 157868237}
   - {fileID: 1098085712}
   m_Father: {fileID: 0}
@@ -4165,7 +4165,7 @@ MonoBehaviour:
   enemyParticleLifetime: 1
   enemyParticleCount: 10
   paintCanvas: {fileID: 1098085713}
-  paintRenderer: {fileID: 0}
+  paintRenderer: {fileID: 157868238}
   markerParent: {fileID: 574533158}
 --- !u!4 &612787507
 Transform:
@@ -6652,7 +6652,7 @@ RectTransform:
   m_GameObject: {fileID: 1017919964}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.04, y: 1.04, z: 1.04}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 574533158}

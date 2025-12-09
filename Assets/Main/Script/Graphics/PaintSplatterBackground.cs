@@ -104,6 +104,10 @@ public class PaintSplatterBackground : MonoBehaviour
         backgroundMaterial.SetFloat("_SplatterSizeMax", settings.splatterSizeRange.y);
         backgroundMaterial.SetFloat("_BlendAmount", settings.blendAmount);
         
+        // フェードアニメーションプロパティ
+        backgroundMaterial.SetFloat("_FadeSpeed", settings.fadeSpeed);
+        backgroundMaterial.SetFloat("_FadeCycle", settings.fadeCycle);
+        
         // 色プロパティ
         if (settings.splatterColors != null && settings.splatterColors.Length >= 5)
         {
