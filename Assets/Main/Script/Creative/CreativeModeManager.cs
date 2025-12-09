@@ -633,6 +633,14 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     }
     
     /// <summary>
+    /// 現在の色を取得
+    /// </summary>
+    public Color GetCurrentColor()
+    {
+        return currentColor;
+    }
+    
+    /// <summary>
     /// 現在のInkEffectを取得
     /// </summary>
     public InkEffect GetInkEffect()

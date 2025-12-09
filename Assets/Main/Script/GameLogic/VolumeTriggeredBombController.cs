@@ -412,12 +412,20 @@ public class VolumeTriggeredBombController : MonoBehaviour
             }
         }
 
+        // CreativeModeManagerから現在の色を取得（設定されている場合）
+        Color finalBombColor = bombColor; // デフォルトは設定された色
+        if (creativeModeManager != null)
+        {
+            // CreativeModeManagerの現在の色を取得
+            finalBombColor = creativeModeManager.GetCurrentColor();
+        }
+
         // デバッグログ：爆発位置を出力
-        Debug.Log($"VolumeTriggeredBombController: 爆発実行 - 位置: ({screenPosition.x:F1}, {screenPosition.y:F1}), 強度: {bombIntensity}, 半径: {bombRadius}, 色: {bombColor}");
+        Debug.Log($"VolumeTriggeredBombController: 爆発実行 - 位置: ({screenPosition.x:F1}, {screenPosition.y:F1}), 強度: {bombIntensity}, 半径: {bombRadius}, 色: {finalBombColor}");
 
         // PaintCanvas の PaintAtWithRadiusForced を使用して円形塗りを実行
         // 更新頻度チェックをスキップして、必ず塗り処理を実行する
-        paintCanvas.PaintAtWithRadiusForced(screenPosition, bombPlayerId, bombIntensity, bombColor, bombRadius);
+        paintCanvas.PaintAtWithRadiusForced(screenPosition, bombPlayerId, bombIntensity, finalBombColor, bombRadius);
     }
 }
 
