@@ -84,6 +84,9 @@ public class InkEffect : MonoBehaviour
     [Tooltip("塗りキャンバス（Inspectorで接続）")]
     public PaintCanvas paintCanvas;
     
+    [Tooltip("PaintRenderer（画面座標をImageのローカル座標に変換するために使用）")]
+    public PaintRenderer paintRenderer;
+    
     [Tooltip("EffectMarkerを生成する親オブジェクト（設定されていない場合はPaintCanvasを使用）")]
     public Transform markerParent;
     
@@ -99,6 +102,11 @@ public class InkEffect : MonoBehaviour
         if (paintCanvas == null)
         {
             paintCanvas = FindObjectOfType<PaintCanvas>();
+        }
+        
+        if (paintRenderer == null)
+        {
+            paintRenderer = FindObjectOfType<PaintRenderer>();
         }
         
         // パーティクルシステムが設定されていない場合は自動生成（エフェクトを使用する場合のみ）
@@ -497,6 +505,7 @@ public class InkEffect : MonoBehaviour
     
     /// <summary>
     /// 画面座標からマーカー位置を更新（RectTransform指定版）
+    /// PaintRendererのImageのサイズを考慮して、正しい位置にマーカーを配置する
     /// </summary>
     void UpdateMarkerPositionFromScreen(Vector2 screenPosition, RectTransform targetRectTransform)
     {
@@ -505,7 +514,63 @@ public class InkEffect : MonoBehaviour
             return;
         }
         
-        // UI座標に変換
+        // PaintRendererのImageのRectTransformを取得
+        RectTransform paintRendererRect = null;
+        if (paintRenderer != null)
+        {
+            paintRendererRect = paintRenderer.GetDisplayRectTransform();
+        }
+        
+        // PaintRendererが設定されている場合は、そのImageのローカル座標に変換
+        if (paintRendererRect != null && paintCanvas != null)
+        {
+            // PaintCanvasの設定を取得
+            PaintSettings settings = paintCanvas.GetSettings();
+            if (settings != null)
+            {
+                // 画面座標をテクスチャ座標に変換（0～textureWidth, 0～textureHeight）
+                float textureX = (screenPosition.x / Screen.width) * settings.textureWidth;
+                float textureY = (screenPosition.y / Screen.height) * settings.textureHeight;
+                
+                // テクスチャ座標を0～1の範囲に正規化
+                float normalizedX = textureX / settings.textureWidth;
+                float normalizedY = textureY / settings.textureHeight;
+                
+                // PaintRendererのImageのRectTransformのサイズを取得
+                Vector2 imageSize = paintRendererRect.rect.size;
+                
+                // 正規化された座標をImageのローカル座標に変換
+                // pivotが(0.5, 0.5)の場合、中心が(0, 0)なので、-size/2 ～ +size/2 の範囲
+                Vector2 localPosInImage = new Vector2(
+                    (normalizedX - 0.5f) * imageSize.x,
+                    (normalizedY - 0.5f) * imageSize.y
+                );
+                
+                // PaintRendererのImageのRectTransformのワールド座標を取得
+                Vector3[] imageWorldCorners = new Vector3[4];
+                paintRendererRect.GetWorldCorners(imageWorldCorners);
+                
+                // マーカーの親のRectTransformを取得
+                RectTransform parentRect = targetRectTransform.parent as RectTransform;
+                if (parentRect != null)
+                {
+                    // PaintRendererのImageのローカル座標を、マーカーの親のローカル座標に変換
+                    Vector2 imageLocalPosInParent;
+                    if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        parentRect,
+                        paintRendererRect.position,
+                        uiCanvas.worldCamera,
+                        out imageLocalPosInParent))
+                    {
+                        // Imageの中心位置 + ローカル座標 = マーカーの位置
+                        targetRectTransform.anchoredPosition = imageLocalPosInParent + localPosInImage;
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // PaintRendererが設定されていない場合は、従来の方法でUI座標に変換
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
             uiCanvas.transform as RectTransform,
             screenPosition,

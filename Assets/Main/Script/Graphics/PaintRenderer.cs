@@ -87,6 +87,22 @@ public class PaintRenderer : MonoBehaviour
         displayImage.sprite = canvasSprite;
     }
     
+    /// <summary>
+    /// 表示用のImageコンポーネントを取得（InkEffectなどから参照用）
+    /// </summary>
+    public Image GetDisplayImage()
+    {
+        return displayImage;
+    }
+    
+    /// <summary>
+    /// 表示用のImageのRectTransformを取得（InkEffectなどから参照用）
+    /// </summary>
+    public RectTransform GetDisplayRectTransform()
+    {
+        return displayImage != null ? displayImage.rectTransform : null;
+    }
+    
     void OnDestroy()
     {
         // リソースをクリーンアップ
