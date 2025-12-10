@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EraserBrush
   radius: 10
   displayName: Eraser
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 4e52af8cf80efe7458c0d025d87362f0, type: 3}
   eraserRadius: 30
