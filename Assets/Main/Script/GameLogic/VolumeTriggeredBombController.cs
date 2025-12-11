@@ -23,6 +23,9 @@ public class VolumeTriggeredBombController : MonoBehaviour
     [Tooltip("音声入力ハンドラ（現在の声の照準位置を取得するため、任意）")]
     public VoiceInputHandler voiceInputHandler;
 
+    [Tooltip("PaintRenderer（画面座標をImageのローカル座標に変換するために使用）")]
+    public PaintRenderer paintRenderer;
+
     [Header("Bomb Settings")]
     [Tooltip("カウントダウン時間（秒）")]
     public float countdownDuration = 3f;
@@ -63,6 +66,19 @@ public class VolumeTriggeredBombController : MonoBehaviour
     // 直近フレームでの声の照準位置
     private Vector2 lastAimedScreenPosition = Vector2.zero;
 
+    // 座標変換処理のキャッシュ用
+    private RectTransform cachedPaintRendererRect = null;
+    private PaintSettings cachedPaintSettings = null;
+    private Canvas cachedCanvas = null;
+    private RectTransform cachedCountdownRectTransform = null;
+    private int lastCachedFrame = -1;
+
+    // 位置更新の間引き用
+    private int frameCountForPositionUpdate = 0;
+    private const int POSITION_UPDATE_INTERVAL = 5; // 5フレームに1回更新
+    private Vector2 lastUpdatedTextPosition = Vector2.zero;
+    private const float POSITION_UPDATE_THRESHOLD = 20f; // 20ピクセル以上動いたら更新
+
     // 外部から手動で現在音量を渡したい場合に使う（volumeAnalyzerが無い環境向け）
     [HideInInspector]
     public float externalCurrentVolume = 0f;
@@ -95,6 +111,11 @@ public class VolumeTriggeredBombController : MonoBehaviour
         if (voiceInputHandler == null)
         {
             voiceInputHandler = FindObjectOfType<VoiceInputHandler>();
+        }
+
+        if (paintRenderer == null)
+        {
+            paintRenderer = FindObjectOfType<PaintRenderer>();
         }
 
         // PaintSettings を取得（塗りシステムと同じしきい値を使うため）
@@ -181,13 +202,16 @@ public class VolumeTriggeredBombController : MonoBehaviour
         // カウントダウン中の処理
         if (isCountingDown)
         {
-            // 声の照準位置を更新
-            UpdateAimedPosition();
+            // 声の照準位置を更新（間引き：5フレームに1回）
+            if (Time.frameCount % 5 == 0)
+            {
+                UpdateAimedPosition();
+            }
 
             // 残り時間を減少
             countdownRemaining -= Time.deltaTime;
 
-            // UI更新
+            // UI更新（位置更新は最適化して間引き）
             UpdateCountdownUI();
 
             // カウントダウン完了判定
@@ -205,6 +229,9 @@ public class VolumeTriggeredBombController : MonoBehaviour
                 {
                     countdownTextUI.gameObject.SetActive(false);
                 }
+                
+                // キャッシュをクリア
+                ClearCache();
             }
         }
     }
@@ -279,6 +306,9 @@ public class VolumeTriggeredBombController : MonoBehaviour
         if (useCountdownText && countdownTextUI != null)
         {
             countdownTextUI.gameObject.SetActive(true);
+            frameCountForPositionUpdate = 0; // 位置更新カウンターをリセット
+            lastUpdatedTextPosition = Vector2.zero; // 位置をリセット
+            UpdateCache(); // キャッシュを初期化
             UpdateCountdownUI();
         }
     }
@@ -321,7 +351,7 @@ public class VolumeTriggeredBombController : MonoBehaviour
             return;
         }
 
-        // テキストの内容を更新
+        // テキストの内容を更新（数値が変わった時だけ更新）
         float ratio = Mathf.Clamp01(countdownRemaining / countdownDuration);
 
         if (countdownSteps <= 0)
@@ -330,63 +360,174 @@ public class VolumeTriggeredBombController : MonoBehaviour
         }
 
         int step = Mathf.CeilToInt(ratio * countdownSteps);
-
-        if (step <= 0)
+        
+        // テキストが変わった時だけ更新（パフォーマンス最適化）
+        string newText = step <= 0 ? "0" : step.ToString();
+        if (!countdownTextUI.text.Equals(newText))
         {
-            // 最後の瞬間は空白か「0」にしても良い
-            countdownTextUI.text = "0";
-        }
-        else
-        {
-            countdownTextUI.text = step.ToString();
+            countdownTextUI.text = newText;
         }
 
         // テキストの位置を「プレイヤーの声の位置（塗られている場所）」に合わせる
-        UpdateCountdownTextPosition();
+        // パフォーマンス最適化：数フレームに1回、または位置が大きく変わった時のみ更新
+        frameCountForPositionUpdate++;
+        bool shouldUpdatePosition = false;
+        
+        if (frameCountForPositionUpdate >= POSITION_UPDATE_INTERVAL)
+        {
+            // 一定フレームごとに更新
+            shouldUpdatePosition = true;
+            frameCountForPositionUpdate = 0;
+        }
+        else
+        {
+            // 位置が大きく変わった場合は即座に更新
+            float positionDelta = Vector2.Distance(lastAimedScreenPosition, lastUpdatedTextPosition);
+            if (positionDelta >= POSITION_UPDATE_THRESHOLD)
+            {
+                shouldUpdatePosition = true;
+            }
+        }
+        
+        if (shouldUpdatePosition)
+        {
+            UpdateCountdownTextPosition();
+            lastUpdatedTextPosition = lastAimedScreenPosition;
+        }
     }
 
     /// <summary>
     /// カウントダウンテキストの位置を、プレイヤーの声の位置（塗られている場所）に合わせて更新する。
+    /// InkEffectと同じ処理で、PaintRendererのImageのサイズを考慮して、正しい位置に配置する。
+    /// パフォーマンス最適化：参照をキャッシュして毎回取得しないようにする。
     /// </summary>
     private void UpdateCountdownTextPosition()
     {
         if (countdownTextUI == null) return;
 
-        RectTransform rectTransform = countdownTextUI.rectTransform;
-        if (rectTransform == null) return;
-
-        // 画面座標を UI 座標に変換するために Canvas を取得
-        Canvas canvas = countdownTextUI.canvas;
-        if (canvas == null)
+        // キャッシュを更新（フレームごとに1回だけ）
+        if (Time.frameCount != lastCachedFrame)
         {
-            // Canvas が見つからない場合は、親から探す
-            canvas = countdownTextUI.GetComponentInParent<Canvas>();
+            UpdateCache();
+            lastCachedFrame = Time.frameCount;
         }
 
-        if (canvas == null)
+        if (cachedCountdownRectTransform == null || cachedCanvas == null)
         {
-            Debug.LogWarning("VolumeTriggeredBombController: カウントダウンテキストの Canvas が見つかりません。位置を更新できません。");
             return;
         }
 
-        // 画面座標（lastAimedScreenPosition）を UI 座標に変換
+        // PaintRendererが設定されている場合は、そのImageのローカル座標に変換（InkEffectと同じ処理）
+        if (cachedPaintRendererRect != null && cachedPaintSettings != null)
+        {
+            // 画面座標をテクスチャ座標に変換（0～textureWidth, 0～textureHeight）
+            float textureX = (lastAimedScreenPosition.x / Screen.width) * cachedPaintSettings.textureWidth;
+            float textureY = (lastAimedScreenPosition.y / Screen.height) * cachedPaintSettings.textureHeight;
+
+            // テクスチャ座標を0～1の範囲に正規化
+            float normalizedX = textureX / cachedPaintSettings.textureWidth;
+            float normalizedY = textureY / cachedPaintSettings.textureHeight;
+
+            // PaintRendererのImageのRectTransformのサイズを取得
+            Vector2 imageSize = cachedPaintRendererRect.rect.size;
+
+            // 正規化された座標をImageのローカル座標に変換
+            // pivotが(0.5, 0.5)の場合、中心が(0, 0)なので、-size/2 ～ +size/2 の範囲
+            Vector2 localPosInImage = new Vector2(
+                (normalizedX - 0.5f) * imageSize.x,
+                (normalizedY - 0.5f) * imageSize.y
+            );
+
+            // マーカーの親のRectTransformを取得
+            RectTransform parentRect = cachedCountdownRectTransform.parent as RectTransform;
+            if (parentRect != null)
+            {
+                // PaintRendererのImageのローカル座標を、カウントダウンテキストの親のローカル座標に変換
+                Vector2 imageLocalPosInParent;
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    parentRect,
+                    cachedPaintRendererRect.position,
+                    cachedCanvas.worldCamera,
+                    out imageLocalPosInParent))
+                {
+                    // Imageの中心位置 + ローカル座標 = カウントダウンテキストの位置
+                    cachedCountdownRectTransform.anchoredPosition = imageLocalPosInParent + localPosInImage;
+                    return;
+                }
+            }
+        }
+
+        // PaintRendererが設定されていない場合は、従来の方法でUI座標に変換
         Vector2 uiPosition;
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvas.transform as RectTransform,
+            cachedCanvas.transform as RectTransform,
             lastAimedScreenPosition,
-            canvas.worldCamera,
+            cachedCanvas.worldCamera,
             out uiPosition))
         {
-            rectTransform.anchoredPosition = uiPosition;
+            cachedCountdownRectTransform.anchoredPosition = uiPosition;
         }
         else
         {
             // 変換に失敗した場合は、画面座標をそのまま使用（Screen Space - Overlay の場合）
-            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+            if (cachedCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
             {
-                rectTransform.position = lastAimedScreenPosition;
+                cachedCountdownRectTransform.position = lastAimedScreenPosition;
             }
         }
+    }
+    
+    /// <summary>
+    /// 座標変換に使用する参照をキャッシュする（フレームごとに1回だけ）
+    /// </summary>
+    private void UpdateCache()
+    {
+        if (countdownTextUI == null)
+        {
+            ClearCache();
+            return;
+        }
+
+        cachedCountdownRectTransform = countdownTextUI.rectTransform;
+        
+        // Canvasを取得
+        cachedCanvas = countdownTextUI.canvas;
+        if (cachedCanvas == null)
+        {
+            cachedCanvas = countdownTextUI.GetComponentInParent<Canvas>();
+        }
+
+        // PaintRendererのImageのRectTransformを取得
+        if (paintRenderer != null)
+        {
+            cachedPaintRendererRect = paintRenderer.GetDisplayRectTransform();
+        }
+        else
+        {
+            cachedPaintRendererRect = null;
+        }
+
+        // PaintCanvasの設定を取得
+        if (paintCanvas != null)
+        {
+            cachedPaintSettings = paintCanvas.GetSettings();
+        }
+        else
+        {
+            cachedPaintSettings = null;
+        }
+    }
+    
+    /// <summary>
+    /// キャッシュをクリア
+    /// </summary>
+    private void ClearCache()
+    {
+        cachedPaintRendererRect = null;
+        cachedPaintSettings = null;
+        cachedCanvas = null;
+        cachedCountdownRectTransform = null;
+        lastCachedFrame = -1;
     }
 
     /// <summary>
@@ -423,9 +564,27 @@ public class VolumeTriggeredBombController : MonoBehaviour
         // デバッグログ：爆発位置を出力
         Debug.Log($"VolumeTriggeredBombController: 爆発実行 - 位置: ({screenPosition.x:F1}, {screenPosition.y:F1}), 強度: {bombIntensity}, 半径: {bombRadius}, 色: {finalBombColor}");
 
-        // PaintCanvas の PaintAtWithRadiusForced を使用して円形塗りを実行
-        // 更新頻度チェックをスキップして、必ず塗り処理を実行する
-        paintCanvas.PaintAtWithRadiusForced(screenPosition, bombPlayerId, bombIntensity, finalBombColor, bombRadius);
+        // BombBrushを使用してグラデーション塗りを実行
+        // CreativeModeManagerからBombBrushを取得するか、直接BombBrushのインスタンスを作成
+        BombBrush bombBrush = null;
+        if (creativeModeManager != null)
+        {
+            BrushStrategyBase currentBrush = creativeModeManager.GetCurrentBrush();
+            if (currentBrush is BombBrush)
+            {
+                bombBrush = currentBrush as BombBrush;
+            }
+        }
+        
+        // BombBrushが見つからない場合は、一時的なインスタンスを作成
+        if (bombBrush == null)
+        {
+            bombBrush = ScriptableObject.CreateInstance<BombBrush>();
+            bombBrush.bombRadius = bombRadius;
+        }
+        
+        // BombBrushのPaint()メソッドを使用してグラデーション塗りを実行
+        bombBrush.Paint(paintCanvas, screenPosition, bombPlayerId, finalBombColor, bombIntensity);
     }
 }
 
