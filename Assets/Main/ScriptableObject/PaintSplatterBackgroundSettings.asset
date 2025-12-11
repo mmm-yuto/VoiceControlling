@@ -19,13 +19,13 @@ MonoBehaviour:
   screenCurvature: 0.1
   brightness: 1
   contrast: 1.2
-  splatterCount: 20
+  splatterCount: 3
   splatterColors:
-  - {r: 0.4339623, g: 0.4339623, b: 0.4339623, a: 1}
-  - {r: 0.36320752, g: 0.36320752, b: 0.36320752, a: 1}
+  - {r: 1, g: 1, b: 1, a: 0.5254902}
+  - {r: 0.5613208, g: 0.5613208, b: 0.5613208, a: 0.2627451}
+  - {r: 0, g: 0, b: 0, a: 0.36862746}
+  - {r: 0, g: 0, b: 0, a: 0.16470589}
   - {r: 0, g: 0, b: 0, a: 1}
-  - {r: 0, g: 0, b: 0, a: 1}
-  - {r: 0.20784314, g: 0.20784314, b: 0.20784314, a: 0}
   splatterSizeRange: {x: 1, y: 10}
-  blendAmount: 0.406
+  blendAmount: 0.545
   backgroundColor: {r: 0, g: 0, b: 0, a: 1}

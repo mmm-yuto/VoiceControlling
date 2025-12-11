@@ -124,26 +124,56 @@ public class VoiceToScreenMapper : MonoBehaviour
     /// <summary>
     /// 範囲ラベルを更新
     /// </summary>
+    /// <summary>
+    /// 振幅値を音圧レベル（SPL）相当の0-90 dBに変換
+    /// 0 dB = 無音、90 dB = 叫び声レベル
+    /// </summary>
+    float ConvertAmplitudeToSPL(float amplitude)
+    {
+        // 振幅0を0 dB（無音）、振幅1.0を90 dB（叫び声）にマッピング
+        // 対数スケールを使用（0を避けるために最小値を設定）
+        float minAmplitude = 0.0001f;
+        float clampedAmplitude = Mathf.Max(amplitude, minAmplitude);
+        
+        // 振幅値を0-90 dBの範囲にマッピング
+        // log10(0.0001) ≈ -4, log10(1.0) = 0
+        // -4から0の範囲を0から90にマッピング
+        float logValue = Mathf.Log10(clampedAmplitude);
+        float minLog = Mathf.Log10(minAmplitude);
+        float maxLog = 0f; // log10(1.0) = 0
+        
+        if (logValue <= minLog)
+        {
+            return 0f; // 無音
+        }
+        
+        // 0-90 dBの範囲に正規化
+        float normalized = (logValue - minLog) / (maxLog - minLog);
+        return Mathf.Clamp(normalized * 90f, 0f, 90f);
+    }
+    
     void UpdateRangeLabels()
     {
         if (minVolumeLabel != null)
         {
-            minVolumeLabel.text = $"Min Vol: {minVolume:F3}";
+            float minDb = ConvertAmplitudeToSPL(minVolume);
+            minVolumeLabel.text = $"{minDb:F0} dB";
         }
         
         if (maxVolumeLabel != null)
         {
-            maxVolumeLabel.text = $"Max Vol: {maxVolume:F3}";
+            float maxDb = ConvertAmplitudeToSPL(maxVolume);
+            maxVolumeLabel.text = $"{maxDb:F0} dB";
         }
         
         if (minPitchLabel != null)
         {
-            minPitchLabel.text = $"Min Pitch: {minPitch:F1} Hz";
+            minPitchLabel.text = $"{minPitch:F1} Hz";
         }
         
         if (maxPitchLabel != null)
         {
-            maxPitchLabel.text = $"Max Pitch: {maxPitch:F1} Hz";
+            maxPitchLabel.text = $"{maxPitch:F1} Hz";
         }
     }
     

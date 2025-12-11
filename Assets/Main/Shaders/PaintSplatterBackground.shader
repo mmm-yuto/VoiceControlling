@@ -182,6 +182,11 @@ Shader "Custom/PaintSplatterBackground"
                 float alpha = 0.0;
                 
                 // Create multiple splatters
+                // 5色全てを使うように、スプラッター数を5の倍数に調整
+                int effectiveSplatterCount = max((int)_SplatterCount, 5);
+                // 5色を均等に使うために、色の割り当てを改善
+                int colorCycleLength = 5;
+                
                 for (int i = 0; i < (int)_SplatterCount; i++)
                 {
                     // Generate pseudo-random values for each splatter
@@ -204,25 +209,22 @@ Shader "Custom/PaintSplatterBackground"
                     // Create splatter shape
                     float splatterShape = createSplatter(uv, center, size, rotation, time);
                     
-                    // Select color based on index
+                    // Select color based on index - 5色全てを均等に使う
                     float4 splatterColor;
-                    int colorIndex = i % 5;
+                    // スプラッター数が5未満の場合は各色を1回ずつ、5以上の場合は5色を繰り返し
+                    int colorIndex = (i < 5) ? i : (i % 5);
                     if (colorIndex == 0) splatterColor = _Color1;
                     else if (colorIndex == 1) splatterColor = _Color2;
                     else if (colorIndex == 2) splatterColor = _Color3;
                     else if (colorIndex == 3) splatterColor = _Color4;
                     else splatterColor = _Color5;
                     
-                    // Blend splatters - より滑らかなブレンド
-                    // スプラッターの形状をそのまま使用（既に滑らかになっている）
+                    // Blend splatters - 色をより鮮やかに、直接的に適用
                     float splatterAlpha = splatterShape;
                     
-                    // 加算ブレンド風に色を混ぜる（境目を目立たなくする）
-                    float3 colorBlend = lerp(finalColor.rgb, splatterColor.rgb, splatterAlpha * 0.8);
-                    // より強い色を優先する（スクリーンブレンド風）
-                    colorBlend = max(finalColor.rgb, splatterColor.rgb * splatterAlpha);
-                    // 最終的に滑らかにブレンド
-                    finalColor.rgb = lerp(finalColor.rgb, colorBlend, splatterAlpha * 0.6);
+                    // スプラッターの色を直接適用（より鮮やかに）
+                    // 背景色とスプラッター色を通常のブレンドで合成
+                    finalColor.rgb = lerp(finalColor.rgb, splatterColor.rgb, splatterAlpha * (1.0 - _BlendAmount * 0.5));
                     
                     alpha = max(alpha, splatterShape);
                 }
@@ -252,11 +254,11 @@ Shader "Custom/PaintSplatterBackground"
                 float pattern = fractalNoise(patternUV);
                 // 模様をより強調
                 pattern = pow(pattern, 0.7);
-                // 模様を適用（暗い部分を作る）
-                finalColor.rgb *= (1.0 - pattern * _ScanlineIntensity * 0.5);
+                // 模様を適用（暗い部分を作る）- 影響を弱める
+                finalColor.rgb *= (1.0 - pattern * _ScanlineIntensity * 0.3);
                 
-                // ガンマ補正（全体的に暗くする）
-                finalColor.rgb = pow(finalColor.rgb, 1.2);
+                // ガンマ補正（全体的に暗くする）- 影響を弱める
+                finalColor.rgb = pow(finalColor.rgb, 1.1);
                 
                 return half4(finalColor.rgb, alpha);
             }
