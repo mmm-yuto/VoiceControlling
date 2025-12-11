@@ -14,7 +14,8 @@ Shader "Custom/AmbientWaveform"
         [Header(Bar Pattern)]
         _BarCount ("Bar Count", Range(8, 128)) = 32.0
         _BarWidth ("Bar Width", Range(0.5, 10)) = 2.0
-        _MaxBarLength ("Max Bar Length", Range(0.1, 1)) = 0.3
+        _MaxBarLength ("Max Bar Length", Range(0.1, 5)) = 0.3
+        _CornerExclusionRatio ("Corner Exclusion Ratio", Range(0, 0.5)) = 0.1
         [Header(Internal)]
         _CanvasSizeRatio ("Canvas Size Ratio", Vector) = (1, 1, 0, 0)
     }
@@ -66,6 +67,7 @@ Shader "Custom/AmbientWaveform"
                 float _BarCount;
                 float _BarWidth;
                 float _MaxBarLength;
+                float _CornerExclusionRatio;
                 float4 _CanvasSizeRatio; // (canvasWidthRatio, canvasHeightRatio, 0, 0)
             CBUFFER_END
             
@@ -102,7 +104,7 @@ Shader "Custom/AmbientWaveform"
                     return half4(0, 0, 0, 0);
                 }
                 
-                // 縁の幅を正規化
+                // 縁の幅を正規化（バーの表示範囲の判定に使用、ただし長さの制限には使用しない）
                 float borderWidthNormalized = _BorderWidth / 100.0;
                 borderWidthNormalized = saturate(borderWidthNormalized);
                 
@@ -112,11 +114,15 @@ Shader "Custom/AmbientWaveform"
                 float distFromLeft = uv.x;
                 float distFromRight = 1.0 - uv.x;
                 
-                // 外側の縁部分かどうかを判定
-                bool isTopEdge = (uv.y > canvasMax.y) && (distFromTop < borderWidthNormalized);
-                bool isBottomEdge = (uv.y < canvasMin.y) && (distFromBottom < borderWidthNormalized);
-                bool isLeftEdge = (uv.x < canvasMin.x) && (distFromLeft < borderWidthNormalized);
-                bool isRightEdge = (uv.x > canvasMax.x) && (distFromRight < borderWidthNormalized);
+                // 外側の縁部分かどうかを判定（バーが長い場合でも表示されるように、判定範囲を広げる）
+                // _MaxBarLengthに応じて判定範囲を拡張（画面からはみ出る長さも許可）
+                float maxBarLengthNormalized = _MaxBarLength * 0.4; // バーの最大長さを正規化（baseBarLengthと同じ係数）
+                // 判定範囲を広げる（最大で画面の200%以上も許可）
+                float extendedBorderWidth = max(borderWidthNormalized, maxBarLengthNormalized * 1.5); // 1.5倍まで拡張
+                bool isTopEdge = (uv.y > canvasMax.y) && (distFromTop < extendedBorderWidth);
+                bool isBottomEdge = (uv.y < canvasMin.y) && (distFromBottom < extendedBorderWidth);
+                bool isLeftEdge = (uv.x < canvasMin.x) && (distFromLeft < extendedBorderWidth);
+                bool isRightEdge = (uv.x > canvasMax.x) && (distFromRight < extendedBorderWidth);
                 
                 bool isBorder = isTopEdge || isBottomEdge || isLeftEdge || isRightEdge;
                 
@@ -154,8 +160,23 @@ Shader "Custom/AmbientWaveform"
                     edgeLength = canvasMax.y - canvasMin.y;
                 }
                 
-                // バーのインデックスを計算（等間隔）
-                float barIndex = floor(edgePosition * _BarCount);
+                // 角の部分を検出（各辺の端を除外）
+                // 角の幅を設定（edgePositionの0-1の範囲で、端からこの範囲を除外）
+                float cornerWidth = _CornerExclusionRatio; // Inspectorで設定可能な角の除外範囲
+                bool isNearCorner = (edgePosition < cornerWidth || edgePosition > (1.0 - cornerWidth));
+                
+                // 角の近くではバーを表示しない（または短くする）
+                if (isNearCorner)
+                {
+                    return half4(0, 0, 0, 0);
+                }
+                
+                // 角を除外した範囲でedgePositionを再計算（0-1に正規化）
+                float adjustedEdgePosition = (edgePosition - cornerWidth) / (1.0 - cornerWidth * 2.0);
+                adjustedEdgePosition = saturate(adjustedEdgePosition); // 0-1にクランプ
+                
+                // バーのインデックスを計算（等間隔、角を除外した範囲で）
+                float barIndex = floor(adjustedEdgePosition * _BarCount);
                 float barPosition = (barIndex + 0.5) / _BarCount;
                 
                 // バーの幅内かどうかを判定
@@ -163,14 +184,15 @@ Shader "Custom/AmbientWaveform"
                 float barStart = barPosition - barWidthNormalized * 0.5;
                 float barEnd = barPosition + barWidthNormalized * 0.5;
                 
-                bool isInBar = (edgePosition >= barStart && edgePosition <= barEnd);
+                bool isInBar = (adjustedEdgePosition >= barStart && adjustedEdgePosition <= barEnd);
                 
                 if (!isInBar)
                 {
                     return half4(0, 0, 0, 0);
                 }
                 
-                // キャンバスの縁からの距離を計算（外側への距離）
+                // キャンバスの縁からの距離を計算（外側への距離、絶対値ベース）
+                // UV座標系で計算するため、0-1の範囲で距離を測定
                 float distFromCanvasEdge = 0.0;
                 
                 if (isTopEdge)
@@ -190,6 +212,9 @@ Shader "Custom/AmbientWaveform"
                     distFromCanvasEdge = canvasMin.x - uv.x;
                 }
                 
+                // 距離が負の値（キャンバスの内側）の場合は0にクランプ
+                distFromCanvasEdge = max(0.0, distFromCanvasEdge);
+                
                 // 各バーごとに異なるアニメーション速度（ランダムな位相）
                 float barPhase = barIndex * 0.12345; // 各バーに異なる位相を設定
                 
@@ -203,16 +228,38 @@ Shader "Custom/AmbientWaveform"
                 float animationValue = sin(time * cycleSpeed + barPhase) * 0.5 + 0.5; // 0-1の範囲
                 
                 // バーの長さを計算（時間ベースのアニメーション + 音声反応）
-                float baseBarLength = _MaxBarLength * borderWidthNormalized;
+                // 縁の幅に依存しない絶対値ベースで計算
+                // _MaxBarLengthを直接使用（0.1-5.0の範囲、画面サイズに対する倍率）
+                // 0.1 = 画面の10%、5.0 = 画面の500%（はみ出してもOK）
+                // UV座標系（0-1）で計算するため、_MaxBarLengthをそのまま使用可能な範囲に変換
+                // _MaxBarLengthを直接使用して、画面からはみ出る長さも許可
+                // 0.1 = 画面の10%、5.0 = 画面の500%（はみ出してもOK）
+                // UV座標系（0-1）を基準に、_MaxBarLengthをそのまま使用
+                // より長いバーを許可するため、係数を大きくする
+                // 画面からはみ出る長さも許可（最大で画面の200%まで）
+                float baseBarLength = _MaxBarLength * 0.4; // 0.1-5.0を0.04-2.0の範囲に変換（画面の4%-200%）
                 
                 // 音量が小さい時：小さなバー、音量が大きい時：大きなバー
-                // アニメーションの最小値と最大値を音量に応じて調整
-                float minBarRatio = 0.2 + _AudioVolume * 0.3; // 20%-50%の範囲（音量に応じて）
-                float maxBarRatio = 0.5 + _AudioVolume * 0.5; // 50%-100%の範囲（音量に応じて）
+                // アニメーションの範囲を常に一定に保ち、音量に応じて全体をシフト
+                // これにより、音量が大きくても波が発生し続ける
+                float animationRange = 0.3; // アニメーションの範囲（30%、常に一定）
+                float minBarRatioBase = 0.2; // 最小値のベース（20%）
+                float maxBarRatioBase = minBarRatioBase + animationRange; // 最大値のベース（50%）
+                
+                // 音量に応じてアニメーション範囲全体をシフト（範囲は一定に保つ）
+                float volumeShift = _AudioVolume * 0.5; // 音量に応じて0-50%シフト
+                float minBarRatio = minBarRatioBase + volumeShift; // 20%-70%の範囲
+                float maxBarRatio = maxBarRatioBase + volumeShift; // 50%-100%の範囲
+                
+                // アニメーション値が0-1の範囲で変化するように、常に動く
                 float animatedLength = baseBarLength * lerp(minBarRatio, maxBarRatio, animationValue);
                 
-                // 音声反応による追加長さ（波の効果を強化）
-                float audioBarLength = _AudioVolume * _AudioReactiveIntensity * baseBarLength;
+                // 音声反応による追加長さ（各バーのアニメーション値に応じて変化させる）
+                // これにより、音量が大きくても各バーが異なるサイズを保ち、波が常に見える
+                float audioBoostBase = _AudioVolume * _AudioReactiveIntensity * baseBarLength * 0.3; // ベースの追加長さ
+                // アニメーション値に応じて追加長さも変化させる（0.5-1.5倍の範囲）
+                float audioBoostMultiplier = 0.5 + animationValue; // 0.5-1.5の範囲
+                float audioBarLength = audioBoostBase * audioBoostMultiplier;
                 float totalBarLength = animatedLength + audioBarLength;
                 
                 // バーの長さ内かどうかを判定

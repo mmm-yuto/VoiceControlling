@@ -41,9 +41,13 @@ public class AmbientCanvasEffects : MonoBehaviour
     [Range(0.5f, 10f)]
     [SerializeField] private float barWidth = 2f;
     
-    [Tooltip("バーの最大長さ（正規化値、0-1）")]
-    [Range(0.1f, 1f)]
+    [Tooltip("バーの最大長さ（縁の幅に対する倍率）")]
+    [Range(0.1f, 5f)]
     [SerializeField] private float maxBarLength = 0.3f;
+    
+    [Tooltip("角の除外範囲（各辺の端からこの割合を除外、0-0.5の範囲）")]
+    [Range(0f, 0.5f)]
+    [SerializeField] private float cornerExclusionRatio = 0.1f;
     
     [Header("References")]
     [Tooltip("VolumeAnalyzer（自動検索される）")]
@@ -163,9 +167,17 @@ public class AmbientCanvasEffects : MonoBehaviour
         Vector2 targetSize = targetRectTransform.sizeDelta;
         
         // 縁の幅分を追加（両側なので2倍）
-        // Imageをキャンバスより大きくして、外側の縁を表示できるようにする
         float borderWidthPixels = borderWidth * 2f;
-        Vector2 waveformSize = targetSize + new Vector2(borderWidthPixels, borderWidthPixels);
+        
+        // バーの最大長さに応じてImageのサイズを拡張
+        // maxBarLengthは0.1-5.0の範囲で、シェーダー内では0.4倍で使用される
+        // 画面サイズに対する倍率として、バーの最大長さ分を追加
+        // 例：maxBarLength = 2.0の場合、画面の80%分を追加（2.0 * 0.4 = 0.8）
+        float maxBarLengthRatio = maxBarLength * 0.4f; // シェーダー内の計算と一致させる
+        float barLengthPixels = Mathf.Max(targetSize.x, targetSize.y) * maxBarLengthRatio;
+        
+        // Imageのサイズ = キャンバスのサイズ + 縁の幅 + バーの最大長さ
+        Vector2 waveformSize = targetSize + new Vector2(borderWidthPixels + barLengthPixels, borderWidthPixels + barLengthPixels);
         
         // RectTransformの設定
         waveformRectTransform.anchorMin = targetRectTransform.anchorMin;
@@ -235,6 +247,7 @@ public class AmbientCanvasEffects : MonoBehaviour
         waveformMaterial.SetFloat("_BarCount", barCount);
         waveformMaterial.SetFloat("_BarWidth", barWidth);
         waveformMaterial.SetFloat("_MaxBarLength", maxBarLength);
+        waveformMaterial.SetFloat("_CornerExclusionRatio", cornerExclusionRatio);
         
         // キャンバスのサイズ比率を更新（UpdateWaveformSizeで設定されるが、念のため）
         if (targetRectTransform != null && waveformRectTransform != null)
