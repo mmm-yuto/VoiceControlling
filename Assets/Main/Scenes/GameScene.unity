@@ -3897,6 +3897,7 @@ RectTransform:
   - {fileID: 333058051}
   - {fileID: 157868237}
   - {fileID: 1098085712}
+  - {fileID: 1593705413}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -9439,6 +9440,64 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1592301729}
   m_CullTransparentMesh: 1
+--- !u!1 &1593705412
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1593705413}
+  - component: {fileID: 1593705414}
+  m_Layer: 5
+  m_Name: AmbientCanvasEffects
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1593705413
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1593705412}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 574533158}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1593705414
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1593705412}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d859d88e922a684eadaf0b9b761999d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AmbientCanvasEffects
+  targetRectTransform: {fileID: 157868237}
+  waveformIntensity: 2
+  waveformSpeed: 10
+  waveformColor: {r: 0.5, g: 1, b: 1, a: 1}
+  borderWidth: 10
+  audioReactiveIntensity: 10
+  waveFrequency: 10
+  waveAmplitude: 0.5
+  volumeAnalyzer: {fileID: 1430166759}
+  waveformShader: {fileID: 4800000, guid: 340cbb7976dc7ca4c83f0c5bf4547fe8, type: 3}
 --- !u!1 &1607784497
 GameObject:
   m_ObjectHideFlags: 0
