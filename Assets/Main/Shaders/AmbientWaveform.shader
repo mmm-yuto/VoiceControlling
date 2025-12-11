@@ -9,7 +9,8 @@ Shader "Custom/AmbientWaveform"
         _WaveformColor ("Waveform Color", Color) = (0.5, 1.0, 1.0, 1.0)
         _BorderWidth ("Border Width", Range(1, 100)) = 3.0
         [Header(Audio Reactive)]
-        _AudioVolume ("Audio Volume", Range(0, 1)) = 0.0
+        _AudioVolume ("Audio Volume (Normalized)", Range(0, 1)) = 0.0
+        _AudioPitch ("Audio Pitch (Normalized)", Range(0, 1)) = 0.0
         _AudioReactiveIntensity ("Audio Reactive Intensity", Range(0, 10)) = 1.5
         [Header(Bar Pattern)]
         _BarCount ("Bar Count", Range(8, 128)) = 32.0
@@ -63,6 +64,7 @@ Shader "Custom/AmbientWaveform"
                 float4 _WaveformColor;
                 float _BorderWidth;
                 float _AudioVolume;
+                float _AudioPitch;
                 float _AudioReactiveIntensity;
                 float _BarCount;
                 float _BarWidth;
@@ -81,7 +83,10 @@ Shader "Custom/AmbientWaveform"
             
             half4 frag(Varyings input) : SV_Target
             {
-                float time = _Time.y * _WaveformSpeed;
+                // ピッチに応じて時間の速度を変化させる
+                // ピッチが低い時：遅く（1.0倍）、ピッチが高い時：速く（10.0倍）
+                float pitchSpeedMultiplier = lerp(1.0, 10.0, _AudioPitch);
+                float time = _Time.y * _WaveformSpeed * pitchSpeedMultiplier;
                 float2 uv = input.uv;
                 
                 // キャンバスのサイズ比率を取得
@@ -218,11 +223,11 @@ Shader "Custom/AmbientWaveform"
                 // 各バーごとに異なるアニメーション速度（ランダムな位相）
                 float barPhase = barIndex * 0.12345; // 各バーに異なる位相を設定
                 
-                // 音声のボリュームに応じてアニメーション周期を変化
-                // 音量が小さい時：周期が低い（ゆっくり）、音量が大きい時：周期が高い（速く）
-                float minCycleSpeed = 0.5; // 最小周期速度（音量0の時）
-                float maxCycleSpeed = 3.0; // 最大周期速度（音量1の時）
-                float cycleSpeed = lerp(minCycleSpeed, maxCycleSpeed, _AudioVolume);
+                // 音声のピッチに応じてアニメーション周期を変化
+                // ピッチが低い時：周期が低い（ゆっくり）、ピッチが高い時：周期が高い（速く）
+                float minCycleSpeed = 0.5; // 最小周期速度（ピッチ0の時）
+                float maxCycleSpeed = 3.0; // 最大周期速度（ピッチ1の時）
+                float cycleSpeed = lerp(minCycleSpeed, maxCycleSpeed, _AudioPitch);
                 
                 // 時間ベースのアニメーション（sin波で変化、周期は音量に応じて変化）
                 float animationValue = sin(time * cycleSpeed + barPhase) * 0.5 + 0.5; // 0-1の範囲
@@ -247,6 +252,7 @@ Shader "Custom/AmbientWaveform"
                 float maxBarRatioBase = minBarRatioBase + animationRange; // 最大値のベース（50%）
                 
                 // 音量に応じてアニメーション範囲全体をシフト（範囲は一定に保つ）
+                // _AudioVolumeはカリブレーション範囲から正規化された値（0-1）
                 float volumeShift = _AudioVolume * 0.5; // 音量に応じて0-50%シフト
                 float minBarRatio = minBarRatioBase + volumeShift; // 20%-70%の範囲
                 float maxBarRatio = maxBarRatioBase + volumeShift; // 50%-100%の範囲

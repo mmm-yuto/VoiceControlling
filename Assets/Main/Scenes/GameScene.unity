@@ -9490,7 +9490,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AmbientCanvasEffects
   targetRectTransform: {fileID: 157868237}
   waveformIntensity: 2
-  waveformSpeed: 10
+  waveformSpeed: 1
   waveformColor: {r: 1, g: 1, b: 1, a: 1}
   borderWidth: 10
   audioReactiveIntensity: 10
@@ -9499,6 +9499,8 @@ MonoBehaviour:
   maxBarLength: 0.2
   cornerExclusionRatio: 0.01
   volumeAnalyzer: {fileID: 1430166759}
+  voiceToScreenMapper: {fileID: 650370225}
+  pitchAnalyzer: {fileID: 968300008}
   waveformShader: {fileID: 4800000, guid: 340cbb7976dc7ca4c83f0c5bf4547fe8, type: 3}
 --- !u!1 &1607784497
 GameObject:

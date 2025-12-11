@@ -53,6 +53,12 @@ public class AmbientCanvasEffects : MonoBehaviour
     [Tooltip("VolumeAnalyzer（自動検索される）")]
     [SerializeField] private VolumeAnalyzer volumeAnalyzer;
     
+    [Tooltip("VoiceToScreenMapper（カリブレーション範囲を取得するため、自動検索される）")]
+    [SerializeField] private VoiceToScreenMapper voiceToScreenMapper;
+    
+    [Tooltip("ピッチアナライザー（自動検索される）")]
+    [SerializeField] private ImprovedPitchAnalyzer pitchAnalyzer;
+    
     [Tooltip("使用するシェーダー（設定されていない場合は自動検索）")]
     [SerializeField] private Shader waveformShader;
     
@@ -94,6 +100,26 @@ public class AmbientCanvasEffects : MonoBehaviour
             if (volumeAnalyzer == null)
             {
                 Debug.LogWarning("AmbientCanvasEffects: VolumeAnalyzerが見つかりません。音声反応機能は無効になります。");
+            }
+        }
+        
+        // VoiceToScreenMapperの取得
+        if (voiceToScreenMapper == null)
+        {
+            voiceToScreenMapper = FindObjectOfType<VoiceToScreenMapper>();
+            if (voiceToScreenMapper == null)
+            {
+                Debug.LogWarning("AmbientCanvasEffects: VoiceToScreenMapperが見つかりません。カリブレーション範囲の正規化ができません。");
+            }
+        }
+        
+        // ピッチアナライザーの取得
+        if (pitchAnalyzer == null)
+        {
+            pitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
+            if (pitchAnalyzer == null)
+            {
+                Debug.LogWarning("AmbientCanvasEffects: ImprovedPitchAnalyzerが見つかりません。ピッチ反応機能は無効になります。");
             }
         }
         
@@ -221,11 +247,39 @@ public class AmbientCanvasEffects : MonoBehaviour
         // 設定の適用（Inspectorで変更された場合に対応）
         ApplySettings();
         
-        // 音声入力の音量を取得してシェーダーに反映
-        if (volumeAnalyzer != null)
+        // 音声入力の音量とピッチを取得して、カリブレーション範囲から正規化してシェーダーに反映
+        if (volumeAnalyzer != null && voiceToScreenMapper != null)
         {
+            // 音量をカリブレーション範囲から正規化（0-1）
+            float rawVolume = volumeAnalyzer.CurrentVolume;
+            float normalizedVolume = NormalizeVolume(rawVolume, voiceToScreenMapper.minVolume, voiceToScreenMapper.maxVolume);
+            waveformMaterial.SetFloat("_AudioVolume", normalizedVolume);
+        }
+        else if (volumeAnalyzer != null)
+        {
+            // VoiceToScreenMapperがない場合は、生の音量値をそのまま使用（0-1の範囲を想定）
             float volume = volumeAnalyzer.CurrentVolume;
             waveformMaterial.SetFloat("_AudioVolume", volume);
+        }
+        
+        // ピッチをカリブレーション範囲から正規化（0-1）
+        if (pitchAnalyzer != null && voiceToScreenMapper != null)
+        {
+            float rawPitch = pitchAnalyzer.lastDetectedPitch;
+            float normalizedPitch = NormalizePitch(rawPitch, voiceToScreenMapper.minPitch, voiceToScreenMapper.maxPitch);
+            waveformMaterial.SetFloat("_AudioPitch", normalizedPitch);
+        }
+        else if (pitchAnalyzer != null)
+        {
+            // VoiceToScreenMapperがない場合は、生のピッチ値を0-1に正規化（80-1000Hzを想定）
+            float rawPitch = pitchAnalyzer.lastDetectedPitch;
+            float normalizedPitch = Mathf.InverseLerp(80f, 1000f, rawPitch);
+            waveformMaterial.SetFloat("_AudioPitch", normalizedPitch);
+        }
+        else
+        {
+            // ピッチアナライザーがない場合は0を設定
+            waveformMaterial.SetFloat("_AudioPitch", 0f);
         }
     }
     
@@ -299,6 +353,30 @@ public class AmbientCanvasEffects : MonoBehaviour
             ApplySettings();
             UpdateWaveformSize();
         }
+    }
+    
+    /// <summary>
+    /// 音量をカリブレーション範囲から正規化（0-1）
+    /// </summary>
+    float NormalizeVolume(float volume, float minVolume, float maxVolume)
+    {
+        if (maxVolume <= minVolume)
+        {
+            return 0f;
+        }
+        return Mathf.Clamp01((volume - minVolume) / (maxVolume - minVolume));
+    }
+    
+    /// <summary>
+    /// ピッチをカリブレーション範囲から正規化（0-1）
+    /// </summary>
+    float NormalizePitch(float pitch, float minPitch, float maxPitch)
+    {
+        if (maxPitch <= minPitch)
+        {
+            return 0f;
+        }
+        return Mathf.Clamp01((pitch - minPitch) / (maxPitch - minPitch));
     }
 }
 
