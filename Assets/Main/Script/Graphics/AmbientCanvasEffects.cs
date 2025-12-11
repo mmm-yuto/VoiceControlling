@@ -32,14 +32,18 @@ public class AmbientCanvasEffects : MonoBehaviour
     [Range(0f, 10f)]
     [SerializeField] private float audioReactiveIntensity = 1.5f;
     
-    [Header("Waveform Pattern")]
-    [Tooltip("波形の周波数（波の数）")]
-    [Range(1f, 200f)]
-    [SerializeField] private float waveFrequency = 10f;
+    [Header("Bar Pattern")]
+    [Tooltip("放射状に伸びるバーの数")]
+    [Range(8f, 128f)]
+    [SerializeField] private float barCount = 32f;
     
-    [Tooltip("波形の振幅")]
-    [Range(0.1f, 5f)]
-    [SerializeField] private float waveAmplitude = 0.5f;
+    [Tooltip("バーの幅（角度単位）")]
+    [Range(0.5f, 10f)]
+    [SerializeField] private float barWidth = 2f;
+    
+    [Tooltip("バーの最大長さ（正規化値、0-1）")]
+    [Range(0.1f, 1f)]
+    [SerializeField] private float maxBarLength = 0.3f;
     
     [Header("References")]
     [Tooltip("VolumeAnalyzer（自動検索される）")]
@@ -228,8 +232,9 @@ public class AmbientCanvasEffects : MonoBehaviour
         waveformMaterial.SetColor("_WaveformColor", waveformColor);
         waveformMaterial.SetFloat("_BorderWidth", borderWidth);
         waveformMaterial.SetFloat("_AudioReactiveIntensity", audioReactiveIntensity);
-        waveformMaterial.SetFloat("_WaveFrequency", waveFrequency);
-        waveformMaterial.SetFloat("_WaveAmplitude", waveAmplitude);
+        waveformMaterial.SetFloat("_BarCount", barCount);
+        waveformMaterial.SetFloat("_BarWidth", barWidth);
+        waveformMaterial.SetFloat("_MaxBarLength", maxBarLength);
         
         // キャンバスのサイズ比率を更新（UpdateWaveformSizeで設定されるが、念のため）
         if (targetRectTransform != null && waveformRectTransform != null)
