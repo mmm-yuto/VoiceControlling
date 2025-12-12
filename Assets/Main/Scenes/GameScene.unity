@@ -2642,6 +2642,7 @@ MonoBehaviour:
   volumeAnalyzer: {fileID: 1430166759}
   creativeModeManager: {fileID: 2078794040}
   voiceInputHandler: {fileID: 1237626386}
+  paintRenderer: {fileID: 157868238}
   countdownDuration: 3
   cooldownTime: 0
   bombRadius: 250
@@ -6578,7 +6579,7 @@ RectTransform:
   m_GameObject: {fileID: 1017919964}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.04, y: 1.04, z: 1.04}
+  m_LocalScale: {x: 1.05, y: 1.05, z: 1.05}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 574533158}
@@ -6601,14 +6602,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.3137255}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 4edea69330e8a154687c8a2d6e5b7a81, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 7a6638d0314a32b448e27994d0290422, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -7067,7 +7068,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1170668507
 RectTransform:
   m_ObjectHideFlags: 0
@@ -9491,7 +9492,7 @@ MonoBehaviour:
   targetRectTransform: {fileID: 157868237}
   waveformIntensity: 2
   waveformSpeed: 1
-  waveformColor: {r: 1, g: 1, b: 1, a: 1}
+  waveformColor: {r: 0.5379311, g: 1, b: 0, a: 1}
   borderWidth: 10
   audioReactiveIntensity: 1
   barCount: 128
@@ -11696,7 +11697,7 @@ GameObject:
   - component: {fileID: 1858746421}
   - component: {fileID: 1858746420}
   m_Layer: 5
-  m_Name: Panel
+  m_Name: BackgroundPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -11734,7 +11735,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.2971698, g: 0.2971698, b: 0.2971698, a: 1}
+  m_Color: {r: 0, g: 0, b: 0, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1

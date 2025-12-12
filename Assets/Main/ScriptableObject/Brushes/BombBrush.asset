@@ -17,3 +17,12 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: a528c28d668f2fb428a914a2184dfb99, type: 3}
   bombRadius: 1
   intensityMultiplier: 1
+  particleCount: 80
+  particleRadius: 3
+  density: 0.7
+  radiusFalloff: 0.6
+  intensityFalloff: 0.5
+  splatterCount: 30
+  splatterSizeRatio: 0.2
+  splatterDistanceRatio: 1.2
+  splatterIntensityRatio: 0.8

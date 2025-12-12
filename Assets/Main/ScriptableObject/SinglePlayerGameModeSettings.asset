@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SinglePlayerGameModeSettings
   selectedMode: 2
   gameDuration: 30
-  difficultyLevel: 1
+  difficultyLevel: 10
   colorDefenseSettings: {fileID: 11400000, guid: 7dab3799686961f449dbb8339f20b386, type: 2}
