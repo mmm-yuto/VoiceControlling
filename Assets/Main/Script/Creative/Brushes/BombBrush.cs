@@ -11,6 +11,7 @@ public class BombBrush : BrushStrategyBase
 {
     [Header("Bomb Brush Settings")]
     [Tooltip("爆弾の有効半径（ピクセル単位）。0以下なら基底クラスの radius を使用します。")]
+    [Range(0f, 1000f)]
     public float bombRadius = 100f;
 
     [Tooltip("塗り強度に掛ける倍率（PaintCanvas 側のしきい値に影響）")]
@@ -18,7 +19,7 @@ public class BombBrush : BrushStrategyBase
     
     [Header("Spray Properties")]
     [Tooltip("スプレーの粒子数")]
-    [Range(5, 100)]
+    [Range(5, 1000)]
     public int particleCount = 15;
     
     [Tooltip("各粒子の半径")]

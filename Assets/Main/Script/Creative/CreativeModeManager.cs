@@ -289,9 +289,10 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
         float volume = voiceInputHandler.CurrentVolume;
         float intensity = volume * settings.paintIntensity;
         
-        // カウントダウン中は塗り処理をスキップ（爆発の瞬間以外は塗らない）
+        // カウントダウン中または爆発中は塗り処理をスキップ（爆発の瞬間以外は塗らない）
         // ただし、InkEffectは表示するため、OnPaintCompletedイベントのみ発火
-        if (volumeTriggeredBombController != null && volumeTriggeredBombController.IsCountingDown)
+        if (volumeTriggeredBombController != null && 
+            (volumeTriggeredBombController.IsCountingDown || volumeTriggeredBombController.IsExploding))
         {
             // InkEffectを表示するために、OnPaintCompletedイベントを手動で発火
             if (paintCanvas != null)

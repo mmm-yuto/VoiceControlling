@@ -67,9 +67,23 @@ public class VolumeTriggeredBombController : MonoBehaviour
     /// カウントダウン中かどうかを取得（外部から参照可能）
     /// </summary>
     public bool IsCountingDown => isCountingDown;
+    
+    /// <summary>
+    /// 爆発中かどうかを取得（外部から参照可能）
+    /// </summary>
+    public bool IsExploding => isExploding;
 
     // 直近フレームでの声の照準位置
     private Vector2 lastAimedScreenPosition = Vector2.zero;
+    
+    // 爆発位置の記憶（カウントダウン開始時点の位置を記憶）
+    private Vector2 explosionStartPosition = Vector2.zero;
+    
+    // 爆発中の状態管理
+    private bool isExploding = false;
+    
+    // 現在の爆発位置（爆発中に固定される）
+    private Vector2 currentExplosionPosition = Vector2.zero;
 
     // 座標変換処理のキャッシュ用
     private RectTransform cachedPaintRendererRect = null;
@@ -194,6 +208,12 @@ public class VolumeTriggeredBombController : MonoBehaviour
         // 現在の音量を取得
         float currentVolume = GetCurrentVolume();
 
+        // 爆発中は新しいカウントダウンを開始しない
+        if (isExploding)
+        {
+            return;
+        }
+        
         // カウントダウンしていない & クールダウン中でない場合に音量しきい値をチェック
         if (!isCountingDown && cooldownRemaining <= 0f)
         {
@@ -219,13 +239,38 @@ public class VolumeTriggeredBombController : MonoBehaviour
             // UI更新（位置更新は最適化して間引き）
             UpdateCountdownUI();
 
-            // カウントダウン完了判定
-            if (countdownRemaining <= 0f)
+            // カウントダウン完了判定（一度だけ実行されるように、isCountingDownを先にfalseにする）
+            // また、既に爆発中の場合は実行しない（重複実行を防ぐ）
+            if (countdownRemaining <= 0f && isCountingDown && !isExploding)
             {
-                // 最終的な照準位置で爆発
-                ExplodeAt(lastAimedScreenPosition);
-
+                // カウントダウンを先に停止（複数回実行を防ぐ）
                 isCountingDown = false;
+                
+                // 爆発位置を確定（カウントダウン開始時点の位置を優先、無効な場合は現在位置を使用）
+                Vector2 explosionPos = explosionStartPosition;
+                if (explosionPos == Vector2.zero)
+                {
+                    explosionPos = lastAimedScreenPosition;
+                    if (explosionPos == Vector2.zero && voiceToScreenMapper != null)
+                    {
+                        explosionPos = voiceToScreenMapper.MapToCenter();
+                    }
+                    Debug.LogWarning($"VolumeTriggeredBombController: 爆発開始位置が無効だったため、現在位置 ({explosionPos}) を使用します。");
+                }
+                
+                // 爆発位置を固定（爆発中に声の位置が変わっても、この位置を使用）
+                currentExplosionPosition = explosionPos;
+                
+                // 爆発中フラグを立てる（ExplodeAt()の前に設定して、重複実行を防ぐ）
+                isExploding = true;
+                
+                // 記憶した位置（カウントダウン開始時点の位置）で爆発
+                // ExplodeAt()は同期的に実行され、全ての粒子の塗り処理が完了するまで待つ
+                ExplodeAt(currentExplosionPosition);
+                
+                // ここまで来た時点で、全ての塗り処理が完了している
+                // （BombBrush.Paint()とcanvas.PaintAtWithRadiusForced()は同期的に実行される）
+
                 countdownRemaining = 0f;
                 cooldownRemaining = cooldownTime;
 
@@ -237,6 +282,10 @@ public class VolumeTriggeredBombController : MonoBehaviour
                 
                 // キャッシュをクリア
                 ClearCache();
+                
+                // 爆発完了（全ての塗り処理が完了した後、フラグを下ろす）
+                isExploding = false;
+                currentExplosionPosition = Vector2.zero; // 爆発位置をクリア
             }
         }
     }
@@ -306,6 +355,10 @@ public class VolumeTriggeredBombController : MonoBehaviour
             lastAimedScreenPosition = voiceToScreenMapper.MapToCenter();
             Debug.Log($"VolumeTriggeredBombController: カウントダウン開始時に有効な照準位置がなかったため、中央位置 ({lastAimedScreenPosition}) をセットしました。");
         }
+        
+        // 爆発開始位置を記憶（カウントダウン開始時点の位置）
+        explosionStartPosition = lastAimedScreenPosition;
+        Debug.Log($"VolumeTriggeredBombController: カウントダウン開始 - 爆発位置を記憶: ({explosionStartPosition.x:F1}, {explosionStartPosition.y:F1})");
 
         // カウントダウンUI初期化
         if (useCountdownText && countdownTextUI != null)
