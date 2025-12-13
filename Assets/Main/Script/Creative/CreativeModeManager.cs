@@ -301,6 +301,18 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
             return;
         }
         
+        // BombBrushが選択されている場合、予約システムで処理されるため通常の塗り処理をスキップ（重複を防ぐ）
+        if (currentBrush is BombBrush)
+        {
+            // 予約された爆発がある場合は、通常の塗り処理をスキップ
+            if (volumeTriggeredBombController != null && volumeTriggeredBombController.HasPendingExplosion)
+            {
+                return;
+            }
+            // 予約がない場合でも、BombBrushはカウントダウンシステムで処理されるため通常の塗り処理はスキップ
+            return;
+        }
+        
         // 塗り処理
         PaintAt(screenPos, intensity);
     }

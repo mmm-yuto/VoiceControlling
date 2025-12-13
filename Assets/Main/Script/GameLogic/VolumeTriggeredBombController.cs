@@ -68,6 +68,11 @@ public class VolumeTriggeredBombController : MonoBehaviour
     /// カウントダウン中かどうかを取得（外部から参照可能）
     /// </summary>
     public bool IsCountingDown => isCountingDown;
+    
+    /// <summary>
+    /// 予約された爆発があるかどうかを取得（外部から参照可能）
+    /// </summary>
+    public bool HasPendingExplosion => hasPendingExplosion;
 
     // 直近フレームでの声の照準位置
     private Vector2 lastAimedScreenPosition = Vector2.zero;
