@@ -50,18 +50,10 @@ public class VoiceToScreenMapper : MonoBehaviour
     
     void Start()
     {
-        // カリブレーション結果から初期化
-        if (VoiceCalibrator.MinVolume > 0f || VoiceCalibrator.MaxVolume > 0f)
-        {
-            UpdateCalibrationRanges(VoiceCalibrator.MinVolume, VoiceCalibrator.MaxVolume, 
-                                    VoiceCalibrator.MinPitch, VoiceCalibrator.MaxPitch);
-        }
-        else
-        {
-            // デフォルト値で初期化
-            centerVolume = 0.5f;
-            centerPitch = (minPitch + maxPitch) / 2f;
-        }
+        // カリブレーション結果から初期化（初期カリブレーション値も含む）
+        // VoiceCalibratorのStart()が先に実行されることを前提とする
+        UpdateCalibrationRanges(VoiceCalibrator.MinVolume, VoiceCalibrator.MaxVolume, 
+                                VoiceCalibrator.MinPitch, VoiceCalibrator.MaxPitch);
         
         // カリブレーション完了通知を購読
         VoiceCalibrator.OnCalibrationCompleted += OnCalibrationCompleted;

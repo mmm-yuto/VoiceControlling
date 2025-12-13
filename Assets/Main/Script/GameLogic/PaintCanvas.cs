@@ -31,6 +31,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     private int frameCount = 0;
     private bool isInitialized = false;
     private bool textureNeedsFlush = false; // テクスチャの更新が必要かどうか
+    private int lastPaintFrame = -1; // 最後に塗りが実行されたフレーム
     
     void Awake()
     {
@@ -279,8 +280,17 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         if (hasPainted)
         {
             FlushTextureUpdates();
+            lastPaintFrame = Time.frameCount; // 塗りが実行されたフレームを記録
             OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
         }
+    }
+    
+    /// <summary>
+    /// 最後に塗りが実行されたフレームを取得（塗り処理実行判定用）
+    /// </summary>
+    public int GetLastPaintFrame()
+    {
+        return lastPaintFrame;
     }
     
     /// <summary>

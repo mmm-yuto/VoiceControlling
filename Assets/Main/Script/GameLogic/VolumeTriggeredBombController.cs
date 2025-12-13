@@ -70,6 +70,15 @@ public class VolumeTriggeredBombController : MonoBehaviour
 
     // 直近フレームでの声の照準位置
     private Vector2 lastAimedScreenPosition = Vector2.zero;
+    
+    // 塗り予約システム
+    private bool hasPendingExplosion = false;
+    private Vector2 pendingExplosionPosition = Vector2.zero;
+    private Color pendingExplosionColor = Color.cyan;
+    private float pendingExplosionIntensity = 1.0f;
+    private int pendingExplosionPlayerId = 1;
+    private float pendingExplosionRadius = 150f;
+    private int lastCheckedPaintFrame = -1; // 最後に塗り実行をチェックしたフレーム
 
     // 座標変換処理のキャッシュ用
     private RectTransform cachedPaintRendererRect = null;
@@ -153,6 +162,12 @@ public class VolumeTriggeredBombController : MonoBehaviour
 
     void Update()
     {
+        // 予約された塗り処理をチェック（最優先で処理）
+        if (hasPendingExplosion)
+        {
+            ProcessPendingExplosion();
+        }
+        
         // Bombブラシ選択時のみ有効にする設定なら、状態をチェック
         if (onlyWhenBombBrushSelected && creativeModeManager != null)
         {
@@ -222,8 +237,8 @@ public class VolumeTriggeredBombController : MonoBehaviour
             // カウントダウン完了判定
             if (countdownRemaining <= 0f)
             {
-                // 最終的な照準位置で爆発
-                ExplodeAt(lastAimedScreenPosition);
+                // 塗り処理を予約（直接実行しない）
+                ScheduleExplosion(lastAimedScreenPosition);
 
                 isCountingDown = false;
                 countdownRemaining = 0f;
@@ -590,6 +605,91 @@ public class VolumeTriggeredBombController : MonoBehaviour
         
         // BombBrushのPaint()メソッドを使用してグラデーション塗りを実行
         bombBrush.Paint(paintCanvas, screenPosition, bombPlayerId, finalBombColor, bombIntensity);
+    }
+    
+    /// <summary>
+    /// 爆発塗りを予約する（次の塗り可能なタイミングで確実に塗る）
+    /// </summary>
+    private void ScheduleExplosion(Vector2 screenPosition)
+    {
+        if (paintCanvas == null)
+        {
+            Debug.LogWarning("VolumeTriggeredBombController: PaintCanvas が設定されていません。");
+            return;
+        }
+
+        // 爆発位置が無効な場合の警告
+        if (screenPosition == Vector2.zero)
+        {
+            Debug.LogWarning("VolumeTriggeredBombController: 爆発位置が無効です（Vector2.zero）。中央位置で爆発します。");
+            if (voiceToScreenMapper != null)
+            {
+                screenPosition = voiceToScreenMapper.MapToCenter();
+            }
+        }
+
+        // CreativeModeManagerから現在の色を取得（設定されている場合）
+        Color finalBombColor = bombColor; // デフォルトは設定された色
+        if (creativeModeManager != null)
+        {
+            // CreativeModeManagerの現在の色を取得
+            finalBombColor = creativeModeManager.GetCurrentColor();
+        }
+
+        // 予約情報を記録
+        hasPendingExplosion = true;
+        pendingExplosionPosition = screenPosition;
+        pendingExplosionColor = finalBombColor;
+        pendingExplosionIntensity = bombIntensity;
+        pendingExplosionPlayerId = bombPlayerId;
+        pendingExplosionRadius = bombRadius;
+        lastCheckedPaintFrame = paintCanvas.GetLastPaintFrame(); // 現在のフレームを記録
+        
+        Debug.Log($"VolumeTriggeredBombController: 爆発を予約 - 位置: ({screenPosition.x:F1}, {screenPosition.y:F1}), 強度: {bombIntensity}, 半径: {bombRadius}, 色: {finalBombColor}");
+    }
+    
+    /// <summary>
+    /// 予約された爆発塗りを処理する（次の塗り可能なタイミングで確実に塗る）
+    /// </summary>
+    private void ProcessPendingExplosion()
+    {
+        if (!hasPendingExplosion || paintCanvas == null)
+        {
+            return;
+        }
+
+        // BombBrushを取得
+        BombBrush bombBrush = null;
+        if (creativeModeManager != null)
+        {
+            BrushStrategyBase currentBrush = creativeModeManager.GetCurrentBrush();
+            if (currentBrush is BombBrush)
+            {
+                bombBrush = currentBrush as BombBrush;
+            }
+        }
+        
+        // BombBrushが見つからない場合は、一時的なインスタンスを作成
+        if (bombBrush == null)
+        {
+            bombBrush = ScriptableObject.CreateInstance<BombBrush>();
+            bombBrush.bombRadius = pendingExplosionRadius;
+        }
+        
+        // BombBrushのPaint()を呼び出す（更新頻度チェックあり）
+        // 更新頻度の条件を満たしたタイミングで確実に塗られる
+        bombBrush.Paint(paintCanvas, pendingExplosionPosition, pendingExplosionPlayerId, pendingExplosionColor, pendingExplosionIntensity);
+        
+        // 塗り処理が実行されたかどうかをチェック
+        int currentPaintFrame = paintCanvas.GetLastPaintFrame();
+        if (currentPaintFrame != lastCheckedPaintFrame)
+        {
+            // 塗り処理が実行された
+            hasPendingExplosion = false;
+            Debug.Log($"VolumeTriggeredBombController: 予約された爆発を実行しました - フレーム: {currentPaintFrame}");
+        }
+        // 塗り処理が実行されなかった場合（更新頻度チェックでスキップされた場合）は、
+        // 次のUpdate()で再度試行される
     }
 }
 
