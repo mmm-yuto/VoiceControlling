@@ -369,6 +369,15 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         }
     }
     
+    /// <summary>
+    /// OnPaintCompletedイベントを外部から発火する（InkEffect表示用など）
+    /// 実際の塗り処理は行わず、イベントのみを発火します。
+    /// </summary>
+    public void InvokePaintCompletedEvent(Vector2 screenPosition, int playerId, float intensity)
+    {
+        OnPaintCompleted?.Invoke(screenPosition, playerId, intensity);
+    }
+    
     public void ResetCanvas()
     {
         if (paintData == null || settings == null)

@@ -21,6 +21,9 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     [Tooltip("インクエフェクト（Inspectorで接続、またはCreativeModeSettingsから取得）")]
     [SerializeField] private InkEffect inkEffect;
     
+    [Tooltip("爆弾コントローラ（カウントダウン中は塗り処理をスキップするために使用）")]
+    [SerializeField] private VolumeTriggeredBombController volumeTriggeredBombController;
+    
     [Header("Settings")]
     [Tooltip("クリエイティブモード設定（Inspectorで接続）")]
     [SerializeField] private CreativeModeSettings settings;
@@ -85,6 +88,11 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
             {
                 Debug.LogError("CreativeModeManager: ColorSelectionSystemが見つかりません");
             }
+        }
+        
+        if (volumeTriggeredBombController == null)
+        {
+            volumeTriggeredBombController = FindObjectOfType<VolumeTriggeredBombController>();
         }
         
         // 設定の初期化
@@ -279,9 +287,21 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
         // 座標と音量を取得
         Vector2 screenPos = voiceInputHandler.CurrentScreenPosition;
         float volume = voiceInputHandler.CurrentVolume;
+        float intensity = volume * settings.paintIntensity;
+        
+        // カウントダウン中は塗り処理をスキップ（爆発の瞬間以外は塗らない）
+        // ただし、InkEffectは表示するため、OnPaintCompletedイベントのみ発火
+        if (volumeTriggeredBombController != null && volumeTriggeredBombController.IsCountingDown)
+        {
+            // InkEffectを表示するために、OnPaintCompletedイベントを手動で発火
+            if (paintCanvas != null)
+            {
+                paintCanvas.InvokePaintCompletedEvent(screenPos, currentPlayerId, intensity);
+            }
+            return;
+        }
         
         // 塗り処理
-        float intensity = volume * settings.paintIntensity;
         PaintAt(screenPos, intensity);
     }
     
