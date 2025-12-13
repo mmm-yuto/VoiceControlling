@@ -313,6 +313,17 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     {
         if (paintCanvas == null || currentBrush == null) return;
         
+        // BombBrushが選択されている場合は補間処理をスキップ（爆発はカウントダウンシステムで処理）
+        // 補間処理でBombBrush.Paint()が複数回呼ばれると処理負荷が高くなるため
+        if (currentBrush is BombBrush)
+        {
+            // BombBrushの場合は補間せず、現在位置だけ塗る（通常はカウントダウン中でない限り実行されない）
+            PaintWithCurrentBrush(position, intensity);
+            lastPaintPosition = position;
+            hasLastPosition = true;
+            return;
+        }
+        
         if (hasLastPosition)
         {
             // 前回の位置と現在の位置の間を補間

@@ -62,6 +62,7 @@ public class VolumeTriggeredBombController : MonoBehaviour
     private bool isCountingDown = false;
     private float countdownRemaining = 0f;
     private float cooldownRemaining = 0f;
+    private bool hasCountdownCompleted = false; // カウントダウン完了フラグ（一度だけ実行するため）
     
     /// <summary>
     /// カウントダウン中かどうかを取得（外部から参照可能）
@@ -71,14 +72,17 @@ public class VolumeTriggeredBombController : MonoBehaviour
     // 直近フレームでの声の照準位置
     private Vector2 lastAimedScreenPosition = Vector2.zero;
     
+    // カウントダウン完了時の固定位置
+    private Vector2 countdownCompletedPosition = Vector2.zero;
+    
     // 塗り予約システム
     private bool hasPendingExplosion = false;
+    private bool isProcessingExplosion = false; // 爆発処理中フラグ（重複実行を防ぐ）
     private Vector2 pendingExplosionPosition = Vector2.zero;
     private Color pendingExplosionColor = Color.cyan;
     private float pendingExplosionIntensity = 1.0f;
     private int pendingExplosionPlayerId = 1;
     private float pendingExplosionRadius = 150f;
-    private int lastCheckedPaintFrame = -1; // 最後に塗り実行をチェックしたフレーム
 
     // 座標変換処理のキャッシュ用
     private RectTransform cachedPaintRendererRect = null;
@@ -182,6 +186,8 @@ public class VolumeTriggeredBombController : MonoBehaviour
                 {
                     isCountingDown = false;
                     countdownRemaining = 0f;
+                    hasCountdownCompleted = false; // カウントダウン完了フラグをリセット
+                    countdownCompletedPosition = Vector2.zero; // 完了位置をリセット
 
                     // カウントダウンUIを非表示
                     if (useCountdownText && countdownTextUI != null)
@@ -234,12 +240,31 @@ public class VolumeTriggeredBombController : MonoBehaviour
             // UI更新（位置更新は最適化して間引き）
             UpdateCountdownUI();
 
-            // カウントダウン完了判定
-            if (countdownRemaining <= 0f)
+            // カウントダウン完了判定（一度だけ実行）
+            if (countdownRemaining <= 0f && !hasCountdownCompleted)
             {
-                // 塗り処理を予約（直接実行しない）
-                ScheduleExplosion(lastAimedScreenPosition);
+                // カウントダウン完了時の位置を固定
+                countdownCompletedPosition = lastAimedScreenPosition;
+                
+                // 位置が無効な場合の処理
+                if (countdownCompletedPosition == Vector2.zero)
+                {
+                    if (voiceToScreenMapper != null)
+                    {
+                        countdownCompletedPosition = voiceToScreenMapper.MapToCenter();
+                    }
+                    Debug.LogWarning("VolumeTriggeredBombController: カウントダウン完了時の位置が無効でした。中央位置を使用します。");
+                }
+                
+                // 既に予約がある場合はスキップ（重複を防ぐ）
+                if (!hasPendingExplosion)
+                {
+                    // 塗り処理を予約（固定された位置を使用）
+                    ScheduleExplosion(countdownCompletedPosition);
+                }
 
+                // カウントダウン完了フラグを設定（一度だけ実行するため）
+                hasCountdownCompleted = true;
                 isCountingDown = false;
                 countdownRemaining = 0f;
                 cooldownRemaining = cooldownTime;
@@ -311,6 +336,8 @@ public class VolumeTriggeredBombController : MonoBehaviour
 
         isCountingDown = true;
         countdownRemaining = countdownDuration;
+        hasCountdownCompleted = false; // カウントダウン完了フラグをリセット
+        countdownCompletedPosition = Vector2.zero; // 完了位置をリセット
 
         // 開始時点でも一度照準位置を更新
         UpdateAimedPosition();
@@ -618,6 +645,14 @@ public class VolumeTriggeredBombController : MonoBehaviour
             return;
         }
 
+        // 既存の予約がある場合はクリア（重複を防ぐ）
+        if (hasPendingExplosion)
+        {
+            Debug.LogWarning("VolumeTriggeredBombController: 既存の爆発予約をクリアして新しい予約を作成します。");
+            hasPendingExplosion = false;
+            isProcessingExplosion = false;
+        }
+
         // 爆発位置が無効な場合の警告
         if (screenPosition == Vector2.zero)
         {
@@ -638,25 +673,28 @@ public class VolumeTriggeredBombController : MonoBehaviour
 
         // 予約情報を記録
         hasPendingExplosion = true;
+        isProcessingExplosion = false; // 新しい予約なので処理中フラグをリセット
         pendingExplosionPosition = screenPosition;
         pendingExplosionColor = finalBombColor;
         pendingExplosionIntensity = bombIntensity;
         pendingExplosionPlayerId = bombPlayerId;
         pendingExplosionRadius = bombRadius;
-        lastCheckedPaintFrame = paintCanvas.GetLastPaintFrame(); // 現在のフレームを記録
         
         Debug.Log($"VolumeTriggeredBombController: 爆発を予約 - 位置: ({screenPosition.x:F1}, {screenPosition.y:F1}), 強度: {bombIntensity}, 半径: {bombRadius}, 色: {finalBombColor}");
     }
     
     /// <summary>
-    /// 予約された爆発塗りを処理する（次の塗り可能なタイミングで確実に塗る）
+    /// 予約された爆発塗りを処理する（一度だけ実行される）
     /// </summary>
     private void ProcessPendingExplosion()
     {
-        if (!hasPendingExplosion || paintCanvas == null)
+        if (!hasPendingExplosion || paintCanvas == null || isProcessingExplosion)
         {
-            return;
+            return; // 既に処理中の場合はスキップ（重複実行を防ぐ）
         }
+
+        // 処理開始フラグを立てる（重複実行を防ぐ）
+        isProcessingExplosion = true;
 
         // BombBrushを取得
         BombBrush bombBrush = null;
@@ -676,20 +714,14 @@ public class VolumeTriggeredBombController : MonoBehaviour
             bombBrush.bombRadius = pendingExplosionRadius;
         }
         
-        // BombBrushのPaint()を呼び出す（更新頻度チェックあり）
-        // 更新頻度の条件を満たしたタイミングで確実に塗られる
+        // BombBrushのPaint()を呼び出す（一度だけ実行）
         bombBrush.Paint(paintCanvas, pendingExplosionPosition, pendingExplosionPlayerId, pendingExplosionColor, pendingExplosionIntensity);
         
-        // 塗り処理が実行されたかどうかをチェック
-        int currentPaintFrame = paintCanvas.GetLastPaintFrame();
-        if (currentPaintFrame != lastCheckedPaintFrame)
-        {
-            // 塗り処理が実行された
-            hasPendingExplosion = false;
-            Debug.Log($"VolumeTriggeredBombController: 予約された爆発を実行しました - フレーム: {currentPaintFrame}");
-        }
-        // 塗り処理が実行されなかった場合（更新頻度チェックでスキップされた場合）は、
-        // 次のUpdate()で再度試行される
+        // 予約をクリア（一度だけ実行）
+        hasPendingExplosion = false;
+        isProcessingExplosion = false;
+        
+        Debug.Log($"VolumeTriggeredBombController: 予約された爆発を実行しました - 位置: ({pendingExplosionPosition.x:F1}, {pendingExplosionPosition.y:F1})");
     }
 }
 

@@ -294,6 +294,86 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     }
     
     /// <summary>
+    /// 円形塗りデータ（バッチ処理用）
+    /// </summary>
+    public struct CirclePaintData
+    {
+        public Vector2 position;
+        public float radius;
+        
+        public CirclePaintData(Vector2 position, float radius)
+        {
+            this.position = position;
+            this.radius = radius;
+        }
+    }
+    
+    /// <summary>
+    /// 複数の円形領域を一度に塗る（バッチ処理、テクスチャ更新は最後に1回だけ）
+    /// </summary>
+    public void PaintMultipleCircles(System.Collections.Generic.List<CirclePaintData> circles, int playerId, float intensity, Color color)
+    {
+        if (!isInitialized || settings == null || circles == null || circles.Count == 0) return;
+        
+        // 塗り強度が閾値以上の場合のみ塗る
+        float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
+        if (effectiveIntensity < settings.minVolumeThreshold)
+        {
+            return;
+        }
+        
+        bool hasPainted = false;
+        
+        // 全ての円形領域を塗る
+        foreach (var circle in circles)
+        {
+            // 画面座標をキャンバス座標に変換
+            int centerX = Mathf.RoundToInt((circle.position.x / Screen.width) * settings.textureWidth);
+            int centerY = Mathf.RoundToInt((circle.position.y / Screen.height) * settings.textureHeight);
+            
+            // 半径をキャンバス座標系に変換
+            float radiusInCanvas = (circle.radius / Screen.width) * settings.textureWidth;
+            int radiusPixels = Mathf.RoundToInt(radiusInCanvas);
+            
+            // 円形のブラシで塗る
+            for (int x = centerX - radiusPixels; x <= centerX + radiusPixels; x++)
+            {
+                for (int y = centerY - radiusPixels; y <= centerY + radiusPixels; y++)
+                {
+                    if (x < 0 || x >= settings.textureWidth || y < 0 || y >= settings.textureHeight)
+                        continue;
+                    
+                    // 円形の範囲内かチェック
+                    float distance = Vector2.Distance(new Vector2(x, y), new Vector2(centerX, centerY));
+                    if (distance <= radiusPixels)
+                    {
+                        // 塗り処理（プレイヤー／敵ともに後から塗った方が優先）
+                        paintData[x, y] = playerId;
+                        colorData[x, y] = color;
+                        intensityData[x, y] = effectiveIntensity;
+                        
+                        // テクスチャを更新（Applyは最後に1回だけ）
+                        UpdateTexturePixel(x, y, color);
+                        hasPainted = true;
+                    }
+                }
+            }
+        }
+        
+        // テクスチャの更新をフラッシュ（1回だけ）
+        if (hasPainted)
+        {
+            FlushTextureUpdates();
+            lastPaintFrame = Time.frameCount;
+            // イベントは中心位置で1回だけ発火
+            if (circles.Count > 0)
+            {
+                OnPaintCompleted?.Invoke(circles[0].position, playerId, effectiveIntensity);
+            }
+        }
+    }
+    
+    /// <summary>
     /// 消しツール用：指定位置から半径内を消す
     /// </summary>
     public void EraseAt(Vector2 screenPosition, float radius)
