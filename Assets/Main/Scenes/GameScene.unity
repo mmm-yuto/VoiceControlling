@@ -9502,6 +9502,7 @@ MonoBehaviour:
   volumeAnalyzer: {fileID: 1430166759}
   voiceToScreenMapper: {fileID: 650370225}
   pitchAnalyzer: {fileID: 968300008}
+  creativeModeManager: {fileID: 2078794040}
   waveformShader: {fileID: 4800000, guid: 340cbb7976dc7ca4c83f0c5bf4547fe8, type: 3}
 --- !u!1 &1607784497
 GameObject:
@@ -13143,7 +13144,9 @@ MonoBehaviour:
   paintCanvas: {fileID: 1098085713}
   colorSelectionSystem: {fileID: 2060525658}
   inkEffect: {fileID: 612787506}
-  volumeTriggeredBombController: {fileID: 0}
+  volumeTriggeredBombController: {fileID: 377658856}
+  outerFrameObjects:
+  - {fileID: 1017919964}
   settings: {fileID: 11400000, guid: c4c08cef4f5e40145a45fdaaabc51f1d, type: 2}
   currentToolMode: 0
   currentBrush: {fileID: 0}

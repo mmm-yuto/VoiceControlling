@@ -59,6 +59,9 @@ public class AmbientCanvasEffects : MonoBehaviour
     [Tooltip("ピッチアナライザー（自動検索される）")]
     [SerializeField] private ImprovedPitchAnalyzer pitchAnalyzer;
     
+    [Tooltip("クリエイティブモードマネージャー（現在の色を取得するため、自動検索される）")]
+    [SerializeField] private CreativeModeManager creativeModeManager;
+    
     [Tooltip("使用するシェーダー（設定されていない場合は自動検索）")]
     [SerializeField] private Shader waveformShader;
     
@@ -126,6 +129,16 @@ public class AmbientCanvasEffects : MonoBehaviour
             if (pitchAnalyzer == null)
             {
                 Debug.LogWarning("AmbientCanvasEffects: ImprovedPitchAnalyzerが見つかりません。ピッチ反応機能は無効になります。");
+            }
+        }
+        
+        // クリエイティブモードマネージャーの取得
+        if (creativeModeManager == null)
+        {
+            creativeModeManager = FindObjectOfType<CreativeModeManager>();
+            if (creativeModeManager == null)
+            {
+                Debug.LogWarning("AmbientCanvasEffects: CreativeModeManagerが見つかりません。波の色の同期機能は無効になります。");
             }
         }
         
@@ -315,6 +328,13 @@ public class AmbientCanvasEffects : MonoBehaviour
         
         // 補間された周期速度をシェーダーに渡す
         waveformMaterial.SetFloat("_CycleSpeed", currentCycleSpeed);
+        
+        // クリエイティブモードの場合は、現在の塗り色を波の色に反映
+        if (creativeModeManager != null)
+        {
+            Color currentPaintColor = creativeModeManager.GetCurrentColor();
+            waveformMaterial.SetColor("_WaveformColor", currentPaintColor);
+        }
     }
     
     /// <summary>
@@ -329,7 +349,13 @@ public class AmbientCanvasEffects : MonoBehaviour
         
         waveformMaterial.SetFloat("_WaveformIntensity", waveformIntensity);
         waveformMaterial.SetFloat("_WaveformSpeed", waveformSpeed);
-        waveformMaterial.SetColor("_WaveformColor", waveformColor);
+        
+        // クリエイティブモードの場合は色を設定しない（Update()で動的に更新される）
+        if (creativeModeManager == null)
+        {
+            waveformMaterial.SetColor("_WaveformColor", waveformColor);
+        }
+        
         waveformMaterial.SetFloat("_BorderWidth", borderWidth);
         waveformMaterial.SetFloat("_AudioReactiveIntensity", audioReactiveIntensity);
         waveformMaterial.SetFloat("_BarCount", barCount);

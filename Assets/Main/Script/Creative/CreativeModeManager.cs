@@ -24,6 +24,10 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     [Tooltip("爆弾コントローラ（カウントダウン中は塗り処理をスキップするために使用）")]
     [SerializeField] private VolumeTriggeredBombController volumeTriggeredBombController;
     
+    [Header("UI Objects")]
+    [Tooltip("クリエイティブモード時に非表示にするオブジェクト（OuterFrameなど、複数設定可能）")]
+    [SerializeField] private GameObject[] outerFrameObjects;
+    
     [Header("Settings")]
     [Tooltip("クリエイティブモード設定（Inspectorで接続）")]
     [SerializeField] private CreativeModeSettings settings;
@@ -150,6 +154,9 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     {
         // 初期状態を履歴に保存
         PushHistorySnapshot();
+        
+        // OuterFrameオブジェクトを非表示にする
+        SetOuterFrameObjectsVisibility(false);
     }
     
     public void UpdateGame(float deltaTime)
@@ -179,6 +186,9 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
         {
             colorSelectionSystem.OnColorChanged -= OnColorSelectionChanged;
         }
+        
+        // OuterFrameオブジェクトを表示に戻す
+        SetOuterFrameObjectsVisibility(true);
         
         // InkEffectを無効化（必要に応じて）
         // 注意: 他のモードでも使用する場合は無効化しない
@@ -712,6 +722,26 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
         if (currentBrush is PaintBrush) return BrushType.Paint;
         
         return BrushType.Pencil; // デフォルト
+    }
+    
+    /// <summary>
+    /// OuterFrameオブジェクトの表示/非表示を設定
+    /// </summary>
+    /// <param name="visible">true = 表示、false = 非表示</param>
+    private void SetOuterFrameObjectsVisibility(bool visible)
+    {
+        if (outerFrameObjects == null || outerFrameObjects.Length == 0)
+        {
+            return;
+        }
+        
+        foreach (GameObject obj in outerFrameObjects)
+        {
+            if (obj != null)
+            {
+                obj.SetActive(visible);
+            }
+        }
     }
 }
 
