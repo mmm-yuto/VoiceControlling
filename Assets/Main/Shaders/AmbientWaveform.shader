@@ -12,6 +12,7 @@ Shader "Custom/AmbientWaveform"
         _AudioVolume ("Audio Volume (Normalized)", Range(0, 1)) = 0.0
         _AudioPitch ("Audio Pitch (Normalized)", Range(0, 1)) = 0.0
         _AudioReactiveIntensity ("Audio Reactive Intensity", Range(0, 10)) = 1.5
+        _CycleSpeed ("Cycle Speed (Interpolated)", Range(0, 10)) = 0.5
         [Header(Bar Pattern)]
         _BarCount ("Bar Count", Range(8, 128)) = 32.0
         _BarWidth ("Bar Width", Range(0.5, 10)) = 2.0
@@ -71,6 +72,7 @@ Shader "Custom/AmbientWaveform"
                 float _MaxBarLength;
                 float _CornerExclusionRatio;
                 float4 _CanvasSizeRatio; // (canvasWidthRatio, canvasHeightRatio, 0, 0)
+                float _CycleSpeed; // 補間済みの周期速度（C#から渡される）
             CBUFFER_END
             
             Varyings vert(Attributes input)
@@ -223,14 +225,11 @@ Shader "Custom/AmbientWaveform"
                 // 各バーごとに異なるアニメーション速度（ランダムな位相）
                 float barPhase = barIndex * 0.12345; // 各バーに異なる位相を設定
                 
-                // 音声のピッチに応じてアニメーション周期を変化
-                // ピッチが低い時：周期が低い（ゆっくり）、ピッチが高い時：周期が高い（速く）
-                float minCycleSpeed = 0.5; // 最小周期速度（ピッチ0の時）
-                float maxCycleSpeed = 3.0; // 最大周期速度（ピッチ1の時）
-                float cycleSpeed = lerp(minCycleSpeed, maxCycleSpeed, _AudioPitch);
+                // 周期速度はC#側で補間済み（_CycleSpeedを使用）
+                // これにより、ピッチが変わっても周期が滑らかに変化する
                 
-                // 時間ベースのアニメーション（sin波で変化、周期は音量に応じて変化）
-                float animationValue = sin(time * cycleSpeed + barPhase) * 0.5 + 0.5; // 0-1の範囲
+                // 時間ベースのアニメーション（sin波で変化、周期は補間済みの_CycleSpeedを使用）
+                float animationValue = sin(time * _CycleSpeed + barPhase) * 0.5 + 0.5; // 0-1の範囲
                 
                 // バーの長さを計算（時間ベースのアニメーション + 音声反応）
                 // 縁の幅に依存しない絶対値ベースで計算
