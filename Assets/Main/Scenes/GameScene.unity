@@ -6609,7 +6609,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 7a6638d0314a32b448e27994d0290422, type: 3}
+  m_Sprite: {fileID: 21300000, guid: fdbd5c8ee28471f41b3f0bb3d921d933, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -9492,7 +9492,7 @@ MonoBehaviour:
   targetRectTransform: {fileID: 157868237}
   waveformIntensity: 2
   waveformSpeed: 1
-  waveformColor: {r: 0.5379311, g: 1, b: 0, a: 1}
+  waveformColor: {r: 0.9921569, g: 0.6039216, b: 0.023529414, a: 1}
   borderWidth: 10
   audioReactiveIntensity: 1
   barCount: 128
@@ -13143,6 +13143,7 @@ MonoBehaviour:
   paintCanvas: {fileID: 1098085713}
   colorSelectionSystem: {fileID: 2060525658}
   inkEffect: {fileID: 612787506}
+  volumeTriggeredBombController: {fileID: 0}
   settings: {fileID: 11400000, guid: c4c08cef4f5e40145a45fdaaabc51f1d, type: 2}
   currentToolMode: 0
   currentBrush: {fileID: 0}

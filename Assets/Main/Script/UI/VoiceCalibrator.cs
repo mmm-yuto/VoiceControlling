@@ -83,6 +83,9 @@ public class VoiceCalibrator : MonoBehaviour
             startCalibrationButton.onClick.AddListener(StartCalibration);
         }
         
+        // 初期カリブレーション値を適用
+        ApplyInitialCalibrationValues();
+        
         // 初期状態の設定
         UpdateCalibrationStatus("Please start calibration");
         
@@ -90,6 +93,45 @@ public class VoiceCalibrator : MonoBehaviour
         if (calibrationSettings == null)
         {
             Debug.LogWarning("VoiceCalibrator: CalibrationSettingsが設定されていません。デフォルト値を使用します。");
+        }
+    }
+    
+    /// <summary>
+    /// 初期カリブレーション値を適用（ゲーム開始時、カリブレーション未実行時）
+    /// </summary>
+    void ApplyInitialCalibrationValues()
+    {
+        if (calibrationSettings != null)
+        {
+            // CalibrationSettingsから初期値を取得（デシベル値から振幅値に変換）
+            float initialMinVol = calibrationSettings.GetInitialMinVolume();
+            float initialMaxVol = calibrationSettings.GetInitialMaxVolume();
+            float initialMinPit = calibrationSettings.initialMinPitch;
+            float initialMaxPit = calibrationSettings.initialMaxPitch;
+            
+            // 静的プロパティを更新
+            MinVolume = initialMinVol;
+            MaxVolume = initialMaxVol;
+            MinPitch = initialMinPit;
+            MaxPitch = initialMaxPit;
+            
+            // グラフの中心位置を計算
+            CenterVolume = (initialMinVol + initialMaxVol) / 2f;
+            CenterPitch = (initialMinPit + initialMaxPit) / 2f;
+            
+            // 内部変数も更新
+            minVolume = initialMinVol;
+            maxVolume = initialMaxVol;
+            minPitch = initialMinPit;
+            maxPitch = initialMaxPit;
+            
+            // 結果を各コンポーネントに適用
+            ApplyCalibrationResults();
+            
+            // デバッグログ（デシベル値も表示）
+            float minVolDb = calibrationSettings.initialMinVolumeDb;
+            float maxVolDb = calibrationSettings.initialMaxVolumeDb;
+            Debug.Log($"VoiceCalibrator: Initial calibration values applied - Volume: {minVolDb:F0} - {maxVolDb:F0} dB ({initialMinVol:F3} - {initialMaxVol:F3}), Pitch: {initialMinPit:F1} - {initialMaxPit:F1} Hz");
         }
     }
     
