@@ -32,5 +32,10 @@ public class PaintSettings : ScriptableObject
     [Tooltip("塗りの最小音量閾値（これ以下は塗らない）")]
     [Range(0f, 0.1f)]
     public float minVolumeThreshold = 0.01f;
+    
+    [Header("Performance")]
+    [Tooltip("テクスチャ更新頻度（フレーム単位、1=毎フレーム、2=2フレームに1回）")]
+    [Range(1, 10)]
+    public int textureUpdateFrequency = 1;
 }
 

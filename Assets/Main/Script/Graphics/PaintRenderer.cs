@@ -43,48 +43,74 @@ public class PaintRenderer : MonoBehaviour
             }
         }
         
-        // 初期テクスチャを作成
-        UpdateTexture();
+        // 初期Spriteを作成（1回だけ）
+        CreateSpriteOnce();
     }
     
     void Update()
     {
-        // 更新頻度チェック
-        frameCount++;
-        if (frameCount % updateFrequency != 0)
-        {
-            return;
-        }
-        
-        // テクスチャを更新
-        UpdateTexture();
+        // テクスチャのサイズが変更された場合のみSpriteを再生成
+        // 通常のテクスチャ更新（ピクセルデータの変更）は自動的に反映されるため、再生成不要
+        UpdateSpriteIfNeeded();
     }
     
     /// <summary>
-    /// テクスチャを更新
+    /// Spriteを初期化時に1回だけ作成（パフォーマンス最適化）
     /// </summary>
-    private void UpdateTexture()
+    private void CreateSpriteOnce()
     {
         if (paintCanvas == null || displayImage == null) return;
         
         Texture2D texture = paintCanvas.GetTexture();
         if (texture == null) return;
         
-        // 既存のSpriteを破棄
-        if (canvasSprite != null)
+        // Spriteを1回だけ作成
+        if (canvasSprite == null)
         {
-            Destroy(canvasSprite);
+            canvasSprite = Sprite.Create(
+                texture,
+                new Rect(0, 0, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f)
+            );
+            displayImage.sprite = canvasSprite;
+        }
+    }
+    
+    /// <summary>
+    /// テクスチャのサイズが変更された場合のみSpriteを再生成
+    /// 通常のテクスチャ更新（ピクセルデータの変更）は自動的に反映されるため、再生成不要
+    /// </summary>
+    private void UpdateSpriteIfNeeded()
+    {
+        if (paintCanvas == null || displayImage == null) return;
+        
+        Texture2D texture = paintCanvas.GetTexture();
+        if (texture == null) return;
+        
+        // Spriteが存在しない場合は作成
+        if (canvasSprite == null)
+        {
+            CreateSpriteOnce();
+            return;
         }
         
-        // 新しいSpriteを作成
-        canvasSprite = Sprite.Create(
-            texture,
-            new Rect(0, 0, texture.width, texture.height),
-            new Vector2(0.5f, 0.5f)
-        );
-        
-        // Imageに設定
-        displayImage.sprite = canvasSprite;
+        // テクスチャのサイズが変更された場合のみSpriteを再生成
+        if (canvasSprite.texture.width != texture.width || 
+            canvasSprite.texture.height != texture.height)
+        {
+            // サイズ変更時のみ再生成
+            if (canvasSprite != null)
+            {
+                Destroy(canvasSprite);
+            }
+            canvasSprite = Sprite.Create(
+                texture,
+                new Rect(0, 0, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f)
+            );
+            displayImage.sprite = canvasSprite;
+        }
+        // それ以外の場合は何もしない（テクスチャの更新は自動的に反映される）
     }
     
     /// <summary>

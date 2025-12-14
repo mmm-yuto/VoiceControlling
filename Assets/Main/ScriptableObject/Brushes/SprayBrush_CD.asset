@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c42738e5b5a3dd4baf86418ab51778b, type: 3}
+  m_Name: SprayBrush_CD
+  m_EditorClassIdentifier: Assembly-CSharp::SprayBrush
+  radius: 1
+  displayName: Spray Brush
+  icon: {fileID: 21300000, guid: 1d87dc9e82da3d343b35cf8c2132eedf, type: 3}
+  particleCount: 100
+  particleRadius: 10
+  spreadRadius: 80
+  density: 0.8
+  radiusFalloff: 1
+  sprayUpdateFrequency: 25
+  minParticleRadiusThreshold: 1

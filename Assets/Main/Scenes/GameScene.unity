@@ -2824,7 +2824,7 @@ MonoBehaviour:
   playerId: 1
   paintSpeedMultiplier: 5
   playerInkColor: {r: 0.97647065, g: 0.5921569, b: 0.039215688, a: 1}
-  brush: {fileID: 11400000, guid: 00ce56b7a68e2004ab58c5f5920e8798, type: 2}
+  brush: {fileID: 11400000, guid: 510f019f83d684f4a8f7d5732b472ae0, type: 2}
 --- !u!1 &406853571
 GameObject:
   m_ObjectHideFlags: 0
@@ -5509,6 +5509,7 @@ MonoBehaviour:
   settings: {fileID: 11400000, guid: 7dab3799686961f449dbb8339f20b386, type: 2}
   paintCanvas: {fileID: 1098085713}
   areaRenderer: {fileID: 345249728}
+  paintBattleGameManager: {fileID: 0}
 --- !u!1 &813746831
 GameObject:
   m_ObjectHideFlags: 0

@@ -32,6 +32,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     private bool isInitialized = false;
     private bool textureNeedsFlush = false; // テクスチャの更新が必要かどうか
     private int lastPaintFrame = -1; // 最後に塗りが実行されたフレーム
+    private int textureUpdateFrameCount = 0; // テクスチャ更新のフレームカウント
     
     // ピクセル数のキャッシュ（パフォーマンス最適化）
     private int cachedPlayerPixelCount = 0;
@@ -324,13 +325,21 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 if (x < 0 || x >= settings.textureWidth || y < 0 || y >= settings.textureHeight)
                     continue;
                 
-                // 円形の範囲内かチェック
-                float distance = Vector2.Distance(new Vector2(x, y), new Vector2(centerX, centerY));
-                if (distance <= radiusPixels)
+                // 円形の範囲内かチェック（距離の二乗で比較して平方根の計算を避ける）
+                int dx = x - centerX;
+                int dy = y - centerY;
+                int distanceSquared = dx * dx + dy * dy;
+                int radiusPixelsSquared = radiusPixels * radiusPixels;
+                if (distanceSquared <= radiusPixelsSquared)
                 {
-                    // 塗り処理（プレイヤー／敵ともに後から塗った方が優先）
+                    // 既に同じ色で塗られている場合はスキップ（パフォーマンス最適化）
                     int existingPlayerId = paintData[x, y];
+                    if (existingPlayerId == playerId && colorData[x, y] == color)
+                    {
+                        continue; // 処理をスキップ
+                    }
                     
+                    // 塗り処理（プレイヤー／敵ともに後から塗った方が優先）
                     // ピクセル数のキャッシュを更新
                     if (pixelCountCacheValid)
                     {
@@ -415,13 +424,21 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                     if (x < 0 || x >= settings.textureWidth || y < 0 || y >= settings.textureHeight)
                         continue;
                     
-                    // 円形の範囲内かチェック
-                    float distance = Vector2.Distance(new Vector2(x, y), new Vector2(centerX, centerY));
-                    if (distance <= radiusPixels)
+                    // 円形の範囲内かチェック（距離の二乗で比較して平方根の計算を避ける）
+                    int dx = x - centerX;
+                    int dy = y - centerY;
+                    int distanceSquared = dx * dx + dy * dy;
+                    int radiusPixelsSquared = radiusPixels * radiusPixels;
+                    if (distanceSquared <= radiusPixelsSquared)
                     {
-                        // 塗り処理（プレイヤー／敵ともに後から塗った方が優先）
+                        // 既に同じ色で塗られている場合はスキップ（パフォーマンス最適化）
                         int existingPlayerId = paintData[x, y];
+                        if (existingPlayerId == playerId && colorData[x, y] == color)
+                        {
+                            continue; // 処理をスキップ
+                        }
                         
+                        // 塗り処理（プレイヤー／敵ともに後から塗った方が優先）
                         // ピクセル数のキャッシュを更新
                         if (pixelCountCacheValid)
                         {
@@ -491,10 +508,19 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 if (x < 0 || x >= settings.textureWidth || y < 0 || y >= settings.textureHeight)
                     continue;
                 
-                // 円形の範囲内かチェック
-                float distance = Vector2.Distance(new Vector2(x, y), new Vector2(centerX, centerY));
-                if (distance <= radiusPixels)
+                // 円形の範囲内かチェック（距離の二乗で比較して平方根の計算を避ける）
+                int dx = x - centerX;
+                int dy = y - centerY;
+                int distanceSquared = dx * dx + dy * dy;
+                int radiusPixelsSquared = radiusPixels * radiusPixels;
+                if (distanceSquared <= radiusPixelsSquared)
                 {
+                    // 既に消されている場合はスキップ（パフォーマンス最適化）
+                    if (paintData[x, y] == 0)
+                    {
+                        continue; // 処理をスキップ
+                    }
+                    
                     // 消し処理
                     int existingPlayerId = paintData[x, y];
                     
@@ -536,11 +562,34 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     }
     
     /// <summary>
-    /// テクスチャの更新をフラッシュ（まとめてApply()を実行）
+    /// テクスチャの更新をフラッシュ（LateUpdate()で実行される）
+    /// Apply()は呼ばず、textureNeedsFlushフラグのみを設定
     /// </summary>
     public void FlushTextureUpdates()
     {
-        if (textureNeedsFlush && canvasTexture != null)
+        // Apply()は呼ばず、LateUpdate()で実行される
+        // textureNeedsFlushフラグのみを設定
+    }
+    
+    /// <summary>
+    /// フレームごとに1回だけテクスチャを更新（パフォーマンス最適化）
+    /// </summary>
+    void LateUpdate()
+    {
+        if (!isInitialized || settings == null || canvasTexture == null)
+        {
+            return;
+        }
+        
+        // テクスチャ更新頻度チェック
+        textureUpdateFrameCount++;
+        if (textureUpdateFrameCount % settings.textureUpdateFrequency != 0)
+        {
+            return; // 更新をスキップ
+        }
+        
+        // フレームごとに1回だけテクスチャを更新
+        if (textureNeedsFlush)
         {
             canvasTexture.Apply();
             textureNeedsFlush = false;
@@ -712,9 +761,13 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 }
                 else
                 {
-                    // フォールバック: 円形として判定
+                    // フォールバック: 円形として判定（距離の二乗で比較して平方根の計算を避ける）
                     float radius = canvasSize * 0.5f;
-                    isInArea = Vector2.Distance(pixelPos, canvasCenter) <= radius;
+                    float dx = pixelPos.x - canvasCenter.x;
+                    float dy = pixelPos.y - canvasCenter.y;
+                    float distanceSquared = dx * dx + dy * dy;
+                    float radiusSquared = radius * radius;
+                    isInArea = distanceSquared <= radiusSquared;
                 }
                 
                 if (!isInArea) continue;
