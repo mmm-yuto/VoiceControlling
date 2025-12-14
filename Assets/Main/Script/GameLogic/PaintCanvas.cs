@@ -33,6 +33,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     private bool textureNeedsFlush = false; // テクスチャの更新が必要かどうか
     private int lastPaintFrame = -1; // 最後に塗りが実行されたフレーム
     
+    // ピクセル数のキャッシュ（パフォーマンス最適化）
+    private int cachedPlayerPixelCount = 0;
+    private int cachedEnemyPixelCount = 0;
+    private bool pixelCountCacheValid = false; // キャッシュが有効かどうか
+    
     void Awake()
     {
         if (settings == null)
@@ -63,17 +68,40 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     }
     
     /// <summary>
-    /// 現在のキャンバス上のプレイヤー／敵ピクセル数を集計する
+    /// 現在のキャンバス上のプレイヤー／敵ピクセル数を集計する（キャッシュを使用）
     /// </summary>
     /// <param name="playerPixels">playerId > 0 のピクセル数</param>
     /// <param name="enemyPixels">playerId == -1 のピクセル数</param>
     public void GetPlayerAndEnemyPixelCounts(out int playerPixels, out int enemyPixels)
     {
-        playerPixels = 0;
-        enemyPixels = 0;
+        if (!isInitialized || settings == null || paintData == null)
+        {
+            playerPixels = 0;
+            enemyPixels = 0;
+            return;
+        }
+        
+        // キャッシュが無効な場合は再計算
+        if (!pixelCountCacheValid)
+        {
+            RecalculatePixelCounts();
+        }
+        
+        playerPixels = cachedPlayerPixelCount;
+        enemyPixels = cachedEnemyPixelCount;
+    }
+    
+    /// <summary>
+    /// ピクセル数を再計算（キャッシュが無効な場合に呼ばれる）
+    /// </summary>
+    private void RecalculatePixelCounts()
+    {
+        cachedPlayerPixelCount = 0;
+        cachedEnemyPixelCount = 0;
         
         if (!isInitialized || settings == null || paintData == null)
         {
+            pixelCountCacheValid = true;
             return;
         }
         
@@ -87,13 +115,43 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 int id = paintData[x, y];
                 if (id > 0)
                 {
-                    playerPixels++;
+                    cachedPlayerPixelCount++;
                 }
                 else if (id == -1)
                 {
-                    enemyPixels++;
+                    cachedEnemyPixelCount++;
                 }
             }
+        }
+        
+        pixelCountCacheValid = true;
+    }
+    
+    /// <summary>
+    /// ピクセル数のキャッシュを更新（塗り処理で呼ばれる）
+    /// </summary>
+    /// <param name="oldPlayerId">変更前のplayerId</param>
+    /// <param name="newPlayerId">変更後のplayerId</param>
+    private void UpdatePixelCountCache(int oldPlayerId, int newPlayerId)
+    {
+        // 変更前のカウントを減らす
+        if (oldPlayerId > 0)
+        {
+            cachedPlayerPixelCount = Mathf.Max(0, cachedPlayerPixelCount - 1);
+        }
+        else if (oldPlayerId == -1)
+        {
+            cachedEnemyPixelCount = Mathf.Max(0, cachedEnemyPixelCount - 1);
+        }
+        
+        // 変更後のカウントを増やす
+        if (newPlayerId > 0)
+        {
+            cachedPlayerPixelCount++;
+        }
+        else if (newPlayerId == -1)
+        {
+            cachedEnemyPixelCount++;
         }
     }
     
@@ -161,6 +219,12 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         
         // プレイヤーの色を塗る場合、敵の色を上塗り可能
         // （既存のロジックで上書きされるため、追加処理不要）
+        
+        // ピクセル数のキャッシュを更新
+        if (pixelCountCacheValid)
+        {
+            UpdatePixelCountCache(existingPlayerId, playerId);
+        }
         
         paintData[canvasX, canvasY] = playerId;
         colorData[canvasX, canvasY] = color;
@@ -265,6 +329,14 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 if (distance <= radiusPixels)
                 {
                     // 塗り処理（プレイヤー／敵ともに後から塗った方が優先）
+                    int existingPlayerId = paintData[x, y];
+                    
+                    // ピクセル数のキャッシュを更新
+                    if (pixelCountCacheValid)
+                    {
+                        UpdatePixelCountCache(existingPlayerId, playerId);
+                    }
+                    
                     paintData[x, y] = playerId;
                     colorData[x, y] = color;
                     intensityData[x, y] = effectiveIntensity;
@@ -348,6 +420,14 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                     if (distance <= radiusPixels)
                     {
                         // 塗り処理（プレイヤー／敵ともに後から塗った方が優先）
+                        int existingPlayerId = paintData[x, y];
+                        
+                        // ピクセル数のキャッシュを更新
+                        if (pixelCountCacheValid)
+                        {
+                            UpdatePixelCountCache(existingPlayerId, playerId);
+                        }
+                        
                         paintData[x, y] = playerId;
                         colorData[x, y] = color;
                         intensityData[x, y] = effectiveIntensity;
@@ -416,6 +496,14 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 if (distance <= radiusPixels)
                 {
                     // 消し処理
+                    int existingPlayerId = paintData[x, y];
+                    
+                    // ピクセル数のキャッシュを更新（0に変更）
+                    if (pixelCountCacheValid)
+                    {
+                        UpdatePixelCountCache(existingPlayerId, 0);
+                    }
+                    
                     paintData[x, y] = 0;
                     colorData[x, y] = Color.clear;
                     intensityData[x, y] = 0f;
@@ -497,6 +585,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             canvasTexture.SetPixels(pixels);
             canvasTexture.Apply();
         }
+        
+        // ピクセル数のキャッシュをリセット
+        cachedPlayerPixelCount = 0;
+        cachedEnemyPixelCount = 0;
+        pixelCountCacheValid = true;
         
         Debug.Log("PaintCanvas: キャンバスをリセットしました");
     }
@@ -629,6 +722,14 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 // 対象のplayerIdの色を消す
                 if (paintData[x, y] == targetPlayerId)
                 {
+                    int existingPlayerId = paintData[x, y];
+                    
+                    // ピクセル数のキャッシュを更新（0に変更）
+                    if (pixelCountCacheValid)
+                    {
+                        UpdatePixelCountCache(existingPlayerId, 0);
+                    }
+                    
                     paintData[x, y] = 0;
                     colorData[x, y] = Color.clear;
                     intensityData[x, y] = 0;
@@ -689,6 +790,9 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         
         // テクスチャを更新
         UpdateTexture();
+        
+        // ピクセル数のキャッシュを無効化（次回GetPlayerAndEnemyPixelCounts()で再計算される）
+        pixelCountCacheValid = false;
     }
     
     /// <summary>
