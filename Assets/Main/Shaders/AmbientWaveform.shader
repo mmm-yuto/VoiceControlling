@@ -318,11 +318,13 @@ Shader "Custom/AmbientWaveform"
                     else if (isBottomEdge) edgeIndex = 2.0;
                     else if (isLeftEdge) edgeIndex = 3.0;
                     
-                    // 時計回りに統一するため、下辺と左辺の位置を反転
+                    // 右辺と下辺以外の動きを逆にする（上辺と左辺のみ反転）
+                    // 上辺: 右→左 (0.0→1.0, 反転), 右辺: 上→下 (1.0→2.0, 反転なし)
+                    // 下辺: 右→左 (2.0→3.0, 反転なし), 左辺: 上→下 (3.0→4.0, 反転)
                     float clockwisePosition = adjustedEdgePosition;
-                    if (isBottomEdge || isLeftEdge)
+                    if (isTopEdge || isLeftEdge)
                     {
-                        clockwisePosition = 1.0 - adjustedEdgePosition; // 反転して時計回りに
+                        clockwisePosition = 1.0 - adjustedEdgePosition; // 上辺と左辺のみ反転
                     }
                     
                     // 連続的な位置を計算（0.0～4.0）

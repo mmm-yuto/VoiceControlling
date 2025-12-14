@@ -2822,8 +2822,8 @@ MonoBehaviour:
   voiceInputHandler: {fileID: 1237626386}
   paintCanvas: {fileID: 1098085713}
   playerId: 1
-  paintSpeedMultiplier: 1
-  playerInkColor: {r: 1, g: 0, b: 0, a: 1}
+  paintSpeedMultiplier: 5
+  playerInkColor: {r: 0.97647065, g: 0.5921569, b: 0.039215688, a: 1}
   brush: {fileID: 11400000, guid: 41d94d9c2e3345743ba8d62e6fece555, type: 2}
 --- !u!1 &406853571
 GameObject:

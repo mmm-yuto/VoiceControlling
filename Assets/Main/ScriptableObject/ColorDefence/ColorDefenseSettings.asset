@@ -38,7 +38,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  targetColor: {r: 0, g: 0.060248375, b: 1, a: 1}
+  targetColor: {r: 0.015686275, g: 0.03529412, b: 0.9294118, a: 1}
   colorChangeRate: 0.5
   colorChangeSpeed: 5
   maxAreasOnScreen: 20
