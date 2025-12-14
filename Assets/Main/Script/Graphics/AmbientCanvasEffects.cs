@@ -62,9 +62,10 @@ public class AmbientCanvasEffects : MonoBehaviour
     [Tooltip("クリエイティブモードマネージャー（現在の色を取得するため、自動検索される）")]
     [SerializeField] private CreativeModeManager creativeModeManager;
     
+    [Tooltip("シングルプレイモードマネージャー（現在のゲームモードを取得するため、自動検索される）")]
+    [SerializeField] private SinglePlayerModeManager singlePlayerModeManager;
+    
     [Header("Color Defense Mode")]
-    [Tooltip("Color Defence Modeで波の色を変更するか")]
-    [SerializeField] private bool useColorDefenseMode = false;
     
     [Tooltip("勝者がはっきり分かると判定する割合の差（%）")]
     [Range(0f, 50f)]
@@ -173,43 +174,26 @@ public class AmbientCanvasEffects : MonoBehaviour
             }
         }
         
-        // Color Defence Mode関連の取得
-        if (useColorDefenseMode)
+        // SinglePlayerModeManagerの取得（現在のゲームモードを判定するため）
+        if (singlePlayerModeManager == null)
         {
-            if (colorDefenseMode == null)
-            {
-                colorDefenseMode = FindObjectOfType<ColorDefenseMode>();
-                if (colorDefenseMode == null)
-                {
-                    Debug.LogWarning("AmbientCanvasEffects: ColorDefenseModeが見つかりません。Color Defence Modeの波の色変更機能は無効になります。");
-                }
-            }
-            
-            if (paintCanvas == null)
-            {
-                paintCanvas = FindObjectOfType<PaintCanvas>();
-                if (paintCanvas == null)
-                {
-                    Debug.LogWarning("AmbientCanvasEffects: PaintCanvasが見つかりません。Color Defence Modeの波の色変更機能は無効になります。");
-                }
-            }
-            
-            if (paintBattleGameManager == null)
-            {
-                paintBattleGameManager = FindObjectOfType<PaintBattleGameManager>();
-                if (paintBattleGameManager != null)
-                {
-                    playerColor = paintBattleGameManager.playerInkColor;
-                }
-            }
-            
-            // ColorDefenseSettingsから敵の色を取得
-            if (colorDefenseMode != null)
-            {
-                // ColorDefenseSettingsはColorDefenseModeのsettingsフィールドから取得できないため、
-                // 直接取得する方法を検討する必要がある
-                // とりあえず、デフォルトの敵色を使用
-            }
+            singlePlayerModeManager = FindObjectOfType<SinglePlayerModeManager>();
+        }
+        
+        // Color Defence Mode関連の取得
+        if (colorDefenseMode == null)
+        {
+            colorDefenseMode = FindObjectOfType<ColorDefenseMode>();
+        }
+        
+        if (paintCanvas == null)
+        {
+            paintCanvas = FindObjectOfType<PaintCanvas>();
+        }
+        
+        if (paintBattleGameManager == null)
+        {
+            paintBattleGameManager = FindObjectOfType<PaintBattleGameManager>();
         }
         
         // シェーダーの取得
@@ -399,16 +383,56 @@ public class AmbientCanvasEffects : MonoBehaviour
         // 補間された周期速度をシェーダーに渡す
         waveformMaterial.SetFloat("_CycleSpeed", currentCycleSpeed);
         
-        // Color Defence Modeの場合は、プレイヤー/敵の割合に応じて波の色を更新
-        if (useColorDefenseMode && colorDefenseMode != null && paintCanvas != null)
+        // ゲームモードが決定されているかどうかを判定
+        bool isGameModeDetermined = IsGameModeDetermined();
+        
+        if (!isGameModeDetermined)
         {
-            UpdateColorDefenseWaveColor();
+            // ゲームモードが決定される前は、Color Defence Modeの波の色アニメーションを適用
+            if (colorDefenseMode != null && paintCanvas != null)
+            {
+                UpdateColorDefenseWaveColor();
+            }
+            else
+            {
+                // Color Defence Modeのコンポーネントが見つからない場合は、デフォルトの色を使用
+                waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+            }
         }
-        // クリエイティブモードの場合は、現在の塗り色を波の色に反映
-        else if (creativeModeManager != null)
+        else
         {
-            Color currentPaintColor = creativeModeManager.GetCurrentColor();
-            waveformMaterial.SetColor("_WaveformColor", currentPaintColor);
+            // 現在のゲームモードを取得して、それに応じて波の色を設定
+            SinglePlayerGameModeType currentMode = GetCurrentGameMode();
+            
+            if (currentMode == SinglePlayerGameModeType.ColorDefense)
+            {
+                // Color Defence Modeの場合は、プレイヤー/敵の割合に応じて波の色を更新
+                if (colorDefenseMode != null && paintCanvas != null)
+                {
+                    UpdateColorDefenseWaveColor();
+                }
+                else
+                {
+                    // 波の色アニメーションを無効化（1色のみ）
+                    waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+                }
+            }
+            else if (currentMode == SinglePlayerGameModeType.Creative)
+            {
+                // クリエイティブモードの場合は、現在の塗り色を波の色に反映（波の色アニメーションは無効化）
+                if (creativeModeManager != null)
+                {
+                    Color currentPaintColor = creativeModeManager.GetCurrentColor();
+                    waveformMaterial.SetColor("_WaveformColor", currentPaintColor);
+                }
+                // 波の色アニメーションを無効化（1色のみ）
+                waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+            }
+            else
+            {
+                // その他のモードの場合は、波の色アニメーションを無効化（1色のみ）
+                waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+            }
         }
     }
     
@@ -425,12 +449,25 @@ public class AmbientCanvasEffects : MonoBehaviour
         waveformMaterial.SetFloat("_WaveformIntensity", waveformIntensity);
         waveformMaterial.SetFloat("_WaveformSpeed", waveformSpeed);
         
-        // Color Defence Modeまたはクリエイティブモードの場合は色を設定しない（Update()で動的に更新される）
-        if (!useColorDefenseMode && creativeModeManager == null)
+        // ゲームモードが決定されているかどうかを判定
+        bool isGameModeDetermined = IsGameModeDetermined();
+        
+        if (!isGameModeDetermined)
         {
-            waveformMaterial.SetColor("_WaveformColor", waveformColor);
-            // グラデーションを無効化（1色のみ）
-            waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+            // ゲームモードが決定される前は、色を設定しない（Update()でColor Defence Modeの波の色アニメーションが適用される）
+        }
+        else
+        {
+            // 現在のゲームモードを取得
+            SinglePlayerGameModeType currentMode = GetCurrentGameMode();
+            
+            // Color Defence Modeまたはクリエイティブモードの場合は色を設定しない（Update()で動的に更新される）
+            if (currentMode != SinglePlayerGameModeType.ColorDefense && currentMode != SinglePlayerGameModeType.Creative)
+            {
+                waveformMaterial.SetColor("_WaveformColor", waveformColor);
+                // グラデーションを無効化（1色のみ）
+                waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+            }
         }
         
         waveformMaterial.SetFloat("_BorderWidth", borderWidth);
@@ -601,6 +638,50 @@ public class AmbientCanvasEffects : MonoBehaviour
             waveformMaterial.SetFloat("_WaveColorSpeed", waveColorSpeed);
             waveformMaterial.SetFloat("_ColorSegmentCount", colorSegmentCount);
         }
+    }
+    
+    /// <summary>
+    /// ゲームモードが決定されているかどうかを判定
+    /// </summary>
+    /// <returns>ゲームモードが決定されている場合はtrue、そうでない場合はfalse</returns>
+    bool IsGameModeDetermined()
+    {
+        if (singlePlayerModeManager != null)
+        {
+            ISinglePlayerGameMode currentMode = singlePlayerModeManager.GetCurrentMode();
+            if (currentMode != null)
+            {
+                return true;
+            }
+        }
+        
+        // SinglePlayerModeManagerが見つからない、またはモードが決定されていない場合はfalse
+        return false;
+    }
+    
+    /// <summary>
+    /// 現在のゲームモードを取得
+    /// </summary>
+    /// <returns>現在のゲームモード（見つからない場合はCreativeを返す）</returns>
+    SinglePlayerGameModeType GetCurrentGameMode()
+    {
+        if (singlePlayerModeManager != null)
+        {
+            ISinglePlayerGameMode currentMode = singlePlayerModeManager.GetCurrentMode();
+            if (currentMode != null)
+            {
+                return currentMode.GetModeType();
+            }
+        }
+        
+        // SinglePlayerModeManagerが見つからない場合は、CreativeModeManagerの有無で判定
+        if (creativeModeManager != null)
+        {
+            return SinglePlayerGameModeType.Creative;
+        }
+        
+        // デフォルトはCreative
+        return SinglePlayerGameModeType.Creative;
     }
 }
 

@@ -9503,7 +9503,7 @@ MonoBehaviour:
   voiceToScreenMapper: {fileID: 650370225}
   pitchAnalyzer: {fileID: 968300008}
   creativeModeManager: {fileID: 2078794040}
-  useColorDefenseMode: 1
+  singlePlayerModeManager: {fileID: 704633318}
   dominanceThreshold: 50
   playerColor: {r: 1, g: 0, b: 0, a: 1}
   enemyColor: {r: 0.00578022, g: 0, b: 1, a: 1}
