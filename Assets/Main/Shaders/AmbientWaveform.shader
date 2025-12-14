@@ -15,6 +15,9 @@ Shader "Custom/AmbientWaveform"
         _AudioPitch ("Audio Pitch (Normalized)", Range(0, 1)) = 0.0
         _AudioReactiveIntensity ("Audio Reactive Intensity", Range(0, 10)) = 1.5
         _CycleSpeed ("Cycle Speed (Interpolated)", Range(0, 10)) = 0.5
+        [Header(Wave Color Animation)]
+        _WaveColorSpeed ("Wave Color Animation Speed", Range(0, 5)) = 1.0
+        _ColorSegmentCount ("Color Segment Count", Range(2, 32)) = 4
         [Header(Bar Pattern)]
         _BarCount ("Bar Count", Range(8, 128)) = 32.0
         _BarWidth ("Bar Width", Range(0.5, 10)) = 2.0
@@ -77,6 +80,8 @@ Shader "Custom/AmbientWaveform"
                 float _CornerExclusionRatio;
                 float4 _CanvasSizeRatio; // (canvasWidthRatio, canvasHeightRatio, 0, 0)
                 float _CycleSpeed; // 補間済みの周期速度（C#から渡される）
+                float _WaveColorSpeed; // 波の色アニメーション速度（C#から渡される）
+                float _ColorSegmentCount; // 色の区切りの数（C#から渡される）
             CBUFFER_END
             
             Varyings vert(Attributes input)
@@ -288,13 +293,64 @@ Shader "Custom/AmbientWaveform"
                 float audioBoost = _AudioVolume * _AudioReactiveIntensity;
                 float finalIntensity = baseIntensity * (1.0 + audioBoost);
                 
-                // 2色のグラデーション対応：_ColorBlendFactorに応じて色を補間
-                // _ColorBlendFactor = 1.0 の場合は _WaveformColor のみ
-                // _ColorBlendFactor = 0.0 の場合は _WaveformColor2 のみ
-                // 中間値の場合は2色を補間
+                // 色の計算：_ColorBlendFactorに応じて色を決定
                 float3 color1 = _WaveformColor.rgb;
                 float3 color2 = _WaveformColor2.rgb;
-                float3 color = lerp(color2, color1, _ColorBlendFactor);
+                float3 color;
+                
+                // _ColorBlendFactor = 1.0 の場合は _WaveformColor のみ（勝者の色のみ）
+                // _ColorBlendFactor < 1.0 の場合は波の色アニメーションを適用
+                if (_ColorBlendFactor >= 0.9999)
+                {
+                    // 1色のみ（勝者の色）
+                    color = color1;
+                }
+                else
+                {
+                    // 波の色アニメーション：4つの辺を1つの連続したループとして扱い、色が連動して移動
+                    // 基本時間（0～1の範囲で循環）
+                    float baseTime = frac(_Time.y * _WaveColorSpeed);
+                    
+                    // 各辺のインデックスを決定（上=0, 右=1, 下=2, 左=3）
+                    float edgeIndex = 0.0;
+                    if (isTopEdge) edgeIndex = 0.0;
+                    else if (isRightEdge) edgeIndex = 1.0;
+                    else if (isBottomEdge) edgeIndex = 2.0;
+                    else if (isLeftEdge) edgeIndex = 3.0;
+                    
+                    // 時計回りに統一するため、下辺と左辺の位置を反転
+                    float clockwisePosition = adjustedEdgePosition;
+                    if (isBottomEdge || isLeftEdge)
+                    {
+                        clockwisePosition = 1.0 - adjustedEdgePosition; // 反転して時計回りに
+                    }
+                    
+                    // 連続的な位置を計算（0.0～4.0）
+                    // 上辺: 0.0～1.0, 右辺: 1.0～2.0, 下辺: 2.0～3.0, 左辺: 3.0～4.0
+                    float continuousPosition = edgeIndex + clockwisePosition;
+                    
+                    // 区切り位置に変換（0.0～_ColorSegmentCount）
+                    float segmentPosition = continuousPosition * (_ColorSegmentCount / 4.0);
+                    
+                    // 時間位置（0.0～_ColorSegmentCount）
+                    float timePosition = baseTime * _ColorSegmentCount;
+                    
+                    // 色の判定（連続的に移動）
+                    // segmentPosition + timePosition で、時間と共に色が連続的に移動する
+                    float colorIndex = fmod(segmentPosition + timePosition, _ColorSegmentCount);
+                    float colorPhase = colorIndex / _ColorSegmentCount; // 0.0～1.0に正規化
+                    
+                    // 位相に応じて2色を直接切り替え（0.0-0.5=プレイヤー色、0.5-1.0=敵色）
+                    // グラデーションは使わず、2色のみを使用
+                    if (colorPhase < 0.5)
+                    {
+                        color = color1; // プレイヤー色
+                    }
+                    else
+                    {
+                        color = color2; // 敵色
+                    }
+                }
                 
                 float alpha = finalIntensity * barFade * lengthFade;
                 
@@ -306,4 +362,3 @@ Shader "Custom/AmbientWaveform"
     
     FallBack "Hidden/Universal Render Pipeline/FallbackError"
 }
-

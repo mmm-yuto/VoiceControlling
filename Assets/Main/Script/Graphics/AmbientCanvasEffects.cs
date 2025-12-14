@@ -85,6 +85,14 @@ public class AmbientCanvasEffects : MonoBehaviour
     [Tooltip("PaintBattleGameManager（プレイヤーの色を取得するため、自動検索される）")]
     [SerializeField] private PaintBattleGameManager paintBattleGameManager;
     
+    [Tooltip("波の色が4辺を移動する速度")]
+    [Range(0f, 5f)]
+    [SerializeField] private float waveColorSpeed = 1.0f;
+    
+    [Tooltip("色の区切りの数（4辺全体での区切り数）")]
+    [Range(2, 32)]
+    [SerializeField] private int colorSegmentCount = 4;
+    
     [Tooltip("使用するシェーダー（設定されていない場合は自動検索）")]
     [SerializeField] private Shader waveformShader;
     
@@ -583,12 +591,15 @@ public class AmbientCanvasEffects : MonoBehaviour
         }
         else
         {
-            // 割合に差が無い場合：2色をグラデーションで表示
+            // 割合に差が無い場合：2色をグラデーションで表示（波打つアニメーション）
             waveformMaterial.SetColor("_WaveformColor", playerColor);
             waveformMaterial.SetColor("_WaveformColor2", enemyColor);
             // ブレンドファクターを割合に応じて設定（0.0 = 敵色、1.0 = プレイヤー色）
             float blendFactor = playerRatio;
             waveformMaterial.SetFloat("_ColorBlendFactor", blendFactor);
+            // アニメーション速度と区切り数をシェーダーに渡す
+            waveformMaterial.SetFloat("_WaveColorSpeed", waveColorSpeed);
+            waveformMaterial.SetFloat("_ColorSegmentCount", colorSegmentCount);
         }
     }
 }

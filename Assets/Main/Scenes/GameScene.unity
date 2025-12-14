@@ -9510,6 +9510,8 @@ MonoBehaviour:
   colorDefenseMode: {fileID: 811482046}
   paintCanvas: {fileID: 1098085713}
   paintBattleGameManager: {fileID: 404371782}
+  waveColorSpeed: 0.1
+  colorSegmentCount: 32
   waveformShader: {fileID: 4800000, guid: 340cbb7976dc7ca4c83f0c5bf4547fe8, type: 3}
 --- !u!1 &1607784497
 GameObject:
@@ -11166,7 +11168,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1813516015
 RectTransform:
   m_ObjectHideFlags: 0
