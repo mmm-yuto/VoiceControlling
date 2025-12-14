@@ -15,11 +15,11 @@ MonoBehaviour:
   radius: 200
   displayName: Bomb
   icon: {fileID: 21300000, guid: a528c28d668f2fb428a914a2184dfb99, type: 3}
-  bombRadius: 200
+  bombRadius: 300
   intensityMultiplier: 1
-  centerCircleRadius: 100
-  particleCount: 50
-  particleRadius: 10
+  centerCircleRadius: 0
+  particleCount: 1000
+  particleRadius: 20
   spreadRadius: 0
   density: 1
   radiusFalloff: 1

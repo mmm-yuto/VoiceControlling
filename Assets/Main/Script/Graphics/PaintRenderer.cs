@@ -13,13 +13,7 @@ public class PaintRenderer : MonoBehaviour
     [Tooltip("表示用のUI Image（Inspectorで接続）")]
     [SerializeField] private Image displayImage;
     
-    [Header("Settings")]
-    [Tooltip("テクスチャ更新頻度（フレーム数）")]
-    [Range(1, 10)]
-    [SerializeField] private int updateFrequency = 1;
-    
     // 内部状態
-    private int frameCount = 0;
     private Sprite canvasSprite;
     
     void Start()

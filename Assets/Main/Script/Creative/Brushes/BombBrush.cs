@@ -23,11 +23,11 @@ public class BombBrush : BrushStrategyBase
 
     [Header("Explosion Properties")]
     [Tooltip("爆発時のパーティクル数")]
-    [Range(50, 200)]
+    [Range(50, 1000)]
     public int particleCount = 100;
     
     [Tooltip("各パーティクルの半径")]
-    [Range(1f, 10f)]
+    [Range(1f, 50f)]
     public float particleRadius = 3f;
     
     [Tooltip("拡散半径（0 = bombRadiusを使用）")]
