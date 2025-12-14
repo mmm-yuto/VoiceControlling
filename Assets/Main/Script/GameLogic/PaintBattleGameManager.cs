@@ -30,6 +30,10 @@ public class PaintBattleGameManager : MonoBehaviour
     [Tooltip("声で塗るときに使用するブラシ（PaintBrush などの ScriptableObject）")]
     public BrushStrategyBase brush;
     
+    [Header("Game Mode Reference")]
+    [Tooltip("シングルプレイモードマネージャー（ColorDefenseモードの状態確認用）")]
+    [SerializeField] private SinglePlayerModeManager singlePlayerModeManager;
+    
     // 内部状態
     private bool isGameActive = true;
     private Vector2 lastPaintPosition = Vector2.zero;
@@ -55,11 +59,22 @@ public class PaintBattleGameManager : MonoBehaviour
                 Debug.LogError("PaintBattleGameManager: PaintCanvasが見つかりません");
             }
         }
+        
+        if (singlePlayerModeManager == null)
+        {
+            singlePlayerModeManager = FindObjectOfType<SinglePlayerModeManager>();
+        }
     }
     
     void Update()
     {
         if (!isGameActive || voiceInputHandler == null || paintCanvas == null)
+        {
+            return;
+        }
+        
+        // ColorDefenseモードでゲームが終了している場合は塗り処理をスキップ
+        if (IsColorDefenseModeGameOver())
         {
             return;
         }
@@ -185,6 +200,35 @@ public class PaintBattleGameManager : MonoBehaviour
             Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
             brush.Paint(paintCanvas, interpolatedPos, playerId, playerInkColor, intensity);
         }
+    }
+    
+    /// <summary>
+    /// ColorDefenseモードでゲームが終了しているかどうかを確認
+    /// </summary>
+    private bool IsColorDefenseModeGameOver()
+    {
+        if (singlePlayerModeManager == null)
+        {
+            return false;
+        }
+        
+        var currentMode = singlePlayerModeManager.GetCurrentMode();
+        if (currentMode == null)
+        {
+            return false;
+        }
+        
+        // ColorDefenseモードの場合のみチェック
+        if (currentMode.GetModeType() == SinglePlayerGameModeType.ColorDefense)
+        {
+            // ColorDefenseModeにキャストしてIsGameActive()を確認
+            if (currentMode is ColorDefenseMode colorDefenseMode)
+            {
+                return !colorDefenseMode.IsGameActive();
+            }
+        }
+        
+        return false;
     }
 }
 

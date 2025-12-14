@@ -555,6 +555,11 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     public bool IsGameOver() => gameTime >= gameDuration;
     
     /// <summary>
+    /// ゲームがアクティブかどうか（勝負が終わっていないか）
+    /// </summary>
+    public bool IsGameActive() => isGameActive;
+    
+    /// <summary>
     /// 現在アクティブな領域数を取得
     /// </summary>
     public int GetActiveAreasCount() => activeAreas.Count;
