@@ -1136,7 +1136,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PaintRenderer
   paintCanvas: {fileID: 1098085713}
   displayImage: {fileID: 0}
-  updateFrequency: 1
 --- !u!114 &157868239
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7314,6 +7313,12 @@ MonoBehaviour:
   voiceDebugSimulator: {fileID: 1403482790}
   voiceToScreenMapper: {fileID: 650370225}
   silenceVolumeThreshold: 0.01
+  volumeSmoothing: 0.3
+  pitchSmoothing: 0.2
+  positionSmoothing: 1
+  volumeDeadZone: 0.005
+  pitchDeadZone: 5
+  positionDeadZone: 50
 --- !u!4 &1237626387
 Transform:
   m_ObjectHideFlags: 0

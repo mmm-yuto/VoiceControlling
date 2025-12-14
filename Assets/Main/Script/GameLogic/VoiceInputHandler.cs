@@ -26,6 +26,32 @@ public class VoiceInputHandler : MonoBehaviour
     [Range(0f, 0.1f)]
     public float silenceVolumeThreshold = 0.01f;
     
+    [Header("Smoothing Settings")]
+    [Tooltip("音量のスムージング係数（0 = スムージングなし、1 = 完全に固定）")]
+    [Range(0f, 1f)]
+    public float volumeSmoothing = 0.3f;
+    
+    [Tooltip("ピッチのスムージング係数（0 = スムージングなし、1 = 完全に固定）")]
+    [Range(0f, 1f)]
+    public float pitchSmoothing = 0.2f;
+    
+    [Tooltip("画面座標のスムージング係数（0 = スムージングなし、1 = 完全に固定）")]
+    [Range(0f, 1f)]
+    public float positionSmoothing = 0.25f;
+    
+    [Header("Dead Zone Settings")]
+    [Tooltip("音量のデッドゾーン（この値以下の変動は無視）")]
+    [Range(0f, 0.1f)]
+    public float volumeDeadZone = 0.005f;
+    
+    [Tooltip("ピッチのデッドゾーン（Hz、この値以下の変動は無視）")]
+    [Range(0f, 50f)]
+    public float pitchDeadZone = 5f;
+    
+    [Tooltip("画面座標のデッドゾーン（ピクセル、この値以下の変動は無視）")]
+    [Range(0f, 50f)]
+    public float positionDeadZone = 10f;
+    
     // 現在の音声データ
     public float CurrentVolume { get; private set; } = 0f;
     public float CurrentPitch { get; private set; } = 0f;
@@ -39,6 +65,11 @@ public class VoiceInputHandler : MonoBehaviour
     // 内部状態
     private float latestVolume = 0f;
     private float latestPitch = 0f;
+    
+    // スムージング用の変数
+    private float smoothedVolume = 0f;
+    private float smoothedPitch = 0f;
+    private Vector2 smoothedScreenPosition = Vector2.zero;
     
     void Start()
     {
@@ -78,6 +109,11 @@ public class VoiceInputHandler : MonoBehaviour
         
         // イベント購読
         SubscribeToEvents();
+        
+        // スムージング用の変数を初期化
+        smoothedVolume = 0f;
+        smoothedPitch = 0f;
+        smoothedScreenPosition = voiceToScreenMapper != null ? voiceToScreenMapper.MapToCenter() : Vector2.zero;
     }
     
     void OnDestroy()
@@ -168,19 +204,53 @@ public class VoiceInputHandler : MonoBehaviour
         
         IsSilent = (latestVolume < threshold) || (latestPitch <= 0f);
         
-        // 座標変換
-        if (voiceToScreenMapper != null)
+        // 無音時の処理
+        if (IsSilent)
         {
-            CurrentScreenPosition = voiceToScreenMapper.MapVoiceToScreen(latestVolume, latestPitch);
-            OnScreenPositionUpdated?.Invoke(CurrentScreenPosition);
+            // 無音時は徐々にリセット
+            smoothedVolume = Mathf.Lerp(smoothedVolume, 0f, volumeSmoothing * 2f);
+            smoothedPitch = Mathf.Lerp(smoothedPitch, 0f, pitchSmoothing * 2f);
+            // 画面座標は前の位置を維持（中心に戻さない）
+        }
+        else
+        {
+            // 音量のスムージング
+            float volumeChange = Mathf.Abs(latestVolume - smoothedVolume);
+            if (volumeChange > volumeDeadZone)
+            {
+                smoothedVolume = Mathf.Lerp(smoothedVolume, latestVolume, volumeSmoothing);
+            }
+            
+            // ピッチのスムージング（ImprovedPitchAnalyzerで既にスムージングされているが、追加で適用可能）
+            float pitchChange = Mathf.Abs(latestPitch - smoothedPitch);
+            if (pitchChange > pitchDeadZone)
+            {
+                smoothedPitch = Mathf.Lerp(smoothedPitch, latestPitch, pitchSmoothing);
+            }
         }
         
-        // 現在の値を更新
-        CurrentVolume = latestVolume;
-        CurrentPitch = latestPitch;
+        // 座標変換（スムージングされた値を使用）
+        if (voiceToScreenMapper != null)
+        {
+            Vector2 targetPosition = voiceToScreenMapper.MapVoiceToScreen(smoothedVolume, smoothedPitch);
+            
+            // 画面座標のスムージング
+            float positionChange = Vector2.Distance(targetPosition, smoothedScreenPosition);
+            if (positionChange > positionDeadZone)
+            {
+                smoothedScreenPosition = Vector2.Lerp(smoothedScreenPosition, targetPosition, positionSmoothing);
+            }
+            
+            CurrentScreenPosition = smoothedScreenPosition;
+            OnScreenPositionUpdated?.Invoke(smoothedScreenPosition);
+        }
         
-        // イベント発火
-        OnVoiceInputUpdated?.Invoke(latestVolume, latestPitch);
+        // 現在の値を更新（スムージングされた値を使用）
+        CurrentVolume = smoothedVolume;
+        CurrentPitch = smoothedPitch;
+        
+        // イベント発火（スムージングされた値を使用）
+        OnVoiceInputUpdated?.Invoke(smoothedVolume, smoothedPitch);
     }
     
     void OnVolumeDetected(float volume)
