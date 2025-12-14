@@ -62,6 +62,29 @@ public class AmbientCanvasEffects : MonoBehaviour
     [Tooltip("クリエイティブモードマネージャー（現在の色を取得するため、自動検索される）")]
     [SerializeField] private CreativeModeManager creativeModeManager;
     
+    [Header("Color Defense Mode")]
+    [Tooltip("Color Defence Modeで波の色を変更するか")]
+    [SerializeField] private bool useColorDefenseMode = false;
+    
+    [Tooltip("勝者がはっきり分かると判定する割合の差（%）")]
+    [Range(0f, 50f)]
+    [SerializeField] private float dominanceThreshold = 20f; // デフォルト20%
+    
+    [Tooltip("プレイヤーの色（Color Defence Mode時、自動取得される）")]
+    [SerializeField] private Color playerColor = Color.white;
+    
+    [Tooltip("敵の色（Color Defence Mode時、自動取得される）")]
+    [SerializeField] private Color enemyColor = Color.red;
+    
+    [Tooltip("Color Defence Mode（自動検索される）")]
+    [SerializeField] private ColorDefenseMode colorDefenseMode;
+    
+    [Tooltip("PaintCanvas（自動検索される）")]
+    [SerializeField] private PaintCanvas paintCanvas;
+    
+    [Tooltip("PaintBattleGameManager（プレイヤーの色を取得するため、自動検索される）")]
+    [SerializeField] private PaintBattleGameManager paintBattleGameManager;
+    
     [Tooltip("使用するシェーダー（設定されていない場合は自動検索）")]
     [SerializeField] private Shader waveformShader;
     
@@ -139,6 +162,45 @@ public class AmbientCanvasEffects : MonoBehaviour
             if (creativeModeManager == null)
             {
                 Debug.LogWarning("AmbientCanvasEffects: CreativeModeManagerが見つかりません。波の色の同期機能は無効になります。");
+            }
+        }
+        
+        // Color Defence Mode関連の取得
+        if (useColorDefenseMode)
+        {
+            if (colorDefenseMode == null)
+            {
+                colorDefenseMode = FindObjectOfType<ColorDefenseMode>();
+                if (colorDefenseMode == null)
+                {
+                    Debug.LogWarning("AmbientCanvasEffects: ColorDefenseModeが見つかりません。Color Defence Modeの波の色変更機能は無効になります。");
+                }
+            }
+            
+            if (paintCanvas == null)
+            {
+                paintCanvas = FindObjectOfType<PaintCanvas>();
+                if (paintCanvas == null)
+                {
+                    Debug.LogWarning("AmbientCanvasEffects: PaintCanvasが見つかりません。Color Defence Modeの波の色変更機能は無効になります。");
+                }
+            }
+            
+            if (paintBattleGameManager == null)
+            {
+                paintBattleGameManager = FindObjectOfType<PaintBattleGameManager>();
+                if (paintBattleGameManager != null)
+                {
+                    playerColor = paintBattleGameManager.playerInkColor;
+                }
+            }
+            
+            // ColorDefenseSettingsから敵の色を取得
+            if (colorDefenseMode != null)
+            {
+                // ColorDefenseSettingsはColorDefenseModeのsettingsフィールドから取得できないため、
+                // 直接取得する方法を検討する必要がある
+                // とりあえず、デフォルトの敵色を使用
             }
         }
         
@@ -329,8 +391,13 @@ public class AmbientCanvasEffects : MonoBehaviour
         // 補間された周期速度をシェーダーに渡す
         waveformMaterial.SetFloat("_CycleSpeed", currentCycleSpeed);
         
+        // Color Defence Modeの場合は、プレイヤー/敵の割合に応じて波の色を更新
+        if (useColorDefenseMode && colorDefenseMode != null && paintCanvas != null)
+        {
+            UpdateColorDefenseWaveColor();
+        }
         // クリエイティブモードの場合は、現在の塗り色を波の色に反映
-        if (creativeModeManager != null)
+        else if (creativeModeManager != null)
         {
             Color currentPaintColor = creativeModeManager.GetCurrentColor();
             waveformMaterial.SetColor("_WaveformColor", currentPaintColor);
@@ -350,10 +417,12 @@ public class AmbientCanvasEffects : MonoBehaviour
         waveformMaterial.SetFloat("_WaveformIntensity", waveformIntensity);
         waveformMaterial.SetFloat("_WaveformSpeed", waveformSpeed);
         
-        // クリエイティブモードの場合は色を設定しない（Update()で動的に更新される）
-        if (creativeModeManager == null)
+        // Color Defence Modeまたはクリエイティブモードの場合は色を設定しない（Update()で動的に更新される）
+        if (!useColorDefenseMode && creativeModeManager == null)
         {
             waveformMaterial.SetColor("_WaveformColor", waveformColor);
+            // グラデーションを無効化（1色のみ）
+            waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
         }
         
         waveformMaterial.SetFloat("_BorderWidth", borderWidth);
@@ -437,6 +506,90 @@ public class AmbientCanvasEffects : MonoBehaviour
             return 0f;
         }
         return Mathf.Clamp01((pitch - minPitch) / (maxPitch - minPitch));
+    }
+    
+    /// <summary>
+    /// プレイヤーと敵の割合を計算
+    /// </summary>
+    /// <param name="playerRatio">プレイヤーの割合（0.0～1.0）</param>
+    /// <param name="enemyRatio">敵の割合（0.0～1.0）</param>
+    /// <returns>計算が成功したかどうか</returns>
+    bool CalculatePlayerEnemyRatio(out float playerRatio, out float enemyRatio)
+    {
+        playerRatio = 0f;
+        enemyRatio = 0f;
+        
+        if (paintCanvas == null)
+        {
+            return false;
+        }
+        
+        paintCanvas.GetPlayerAndEnemyPixelCounts(out int playerPixels, out int enemyPixels);
+        int totalPixels = playerPixels + enemyPixels;
+        
+        if (totalPixels == 0)
+        {
+            // まだ塗られていない場合は、デフォルト値を返す
+            playerRatio = 0.5f;
+            enemyRatio = 0.5f;
+            return true;
+        }
+        
+        playerRatio = (float)playerPixels / totalPixels;
+        enemyRatio = (float)enemyPixels / totalPixels;
+        
+        return true;
+    }
+    
+    /// <summary>
+    /// Color Defence Mode時の波の色を更新
+    /// </summary>
+    void UpdateColorDefenseWaveColor()
+    {
+        if (waveformMaterial == null || paintCanvas == null)
+        {
+            return;
+        }
+        
+        // プレイヤーと敵の割合を計算
+        if (!CalculatePlayerEnemyRatio(out float playerRatio, out float enemyRatio))
+        {
+            return;
+        }
+        
+        // プレイヤーの色を取得（PaintBattleGameManagerから）
+        if (paintBattleGameManager != null)
+        {
+            playerColor = paintBattleGameManager.playerInkColor;
+        }
+        
+        // 敵の色を取得（ColorDefenseModeから）
+        if (colorDefenseMode != null)
+        {
+            enemyColor = colorDefenseMode.GetEnemyColor();
+        }
+        
+        // 割合の差を計算
+        float ratioDiff = Mathf.Abs(playerRatio - enemyRatio);
+        float threshold = dominanceThreshold / 100f;
+        
+        if (ratioDiff >= threshold)
+        {
+            // 勝者がはっきり分かる場合：勝者の色のみを表示
+            Color winnerColor = playerRatio > enemyRatio ? playerColor : enemyColor;
+            waveformMaterial.SetColor("_WaveformColor", winnerColor);
+            // グラデーションを無効化（1色のみ）
+            waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+        }
+        else
+        {
+            // 割合に差が無い場合：2色をグラデーションで表示
+            waveformMaterial.SetColor("_WaveformColor", playerColor);
+            waveformMaterial.SetColor("_WaveformColor2", enemyColor);
+            // ブレンドファクターを割合に応じて設定（0.0 = 敵色、1.0 = プレイヤー色）
+            float blendFactor = playerRatio;
+            waveformMaterial.SetFloat("_ColorBlendFactor", blendFactor);
+        }
     }
 }
 

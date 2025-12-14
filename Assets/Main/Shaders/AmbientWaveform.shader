@@ -7,6 +7,8 @@ Shader "Custom/AmbientWaveform"
         _WaveformIntensity ("Waveform Intensity", Range(0, 2)) = 0.05
         _WaveformSpeed ("Animation Speed", Range(0, 10)) = 1.0
         _WaveformColor ("Waveform Color", Color) = (0.5, 1.0, 1.0, 1.0)
+        _WaveformColor2 ("Waveform Color 2", Color) = (1.0, 0.0, 0.0, 1.0)
+        _ColorBlendFactor ("Color Blend Factor", Range(0, 1)) = 0.5
         _BorderWidth ("Border Width", Range(1, 100)) = 3.0
         [Header(Audio Reactive)]
         _AudioVolume ("Audio Volume (Normalized)", Range(0, 1)) = 0.0
@@ -63,6 +65,8 @@ Shader "Custom/AmbientWaveform"
                 float _WaveformIntensity;
                 float _WaveformSpeed;
                 float4 _WaveformColor;
+                float4 _WaveformColor2;
+                float _ColorBlendFactor;
                 float _BorderWidth;
                 float _AudioVolume;
                 float _AudioPitch;
@@ -284,8 +288,14 @@ Shader "Custom/AmbientWaveform"
                 float audioBoost = _AudioVolume * _AudioReactiveIntensity;
                 float finalIntensity = baseIntensity * (1.0 + audioBoost);
                 
-                // 最終的な色とアルファ
-                float3 color = _WaveformColor.rgb;
+                // 2色のグラデーション対応：_ColorBlendFactorに応じて色を補間
+                // _ColorBlendFactor = 1.0 の場合は _WaveformColor のみ
+                // _ColorBlendFactor = 0.0 の場合は _WaveformColor2 のみ
+                // 中間値の場合は2色を補間
+                float3 color1 = _WaveformColor.rgb;
+                float3 color2 = _WaveformColor2.rgb;
+                float3 color = lerp(color2, color1, _ColorBlendFactor);
+                
                 float alpha = finalIntensity * barFade * lengthFade;
                 
                 return half4(color, alpha);

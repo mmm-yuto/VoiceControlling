@@ -546,6 +546,18 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     /// </summary>
     public int GetActiveAreasCount() => activeAreas.Count;
     
+    /// <summary>
+    /// 敵の色を取得（波の色変更機能用）
+    /// </summary>
+    public Color GetEnemyColor()
+    {
+        if (settings != null)
+        {
+            return settings.targetColor;
+        }
+        return Color.red; // デフォルト値
+    }
+    
     void OnDestroy()
     {
         EndGame();
