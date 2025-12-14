@@ -14,6 +14,7 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     [Header("References")]
     [SerializeField] private PaintCanvas paintCanvas;
     [SerializeField] private ColorChangeAreaRenderer areaRenderer; // 視覚表現用（オプション）
+    [SerializeField] private PaintBattleGameManager paintBattleGameManager; // プレイヤーのブラシを取得するため
     
     // 敵ペン（キャンバス上を動きながら塗る敵）のリスト
     private readonly List<EnemyPainter> enemyPainters = new List<EnemyPainter>();
@@ -58,6 +59,11 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         if (paintCanvas == null)
         {
             paintCanvas = FindObjectOfType<PaintCanvas>();
+        }
+        
+        if (paintBattleGameManager == null)
+        {
+            paintBattleGameManager = FindObjectOfType<PaintBattleGameManager>();
         }
         
         if (settings == null)
@@ -517,10 +523,17 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
             return;
         }
         
+        // PaintBattleGameManagerからブラシを取得（プレイヤーと同じブラシを使用）
+        BrushStrategyBase brush = null;
+        if (paintBattleGameManager != null)
+        {
+            brush = paintBattleGameManager.brush;
+        }
+        
         int count = Mathf.Max(1, settings.enemyPainterCount);
         for (int i = 0; i < count; i++)
         {
-            var painter = new EnemyPainter(paintCanvas, settings);
+            var painter = new EnemyPainter(paintCanvas, settings, brush);
             enemyPainters.Add(painter);
         }
     }

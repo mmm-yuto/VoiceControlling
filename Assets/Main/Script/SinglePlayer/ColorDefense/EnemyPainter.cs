@@ -8,6 +8,7 @@ public class EnemyPainter
 {
     private readonly PaintCanvas canvas;
     private readonly ColorDefenseSettings settings;
+    private readonly BrushStrategyBase brush;  // 使用するブラシ
 
     // 移動関連
     private Vector2 currentScreenPos;
@@ -23,10 +24,11 @@ public class EnemyPainter
     private Vector2 lastPaintScreenPos;
     private bool hasLastPaintPos = false;
 
-    public EnemyPainter(PaintCanvas canvas, ColorDefenseSettings settings)
+    public EnemyPainter(PaintCanvas canvas, ColorDefenseSettings settings, BrushStrategyBase brush = null)
     {
         this.canvas = canvas;
         this.settings = settings;
+        this.brush = brush;
 
         if (canvas == null || settings == null)
         {
@@ -36,7 +38,16 @@ public class EnemyPainter
 
         moveSpeed = settings.enemyMoveSpeed;
         strokeInterval = settings.enemyStrokeInterval;
-        paintRadius = settings.enemyPaintRadius;
+        
+        // ブラシが指定されている場合はブラシの半径を使用、そうでない場合は設定から取得
+        if (brush != null)
+        {
+            paintRadius = brush.GetRadius();
+        }
+        else
+        {
+            paintRadius = settings.enemyPaintRadius;
+        }
 
         // 初期位置と目標位置をランダムに設定
         currentScreenPos = GetRandomScreenPosition();
@@ -108,23 +119,50 @@ public class EnemyPainter
         Vector2 segmentEnd = endPos;
         float segmentDistance = Vector2.Distance(segmentStart, segmentEnd);
 
-        if (segmentDistance < effectiveRadius * 0.25f)
+        // ブラシが指定されている場合はブラシを使用、そうでない場合は従来の方法を使用
+        if (brush != null)
         {
-            // ほとんど動いていない場合は終点だけ塗る
-            canvas.PaintAtWithRadius(segmentEnd, -1, 1f, settings.targetColor, paintRadius);
-            lastPaintScreenPos = segmentEnd;
-            return;
+            // ブラシを使用して塗る
+            if (segmentDistance < effectiveRadius * 0.25f)
+            {
+                // ほとんど動いていない場合は終点だけ塗る
+                brush.Paint(canvas, segmentEnd, -1, settings.targetColor, 1f);
+                lastPaintScreenPos = segmentEnd;
+                return;
+            }
+
+            int steps = Mathf.Max(1, Mathf.CeilToInt(segmentDistance / (effectiveRadius * 0.5f)));
+            const int maxSteps = 20;
+            steps = Mathf.Min(steps, maxSteps);
+
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = (float)i / steps;
+                Vector2 pos = Vector2.Lerp(segmentStart, segmentEnd, t);
+                brush.Paint(canvas, pos, -1, settings.targetColor, 1f);
+            }
         }
-
-        int steps = Mathf.Max(1, Mathf.CeilToInt(segmentDistance / (effectiveRadius * 0.5f)));
-        const int maxSteps = 20;
-        steps = Mathf.Min(steps, maxSteps);
-
-        for (int i = 0; i <= steps; i++)
+        else
         {
-            float t = (float)i / steps;
-            Vector2 pos = Vector2.Lerp(segmentStart, segmentEnd, t);
-            canvas.PaintAtWithRadius(pos, -1, 1f, settings.targetColor, paintRadius);
+            // 従来の方法（PaintAtWithRadiusを使用）
+            if (segmentDistance < effectiveRadius * 0.25f)
+            {
+                // ほとんど動いていない場合は終点だけ塗る
+                canvas.PaintAtWithRadius(segmentEnd, -1, 1f, settings.targetColor, paintRadius);
+                lastPaintScreenPos = segmentEnd;
+                return;
+            }
+
+            int steps = Mathf.Max(1, Mathf.CeilToInt(segmentDistance / (effectiveRadius * 0.5f)));
+            const int maxSteps = 20;
+            steps = Mathf.Min(steps, maxSteps);
+
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = (float)i / steps;
+                Vector2 pos = Vector2.Lerp(segmentStart, segmentEnd, t);
+                canvas.PaintAtWithRadius(pos, -1, 1f, settings.targetColor, paintRadius);
+            }
         }
 
         lastPaintScreenPos = segmentEnd;

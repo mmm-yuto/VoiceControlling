@@ -2824,7 +2824,7 @@ MonoBehaviour:
   playerId: 1
   paintSpeedMultiplier: 5
   playerInkColor: {r: 0.97647065, g: 0.5921569, b: 0.039215688, a: 1}
-  brush: {fileID: 11400000, guid: 41d94d9c2e3345743ba8d62e6fece555, type: 2}
+  brush: {fileID: 11400000, guid: 00ce56b7a68e2004ab58c5f5920e8798, type: 2}
 --- !u!1 &406853571
 GameObject:
   m_ObjectHideFlags: 0
