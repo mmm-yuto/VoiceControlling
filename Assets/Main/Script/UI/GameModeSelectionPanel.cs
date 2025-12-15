@@ -30,6 +30,10 @@ public class GameModeSelectionPanel : MonoBehaviour
     
     [Tooltip("シングルプレイモードマネージャー")]
     [SerializeField] private SinglePlayerModeManager singlePlayerModeManager;
+
+    [Header("Color Defense Lobby")]
+    [Tooltip("ColorDefense モード開始前のロビー UI パネル")]
+    [SerializeField] private ColorDefenseLobbyPanel colorDefenseLobbyPanel;
     
     void Start()
     {
@@ -93,9 +97,19 @@ public class GameModeSelectionPanel : MonoBehaviour
     public void OnModeSelected(SinglePlayerGameModeType mode)
     {
         Debug.Log($"GameModeSelectionPanel: モード選択 - {mode}");
-        
-        // ゲームを開始（モードを直接渡す）
-        StartGame(mode);
+
+        // ColorDefense の場合は、直接ゲームを開始せずロビー UI を開く
+        if (mode == SinglePlayerGameModeType.ColorDefense && colorDefenseLobbyPanel != null)
+        {
+            // モード選択画面を隠し、ロビー UI を開く
+            Hide();
+            colorDefenseLobbyPanel.Open();
+        }
+        else
+        {
+            // それ以外のモードは従来通りすぐにゲーム開始
+            StartGame(mode);
+        }
     }
     
     /// <summary>
