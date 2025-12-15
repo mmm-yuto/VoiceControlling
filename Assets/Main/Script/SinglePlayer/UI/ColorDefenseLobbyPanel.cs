@@ -45,6 +45,23 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     [Tooltip("バトル開始ボタン")]
     [SerializeField] private Button startBattleButton;
 
+    [Header("Color Selection Buttons")]
+    [Tooltip("色A選択ボタン")]
+    [SerializeField] private Button colorAButton;
+    
+    [Tooltip("色B選択ボタン")]
+    [SerializeField] private Button colorBButton;
+
+    [Header("Brush Selection Buttons")]
+    [Tooltip("Pencil Brush選択ボタン")]
+    [SerializeField] private Button pencilBrushButton;
+    
+    [Tooltip("Paint Brush選択ボタン")]
+    [SerializeField] private Button paintBrushButton;
+    
+    [Tooltip("Spray Brush選択ボタン")]
+    [SerializeField] private Button sprayBrushButton;
+
     [Header("Color Selection (Indices)")]
     [Tooltip("プレイヤーが左側の色ボタンを選んだときに使用するプレイヤー色インデックス")]
     [SerializeField] private int colorAPlayerIndex = 0;
@@ -93,7 +110,69 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
             OnBattleTimeDropdownChanged(0);
         }
 
+        // ボタンのイベント接続
+        SetupButtons();
+
         UpdateStartButtonInteractable();
+    }
+
+    /// <summary>
+    /// ボタンのイベントを設定（自動接続）
+    /// </summary>
+    private void SetupButtons()
+    {
+        // 色選択ボタン
+        if (colorAButton != null)
+        {
+            colorAButton.onClick.RemoveAllListeners();
+            colorAButton.onClick.AddListener(OnSelectColorA);
+        }
+
+        if (colorBButton != null)
+        {
+            colorBButton.onClick.RemoveAllListeners();
+            colorBButton.onClick.AddListener(OnSelectColorB);
+        }
+
+        // ブラシ選択ボタン
+        if (pencilBrushButton != null)
+        {
+            pencilBrushButton.onClick.RemoveAllListeners();
+            pencilBrushButton.onClick.AddListener(OnSelectPencilBrush);
+        }
+
+        if (paintBrushButton != null)
+        {
+            paintBrushButton.onClick.RemoveAllListeners();
+            paintBrushButton.onClick.AddListener(OnSelectPaintBrush);
+        }
+
+        if (sprayBrushButton != null)
+        {
+            sprayBrushButton.onClick.RemoveAllListeners();
+            sprayBrushButton.onClick.AddListener(OnSelectSprayBrush);
+        }
+
+        // 開始ボタン
+        if (startBattleButton != null)
+        {
+            startBattleButton.onClick.RemoveAllListeners();
+            startBattleButton.onClick.AddListener(OnClickStartBattle);
+        }
+
+        // スライダーのイベント接続
+        if (enemyLevelSlider != null)
+        {
+            enemyLevelSlider.onValueChanged.RemoveAllListeners();
+            enemyLevelSlider.onValueChanged.AddListener(OnEnemyLevelSliderChanged);
+        }
+
+        // ドロップダウンのイベント接続
+        if (battleTimeDropdown != null)
+        {
+            battleTimeDropdown.onValueChanged.RemoveAllListeners();
+            battleTimeDropdown.onValueChanged.AddListener(OnBattleTimeDropdownChanged);
+        }
     }
 
     /// <summary>
