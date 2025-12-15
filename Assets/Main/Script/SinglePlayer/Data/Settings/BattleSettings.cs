@@ -173,5 +173,20 @@ public class BattleSettings : MonoBehaviour
         current.playerColor = colorSelectionSettings.presetColors[safePlayerIndex];
         current.cpuColor = colorSelectionSettings.presetColors[safeCpuIndex];
     }
+
+    /// <summary>
+    /// インデックスから色を取得（UI表示用など）
+    /// </summary>
+    public Color GetColorFromIndex(int index)
+    {
+        if (colorSelectionSettings == null || colorSelectionSettings.presetColors == null || colorSelectionSettings.presetColors.Length == 0)
+        {
+            return Color.white; // フォールバック
+        }
+
+        int length = colorSelectionSettings.presetColors.Length;
+        int safeIndex = Mathf.Clamp(index, 0, length - 1);
+        return colorSelectionSettings.presetColors[safeIndex];
+    }
 }
 

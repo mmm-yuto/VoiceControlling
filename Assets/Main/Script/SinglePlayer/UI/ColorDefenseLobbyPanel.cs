@@ -415,11 +415,29 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     {
         if (button == null) return;
         
-        // 色を更新
+        // 色を更新（色選択ボタンの場合は実際の色を設定、それ以外は選択状態に応じた色）
         Image buttonImage = button.GetComponent<Image>();
         if (buttonImage != null)
         {
-            buttonImage.color = isSelected ? selectedButtonColor : normalButtonColor;
+            if (button == colorAButton || button == colorBButton)
+            {
+                // 色選択ボタンの場合は、BattleSettingsから実際の色を取得
+                Color buttonColor = GetButtonColor(button);
+                if (isSelected)
+                {
+                    // 選択中は少し明るくする
+                    buttonImage.color = buttonColor * 1.2f;
+                }
+                else
+                {
+                    buttonImage.color = buttonColor;
+                }
+            }
+            else
+            {
+                // ブラシ選択ボタンなどは従来通り
+                buttonImage.color = isSelected ? selectedButtonColor : normalButtonColor;
+            }
         }
         
         // スケールを更新
@@ -429,6 +447,28 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
             float scale = isSelected ? selectedButtonScale : normalButtonScale;
             buttonRect.localScale = Vector3.one * scale;
         }
+    }
+
+    /// <summary>
+    /// ボタンに対応する色を取得
+    /// </summary>
+    private Color GetButtonColor(Button button)
+    {
+        if (battleSettings == null)
+        {
+            battleSettings = BattleSettings.Instance;
+        }
+
+        if (button == colorAButton && battleSettings != null)
+        {
+            return battleSettings.GetColorFromIndex(colorAPlayerIndex);
+        }
+        else if (button == colorBButton && battleSettings != null)
+        {
+            return battleSettings.GetColorFromIndex(colorBPlayerIndex);
+        }
+
+        return Color.white; // フォールバック
     }
 
     private bool IsReadyToStart()
