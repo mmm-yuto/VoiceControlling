@@ -23,9 +23,8 @@ public class PaintBattleGameManager : MonoBehaviour
     [Range(0.1f, 5f)]
     public float paintSpeedMultiplier = 1f;
 
-    [Header("Brush Settings")]
-    [Tooltip("声で塗るときに使用するブラシ（PaintBrush などの ScriptableObject）")]
-    public BrushStrategyBase brush;
+    // BrushはBattleSettingsから取得するため、フィールドを削除
+    private BrushStrategyBase brush;
     
     [Header("Game Mode Reference")]
     [Tooltip("シングルプレイモードマネージャー（ColorDefenseモードの状態確認用）")]
@@ -61,6 +60,24 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             singlePlayerModeManager = FindObjectOfType<SinglePlayerModeManager>();
         }
+        
+        // BattleSettingsからBrushを取得
+        RefreshBrushFromBattleSettings();
+    }
+    
+    /// <summary>
+    /// BattleSettingsからBrushを取得して設定
+    /// </summary>
+    private void RefreshBrushFromBattleSettings()
+    {
+        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
+        {
+            brush = BattleSettings.Instance.Current.brush;
+            if (brush == null)
+            {
+                Debug.LogWarning("PaintBattleGameManager: BattleSettingsからBrushが取得できませんでした。brushKey: " + BattleSettings.Instance.Current.brushKey);
+            }
+        }
     }
     
     void Update()
@@ -69,6 +86,9 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             return;
         }
+        
+        // BattleSettingsからBrushを取得（毎フレーム更新することで、ロビーで選択変更された場合に対応）
+        RefreshBrushFromBattleSettings();
         
         // ColorDefenseモードでゲームが終了している場合は塗り処理をスキップ
         if (IsColorDefenseModeGameOver())

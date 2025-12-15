@@ -338,6 +338,8 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
 
         // brushKeyはScriptableObjectの名前を使用
         _workingData.brushKey = brush.name;
+        // Brushの参照も保存
+        _workingData.brush = brush;
         _hasBrushSelection = true;
         
         // 選択されたボタンを記録
@@ -557,6 +559,7 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         _workingData.playerColorIndex = colorAPlayerIndex;
         _workingData.cpuColorIndex = colorBPlayerIndex;
         _workingData.brushKey = string.Empty;
+        _workingData.brush = null;
         _workingData.enemyLevel = minEnemyLevel;
 
         // 実際の色を設定

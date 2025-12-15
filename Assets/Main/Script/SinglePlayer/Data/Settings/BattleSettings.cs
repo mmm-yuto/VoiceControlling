@@ -25,6 +25,10 @@ public class BattleSettingsData
     [Header("Brush")]
     [Tooltip("使用するブラシを識別するキー。ScriptableObject 名や任意の ID を想定")]
     public string brushKey = "Default";
+    
+    [Tooltip("使用するブラシの参照（brushKeyの代替として使用）")]
+    [HideInInspector]
+    public BrushStrategyBase brush;
 
     [Header("Difficulty / Time")]
     [Tooltip("相手のレベル（1 以上の整数想定）")]
@@ -45,6 +49,7 @@ public class BattleSettingsData
             playerColor = this.playerColor,
             cpuColor = this.cpuColor,
             brushKey = this.brushKey,
+            brush = this.brush,
             enemyLevel = this.enemyLevel,
             battleDurationSeconds = this.battleDurationSeconds
         };
@@ -62,6 +67,7 @@ public class BattleSettingsData
         playerColor = other.playerColor;
         cpuColor = other.cpuColor;
         brushKey = other.brushKey;
+        brush = other.brush;
         enemyLevel = other.enemyLevel;
         battleDurationSeconds = other.battleDurationSeconds;
     }

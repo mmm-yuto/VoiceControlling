@@ -529,11 +529,11 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
             return;
         }
         
-        // PaintBattleGameManagerからブラシを取得（プレイヤーと同じブラシを使用）
+        // BattleSettingsからブラシを取得（プレイヤーと同じブラシを使用）
         BrushStrategyBase brush = null;
-        if (paintBattleGameManager != null)
+        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
         {
-            brush = paintBattleGameManager.brush;
+            brush = BattleSettings.Instance.Current.brush;
         }
         
         int count = Mathf.Max(1, settings.enemyPainterCount);
