@@ -602,10 +602,10 @@ public class AmbientCanvasEffects : MonoBehaviour
             return;
         }
         
-        // プレイヤーの色を取得（PaintBattleGameManagerから）
-        if (paintBattleGameManager != null)
+        // プレイヤーの色を取得（BattleSettingsから）
+        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
         {
-            playerColor = paintBattleGameManager.playerInkColor;
+            playerColor = BattleSettings.Instance.Current.playerColor;
         }
         
         // 敵の色を取得（ColorDefenseModeから）

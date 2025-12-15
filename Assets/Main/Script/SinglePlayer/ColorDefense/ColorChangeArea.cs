@@ -371,6 +371,23 @@ public class ColorChangeArea : MonoBehaviour
     }
     
     /// <summary>
+    /// BattleSettingsから敵色を取得
+    /// </summary>
+    private Color GetEnemyColor()
+    {
+        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
+        {
+            return BattleSettings.Instance.Current.cpuColor;
+        }
+        // フォールバック: 既存のsettings.targetColorを使用
+        if (settings != null)
+        {
+            return settings.targetColor;
+        }
+        return Color.red; // デフォルト値
+    }
+
+    /// <summary>
     /// 敵の色を領域内に自動的に塗る（領域全体を透明度で塗る）
     /// </summary>
     private void PaintEnemyColor(PaintCanvas canvas, float previousProgress, float currentProgress)
@@ -439,7 +456,8 @@ public class ColorChangeArea : MonoBehaviour
                 
                 // アルファ値を指定して塗る
                 Vector2 screenPos = CanvasToScreen(pixelPos, canvas);
-                canvas.PaintAtWithAlpha(screenPos, -1, 1f, settings.targetColor, alpha);
+                Color enemyColor = GetEnemyColor();
+                canvas.PaintAtWithAlpha(screenPos, -1, 1f, enemyColor, alpha);
                 paintedCount++;
             }
         }

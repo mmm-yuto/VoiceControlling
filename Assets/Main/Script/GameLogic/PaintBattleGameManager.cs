@@ -22,9 +22,6 @@ public class PaintBattleGameManager : MonoBehaviour
     [Tooltip("塗り速度の倍率")]
     [Range(0.1f, 5f)]
     public float paintSpeedMultiplier = 1f;
-    
-    [Tooltip("プレイヤーのインク色（ColorDefenseモード時に使用される色）")]
-    public Color playerInkColor = Color.white;
 
     [Header("Brush Settings")]
     [Tooltip("声で塗るときに使用するブラシ（PaintBrush などの ScriptableObject）")]
@@ -131,6 +128,18 @@ public class PaintBattleGameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// BattleSettingsからプレイヤー色を取得
+    /// </summary>
+    private Color GetPlayerColor()
+    {
+        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
+        {
+            return BattleSettings.Instance.Current.playerColor;
+        }
+        return Color.white; // フォールバック
+    }
+
+    /// <summary>
     /// 指定位置に塗る（ブラシを使って線を補間しながら塗る）
     /// </summary>
     private void PaintAt(Vector2 position, float intensity)
@@ -140,10 +149,12 @@ public class PaintBattleGameManager : MonoBehaviour
             return;
         }
 
+        Color playerColor = GetPlayerColor();
+
         // ブラシが設定されていない場合は、従来通り1点塗り（後方互換用）
         if (brush == null)
         {
-            paintCanvas.PaintAt(position, playerId, intensity, playerInkColor);
+            paintCanvas.PaintAt(position, playerId, intensity, playerColor);
             return;
         }
 
@@ -155,7 +166,7 @@ public class PaintBattleGameManager : MonoBehaviour
         else
         {
             // 最初の点はそのまま塗る
-            brush.Paint(paintCanvas, position, playerId, playerInkColor, intensity);
+            brush.Paint(paintCanvas, position, playerId, playerColor, intensity);
         }
 
         // 現在の位置を記録
@@ -179,10 +190,12 @@ public class PaintBattleGameManager : MonoBehaviour
         // 距離を計算
         float distance = Vector2.Distance(startPos, endPos);
 
+        Color playerColor = GetPlayerColor();
+
         // 距離が短い場合は補間をスキップ（半径の1/4以下）
         if (distance < radius * 0.25f)
         {
-            brush.Paint(paintCanvas, endPos, playerId, playerInkColor, intensity);
+            brush.Paint(paintCanvas, endPos, playerId, playerColor, intensity);
             return;
         }
 
@@ -198,7 +211,7 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             float t = (float)i / steps;
             Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
-            brush.Paint(paintCanvas, interpolatedPos, playerId, playerInkColor, intensity);
+            brush.Paint(paintCanvas, interpolatedPos, playerId, playerColor, intensity);
         }
     }
     

@@ -569,6 +569,11 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     /// </summary>
     public Color GetEnemyColor()
     {
+        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
+        {
+            return BattleSettings.Instance.Current.cpuColor;
+        }
+        // フォールバック: 既存のsettings.targetColorを使用
         if (settings != null)
         {
             return settings.targetColor;

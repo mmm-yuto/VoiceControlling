@@ -95,6 +95,23 @@ public class EnemyPainter
     }
 
     /// <summary>
+    /// BattleSettingsから敵色を取得
+    /// </summary>
+    private Color GetEnemyColor()
+    {
+        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
+        {
+            return BattleSettings.Instance.Current.cpuColor;
+        }
+        // フォールバック: 既存のsettings.targetColorを使用
+        if (settings != null)
+        {
+            return settings.targetColor;
+        }
+        return Color.red; // デフォルト値
+    }
+
+    /// <summary>
     /// 2点間を補間して連続線を描画
     /// </summary>
     private void PaintAlongSegment(Vector2 startPos, Vector2 endPos)
@@ -103,6 +120,8 @@ public class EnemyPainter
         {
             return;
         }
+
+        Color enemyColor = GetEnemyColor();
 
         // ブラシ半径に基づいてステップ数を決定
         float effectiveRadius = Mathf.Max(paintRadius, 1f);
@@ -126,7 +145,7 @@ public class EnemyPainter
             if (segmentDistance < effectiveRadius * 0.25f)
             {
                 // ほとんど動いていない場合は終点だけ塗る
-                brush.Paint(canvas, segmentEnd, -1, settings.targetColor, 1f);
+                brush.Paint(canvas, segmentEnd, -1, enemyColor, 1f);
                 lastPaintScreenPos = segmentEnd;
                 return;
             }
@@ -139,7 +158,7 @@ public class EnemyPainter
             {
                 float t = (float)i / steps;
                 Vector2 pos = Vector2.Lerp(segmentStart, segmentEnd, t);
-                brush.Paint(canvas, pos, -1, settings.targetColor, 1f);
+                brush.Paint(canvas, pos, -1, enemyColor, 1f);
             }
         }
         else
@@ -148,7 +167,7 @@ public class EnemyPainter
             if (segmentDistance < effectiveRadius * 0.25f)
             {
                 // ほとんど動いていない場合は終点だけ塗る
-                canvas.PaintAtWithRadius(segmentEnd, -1, 1f, settings.targetColor, paintRadius);
+                canvas.PaintAtWithRadius(segmentEnd, -1, 1f, enemyColor, paintRadius);
                 lastPaintScreenPos = segmentEnd;
                 return;
             }
@@ -161,7 +180,7 @@ public class EnemyPainter
             {
                 float t = (float)i / steps;
                 Vector2 pos = Vector2.Lerp(segmentStart, segmentEnd, t);
-                canvas.PaintAtWithRadius(pos, -1, 1f, settings.targetColor, paintRadius);
+                canvas.PaintAtWithRadius(pos, -1, 1f, enemyColor, paintRadius);
             }
         }
 
