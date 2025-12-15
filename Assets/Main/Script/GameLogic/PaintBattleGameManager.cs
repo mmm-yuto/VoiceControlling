@@ -23,7 +23,11 @@ public class PaintBattleGameManager : MonoBehaviour
     [Range(0.1f, 5f)]
     public float paintSpeedMultiplier = 1f;
 
-    // BrushはBattleSettingsから取得するため、フィールドを削除
+    [Header("Default Brush")]
+    [Tooltip("ゲームモードが未決定のときやBattleSettingsにBrushが設定されていないときに使用するデフォルトブラシ")]
+    [SerializeField] private BrushStrategyBase defaultBrush;
+
+    // 実際に使用するブラシ（BattleSettingsの設定優先、無ければdefaultBrush）
     private BrushStrategyBase brush;
     
     [Header("Game Mode Reference")]
@@ -66,18 +70,31 @@ public class PaintBattleGameManager : MonoBehaviour
     }
     
     /// <summary>
-    /// BattleSettingsからBrushを取得して設定
+    /// BattleSettingsからBrushを取得して設定。
+    /// BattleSettingsにBrushが設定されていない場合は、defaultBrushを使用する。
     /// </summary>
     private void RefreshBrushFromBattleSettings()
     {
+        BrushStrategyBase resolvedBrush = null;
+        
         if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
         {
-            brush = BattleSettings.Instance.Current.brush;
-            if (brush == null)
+            resolvedBrush = BattleSettings.Instance.Current.brush;
+            
+            // BattleSettingsにBrushが設定されていない場合は警告のみ出す
+            if (resolvedBrush == null && !string.IsNullOrEmpty(BattleSettings.Instance.Current.brushKey))
             {
                 Debug.LogWarning("PaintBattleGameManager: BattleSettingsからBrushが取得できませんでした。brushKey: " + BattleSettings.Instance.Current.brushKey);
             }
         }
+
+        // BattleSettingsから取得できなかった場合は、defaultBrushを使用
+        if (resolvedBrush == null)
+        {
+            resolvedBrush = defaultBrush;
+        }
+
+        brush = resolvedBrush;
     }
     
     void Update()

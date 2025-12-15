@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3ea1cbdffba49940ab08d8cff957b1d, type: 3}
   m_Name: MainColorSettings
   m_EditorClassIdentifier: Assembly-CSharp::MainColorSettings
-  mainColor1: {r: 0, g: 1, b: 0.0769701, a: 1}
-  mainColor2: {r: 1, g: 0, b: 0.7723522, a: 1}
+  mainColor1: {r: 1, g: 0.5773492, b: 0, a: 1}
+  mainColor2: {r: 0, g: 0.35886908, b: 1, a: 1}

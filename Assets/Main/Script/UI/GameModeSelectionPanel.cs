@@ -34,6 +34,26 @@ public class GameModeSelectionPanel : MonoBehaviour
     [Header("Color Defense Lobby")]
     [Tooltip("ColorDefense モード開始前のロビー UI パネル")]
     [SerializeField] private ColorDefenseLobbyPanel colorDefenseLobbyPanel;
+
+    [Header("Brush Selection")]
+    [Tooltip("Pencil Brush選択ボタン")]
+    [SerializeField] private Button pencilBrushButton;
+    
+    [Tooltip("Paint Brush選択ボタン")]
+    [SerializeField] private Button paintBrushButton;
+    
+    [Tooltip("Spray Brush選択ボタン")]
+    [SerializeField] private Button sprayBrushButton;
+
+    [Header("Brush ScriptableObjects")]
+    [Tooltip("Pencil Brush の ScriptableObject")]
+    [SerializeField] private BrushStrategyBase pencilBrush;
+
+    [Tooltip("Paint Brush の ScriptableObject")]
+    [SerializeField] private BrushStrategyBase paintBrush;
+
+    [Tooltip("Spray Brush の ScriptableObject")]
+    [SerializeField] private BrushStrategyBase sprayBrush;
     
     void Start()
     {
@@ -42,6 +62,96 @@ public class GameModeSelectionPanel : MonoBehaviour
         
         // ボタンのイベントを設定
         SetupButtons();
+        
+        // ブラシボタンのアイコンを設定
+        SetupBrushButtonIcons();
+        
+        // ブラシボタンのイベントを設定
+        SetupBrushButtons();
+    }
+    
+    /// <summary>
+    /// ブラシボタンのアイコンを設定
+    /// </summary>
+    private void SetupBrushButtonIcons()
+    {
+        // Pencil Brushボタン
+        if (pencilBrushButton != null && pencilBrush != null)
+        {
+            Image buttonImage = pencilBrushButton.GetComponent<Image>();
+            if (buttonImage != null && pencilBrush.GetIcon() != null)
+            {
+                buttonImage.sprite = pencilBrush.GetIcon();
+            }
+        }
+        
+        // Paint Brushボタン
+        if (paintBrushButton != null && paintBrush != null)
+        {
+            Image buttonImage = paintBrushButton.GetComponent<Image>();
+            if (buttonImage != null && paintBrush.GetIcon() != null)
+            {
+                buttonImage.sprite = paintBrush.GetIcon();
+            }
+        }
+        
+        // Spray Brushボタン
+        if (sprayBrushButton != null && sprayBrush != null)
+        {
+            Image buttonImage = sprayBrushButton.GetComponent<Image>();
+            if (buttonImage != null && sprayBrush.GetIcon() != null)
+            {
+                buttonImage.sprite = sprayBrush.GetIcon();
+            }
+        }
+    }
+    
+    /// <summary>
+    /// ブラシボタンのイベントを設定
+    /// </summary>
+    private void SetupBrushButtons()
+    {
+        if (pencilBrushButton != null)
+        {
+            pencilBrushButton.onClick.RemoveAllListeners();
+            pencilBrushButton.onClick.AddListener(() => OnBrushSelected(pencilBrush));
+        }
+        
+        if (paintBrushButton != null)
+        {
+            paintBrushButton.onClick.RemoveAllListeners();
+            paintBrushButton.onClick.AddListener(() => OnBrushSelected(paintBrush));
+        }
+        
+        if (sprayBrushButton != null)
+        {
+            sprayBrushButton.onClick.RemoveAllListeners();
+            sprayBrushButton.onClick.AddListener(() => OnBrushSelected(sprayBrush));
+        }
+    }
+    
+    /// <summary>
+    /// ブラシが選択された時の処理
+    /// </summary>
+    private void OnBrushSelected(BrushStrategyBase brush)
+    {
+        if (brush == null)
+        {
+            Debug.LogWarning("GameModeSelectionPanel.OnBrushSelected: Brush が null です。");
+            return;
+        }
+        
+        // BattleSettingsにBrushを設定
+        if (BattleSettings.Instance != null)
+        {
+            BattleSettings.Instance.Current.brush = brush;
+            BattleSettings.Instance.Current.brushKey = brush.name;
+            Debug.Log($"GameModeSelectionPanel: Brush を選択しました - {brush.name}");
+        }
+        else
+        {
+            Debug.LogWarning("GameModeSelectionPanel.OnBrushSelected: BattleSettings.Instance が見つかりません。");
+        }
     }
     
     /// <summary>
