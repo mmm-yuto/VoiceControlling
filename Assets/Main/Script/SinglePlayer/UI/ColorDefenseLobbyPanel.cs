@@ -117,9 +117,10 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
             UpdateEnemyLevel((int)enemyLevelSlider.value);
         }
 
-        // バトル時間ドロップダウンの初期値
+        // バトル時間ドロップダウンの初期値とオプション設定
         if (battleTimeDropdown != null && battleTimeOptionsSeconds != null && battleTimeOptionsSeconds.Length > 0)
         {
+            SetupBattleTimeDropdownOptions();
             battleTimeDropdown.value = 0;
             OnBattleTimeDropdownChanged(0);
         }
@@ -428,6 +429,44 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     }
 
     /// <summary>
+    /// バトル時間ドロップダウンのオプションを設定
+    /// battleTimeOptionsSecondsから自動的にテキストを生成
+    /// </summary>
+    private void SetupBattleTimeDropdownOptions()
+    {
+        if (battleTimeDropdown == null || battleTimeOptionsSeconds == null || battleTimeOptionsSeconds.Length == 0)
+        {
+            return;
+        }
+
+        // 既存のオプションをクリア
+        battleTimeDropdown.ClearOptions();
+
+        // battleTimeOptionsSecondsからテキストを生成してオプションを追加
+        var options = new System.Collections.Generic.List<TMPro.TMP_Dropdown.OptionData>();
+        foreach (float seconds in battleTimeOptionsSeconds)
+        {
+            // Convert seconds to minutes:seconds format
+            int minutes = Mathf.FloorToInt(seconds / 60f);
+            int secs = Mathf.FloorToInt(seconds % 60f);
+            string optionText;
+            
+            if (minutes > 0)
+            {
+                optionText = $"{minutes}m {secs}s";
+            }
+            else
+            {
+                optionText = $"{secs}s";
+            }
+            
+            options.Add(new TMPro.TMP_Dropdown.OptionData(optionText));
+        }
+
+        battleTimeDropdown.AddOptions(options);
+    }
+
+    /// <summary>
     /// スライダーとラベルにレベル値を反映。
     /// </summary>
     private void UpdateEnemyLevel(int level)
@@ -441,7 +480,7 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
 
         if (enemyLevelLabel != null)
         {
-            enemyLevelLabel.text = $"Lv. {level}";
+            enemyLevelLabel.text = $"Lv {level}";
         }
     }
 
