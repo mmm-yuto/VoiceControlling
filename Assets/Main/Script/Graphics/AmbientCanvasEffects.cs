@@ -67,15 +67,18 @@ public class AmbientCanvasEffects : MonoBehaviour
     
     [Header("Color Defense Mode")]
     
+    [Tooltip("メインカラー設定（インスペクターで設定）")]
+    [SerializeField] private MainColorSettings mainColorSettings;
+    
     [Tooltip("勝者がはっきり分かると判定する割合の差（%）")]
     [Range(0f, 50f)]
     [SerializeField] private float dominanceThreshold = 20f; // デフォルト20%
     
-    [Tooltip("プレイヤーの色（Color Defence Mode時、自動取得される）")]
-    [SerializeField] private Color playerColor = Color.white;
+    // プレイヤーの色（Color Defence Mode時、MainColorSettingsから自動取得されます）
+    private Color playerColor = Color.white;
     
-    [Tooltip("敵の色（Color Defence Mode時、自動取得される）")]
-    [SerializeField] private Color enemyColor = Color.red;
+    // 敵の色（Color Defence Mode時、MainColorSettingsから自動取得されます）
+    private Color enemyColor = Color.red;
     
     [Tooltip("Color Defence Mode（自動検索される）")]
     [SerializeField] private ColorDefenseMode colorDefenseMode;
@@ -602,16 +605,16 @@ public class AmbientCanvasEffects : MonoBehaviour
             return;
         }
         
-        // プレイヤーの色を取得（BattleSettingsから）
-        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
+        // プレイヤーの色を取得（MainColorSettingsから）
+        if (mainColorSettings != null)
         {
-            playerColor = BattleSettings.Instance.Current.playerColor;
+            playerColor = mainColorSettings.mainColor1;
         }
         
-        // 敵の色を取得（ColorDefenseModeから）
-        if (colorDefenseMode != null)
+        // 敵の色を取得（MainColorSettingsから）
+        if (mainColorSettings != null)
         {
-            enemyColor = colorDefenseMode.GetEnemyColor();
+            enemyColor = mainColorSettings.mainColor2;
         }
         
         // 割合の差を計算

@@ -61,12 +61,16 @@ public class GameModeSwitcher : MonoBehaviour
         // 各モードで使うオブジェクトの親オブジェクトを有効化
         if (useColorDefense && colorDefenseMode != null)
         {
-            // ColorDefenseModeの親オブジェクトを有効化
+            // まず親オブジェクト（ColorDefence）を有効化
+            // Unityでは親が無効だと子を有効化しても効果がないため、先に親を有効化する必要がある
             Transform parent = colorDefenseMode.transform.parent;
             if (parent != null)
             {
                 parent.gameObject.SetActive(true);
             }
+            
+            // その後、ColorDefenseModeコンポーネントがアタッチされているGameObjectを有効化
+            colorDefenseMode.gameObject.SetActive(true);
         }
 
         if (useCreative && creativeModeManager != null)

@@ -218,6 +218,17 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         // CPU は別の色（単純に 0/1 を入れ替える想定だが、BattleSettings 側で安全に補正される）
         _workingData.cpuColorIndex = colorBPlayerIndex;
 
+        // 実際の色を設定
+        if (battleSettings == null)
+        {
+            battleSettings = BattleSettings.Instance;
+        }
+        if (battleSettings != null)
+        {
+            _workingData.playerColor = battleSettings.GetColorFromIndex(colorAPlayerIndex);
+            _workingData.cpuColor = battleSettings.GetColorFromIndex(colorBPlayerIndex);
+        }
+
         _hasColorSelection = true;
         selectedColorButton = colorAButton;
         UpdateButtonVisuals();
@@ -231,6 +242,17 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     {
         _workingData.playerColorIndex = colorBPlayerIndex;
         _workingData.cpuColorIndex = colorAPlayerIndex;
+
+        // 実際の色を設定
+        if (battleSettings == null)
+        {
+            battleSettings = BattleSettings.Instance;
+        }
+        if (battleSettings != null)
+        {
+            _workingData.playerColor = battleSettings.GetColorFromIndex(colorBPlayerIndex);
+            _workingData.cpuColor = battleSettings.GetColorFromIndex(colorAPlayerIndex);
+        }
 
         _hasColorSelection = true;
         selectedColorButton = colorBButton;
@@ -450,7 +472,7 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     }
 
     /// <summary>
-    /// ボタンに対応する色を取得
+    /// ボタンに対応する色を取得（BattleSettingsから取得）
     /// </summary>
     private Color GetButtonColor(Button button)
     {
@@ -461,10 +483,14 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
 
         if (button == colorAButton && battleSettings != null)
         {
+            // colorAButtonは常にcolorAPlayerIndexの色を表示
+            // BattleSettingsで設定された色（ColorSelectionSettingsから取得）を使用
             return battleSettings.GetColorFromIndex(colorAPlayerIndex);
         }
         else if (button == colorBButton && battleSettings != null)
         {
+            // colorBButtonは常にcolorBPlayerIndexの色を表示
+            // BattleSettingsで設定された色（ColorSelectionSettingsから取得）を使用
             return battleSettings.GetColorFromIndex(colorBPlayerIndex);
         }
 
@@ -485,6 +511,17 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         _workingData.cpuColorIndex = colorBPlayerIndex;
         _workingData.brushKey = string.Empty;
         _workingData.enemyLevel = minEnemyLevel;
+
+        // 実際の色を設定
+        if (battleSettings == null)
+        {
+            battleSettings = BattleSettings.Instance;
+        }
+        if (battleSettings != null)
+        {
+            _workingData.playerColor = battleSettings.GetColorFromIndex(colorAPlayerIndex);
+            _workingData.cpuColor = battleSettings.GetColorFromIndex(colorBPlayerIndex);
+        }
 
         // バトル時間はドロップダウンから設定される想定だが、念のためデフォルトを設定
         if (battleTimeOptionsSeconds != null && battleTimeOptionsSeconds.Length > 0)

@@ -565,13 +565,13 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     public int GetActiveAreasCount() => activeAreas.Count;
     
     /// <summary>
-    /// 敵の色を取得（波の色変更機能用）
+    /// 敵の色を取得（波の色変更機能用）- MainColorSettingsから取得
     /// </summary>
     public Color GetEnemyColor()
     {
-        if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
+        if (BattleSettings.Instance != null)
         {
-            return BattleSettings.Instance.Current.cpuColor;
+            return BattleSettings.Instance.GetMainColor2();
         }
         // フォールバック: 既存のsettings.targetColorを使用
         if (settings != null)

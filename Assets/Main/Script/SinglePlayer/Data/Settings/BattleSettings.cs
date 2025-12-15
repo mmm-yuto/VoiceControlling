@@ -8,16 +8,18 @@ using UnityEngine;
 public class BattleSettingsData
 {
     [Header("Color")]
-    [Tooltip("プレイヤーのインク色インデックス（ColorSelectionSettings などの配列に対するインデックス）")]
+    [Tooltip("プレイヤーのインク色インデックス（MainColorSettings などの配列に対するインデックス）")]
     public int playerColorIndex = 0;
 
     [Tooltip("CPU のインク色インデックス（通常は playerColorIndex とは別の色）")]
     public int cpuColorIndex = 1;
 
-    [Tooltip("プレイヤーのインク色（利便性のためキャッシュ。オンライン同期時は index を優先し、色は再計算する想定）")]
+    [Tooltip("プレイヤーのインク色（利便性のためキャッシュ。MainColorSettings/BattleSettingsから自動設定されます）")]
+    [HideInInspector]
     public Color playerColor = Color.blue;
 
-    [Tooltip("CPU のインク色（利便性のためキャッシュ。オンライン同期時は index を優先し、色は再計算する想定）")]
+    [Tooltip("CPU のインク色（利便性のためキャッシュ。MainColorSettings/BattleSettingsから自動設定されます）")]
+    [HideInInspector]
     public Color cpuColor = Color.red;
 
     [Header("Brush")]
@@ -80,7 +82,11 @@ public class BattleSettings : MonoBehaviour
     private BattleSettingsData current = new BattleSettingsData();
 
     [Header("Optional: Color Source")]
-    [Tooltip("利用可能な色の一覧。存在しない場合は current.playerColor / cpuColor をそのまま利用する。")]
+    [Tooltip("メインカラー2色の設定。ColorSelectionSettingsより優先されます。")]
+    [SerializeField]
+    private MainColorSettings mainColorSettings;
+
+    [Tooltip("利用可能な色の一覧（フォールバック用）。MainColorSettingsが設定されている場合は使用されません。")]
     [SerializeField]
     private ColorSelectionSettings colorSelectionSettings;
 
@@ -104,8 +110,8 @@ public class BattleSettings : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        // 起動時にインデックスから色キャッシュを更新しておく
-        RefreshColorsFromIndices();
+        // 起動時は色を更新しない - Inspectorで設定された色または後でSetFromUI()で設定される色を保持
+        // RefreshColorsFromIndices(); // 削除 - ゲーム開始前に設定した色を保持するため
     }
 
     /// <summary>
@@ -125,7 +131,7 @@ public class BattleSettings : MonoBehaviour
         }
 
         current.CopyFrom(uiData);
-        RefreshColorsFromIndices();
+        // RefreshColorsFromIndices()は呼ばない - 色は既に設定されている想定
     }
 
     /// <summary>
@@ -146,11 +152,63 @@ public class BattleSettings : MonoBehaviour
     }
 
     /// <summary>
-    /// ColorSelectionSettings の配列とインデックスから色キャッシュを更新。
+    /// MainColorSettings または ColorSelectionSettings の配列とインデックスから色キャッシュを更新。
     /// オンライン同期時など、「index だけ受け取って色は各クライアントで再解決する」前提。
     /// </summary>
     public void RefreshColorsFromIndices()
     {
+        // MainColorSettingsが設定されている場合は優先
+        if (mainColorSettings != null)
+        {
+            // プレイヤー色の設定
+            if (current.playerColorIndex == 0)
+            {
+                current.playerColor = mainColorSettings.mainColor1;
+            }
+            else if (current.playerColorIndex == 1)
+            {
+                current.playerColor = mainColorSettings.mainColor2;
+            }
+            else
+            {
+                // 0,1以外の場合はフォールバック
+                if (colorSelectionSettings != null && colorSelectionSettings.presetColors != null && colorSelectionSettings.presetColors.Length > 0)
+                {
+                    int safeIndex = Mathf.Clamp(current.playerColorIndex, 0, colorSelectionSettings.presetColors.Length - 1);
+                    current.playerColor = colorSelectionSettings.presetColors[safeIndex];
+                }
+            }
+            
+            // CPU色の設定
+            if (current.cpuColorIndex == 0)
+            {
+                current.cpuColor = mainColorSettings.mainColor1;
+            }
+            else if (current.cpuColorIndex == 1)
+            {
+                current.cpuColor = mainColorSettings.mainColor2;
+            }
+            else
+            {
+                // 0,1以外の場合はフォールバック
+                if (colorSelectionSettings != null && colorSelectionSettings.presetColors != null && colorSelectionSettings.presetColors.Length > 0)
+                {
+                    int safeIndex = Mathf.Clamp(current.cpuColorIndex, 0, colorSelectionSettings.presetColors.Length - 1);
+                    current.cpuColor = colorSelectionSettings.presetColors[safeIndex];
+                }
+            }
+            
+            // プレイヤーとCPUの色が同じにならないよう、必要であればCPU側をずらす
+            if (current.playerColorIndex == current.cpuColorIndex && current.playerColorIndex >= 0 && current.playerColorIndex <= 1)
+            {
+                current.cpuColorIndex = (current.playerColorIndex == 0) ? 1 : 0;
+                current.cpuColor = (current.cpuColorIndex == 0) ? mainColorSettings.mainColor1 : mainColorSettings.mainColor2;
+            }
+            
+            return;
+        }
+        
+        // フォールバック: 既存のColorSelectionSettings処理
         if (colorSelectionSettings == null || colorSelectionSettings.presetColors == null || colorSelectionSettings.presetColors.Length == 0)
         {
             // 設定が無い場合は、既存の色をそのまま使用
@@ -179,14 +237,52 @@ public class BattleSettings : MonoBehaviour
     /// </summary>
     public Color GetColorFromIndex(int index)
     {
-        if (colorSelectionSettings == null || colorSelectionSettings.presetColors == null || colorSelectionSettings.presetColors.Length == 0)
+        // MainColorSettingsが設定されている場合は優先
+        if (mainColorSettings != null)
         {
-            return Color.white; // フォールバック
+            if (index == 0)
+            {
+                return mainColorSettings.mainColor1;
+            }
+            else if (index == 1)
+            {
+                return mainColorSettings.mainColor2;
+            }
         }
+        
+        // フォールバック: ColorSelectionSettingsから取得
+        if (colorSelectionSettings != null && colorSelectionSettings.presetColors != null && colorSelectionSettings.presetColors.Length > 0)
+        {
+            int length = colorSelectionSettings.presetColors.Length;
+            int safeIndex = Mathf.Clamp(index, 0, length - 1);
+            return colorSelectionSettings.presetColors[safeIndex];
+        }
+        
+        return Color.white; // 最終的なフォールバック
+    }
 
-        int length = colorSelectionSettings.presetColors.Length;
-        int safeIndex = Mathf.Clamp(index, 0, length - 1);
-        return colorSelectionSettings.presetColors[safeIndex];
+    /// <summary>
+    /// MainColorSettingsからメインカラー1を取得
+    /// </summary>
+    public Color GetMainColor1()
+    {
+        if (mainColorSettings != null)
+        {
+            return mainColorSettings.mainColor1;
+        }
+        return Color.blue; // フォールバック
+    }
+
+    /// <summary>
+    /// MainColorSettingsからメインカラー2を取得
+    /// </summary>
+    public Color GetMainColor2()
+    {
+        if (mainColorSettings != null)
+        {
+            return mainColorSettings.mainColor2;
+        }
+        return Color.red; // フォールバック
     }
 }
 

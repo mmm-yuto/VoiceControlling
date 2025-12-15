@@ -2454,54 +2454,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 338850333}
   m_CullTransparentMesh: 1
---- !u!1 &345249727
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 345249729}
-  - component: {fileID: 345249728}
-  m_Layer: 0
-  m_Name: ColorChangeAreaRenderer
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &345249728
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 345249727}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 25f710578e436f54ba8e0c2e66cf8b1c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ColorChangeAreaRenderer
-  areaIndicatorPrefab: {fileID: 1350414469}
-  warningColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  dangerColor: {r: 1, g: 0, b: 0, a: 1}
-  safeColor: {r: 0, g: 1, b: 0, a: 1}
---- !u!4 &345249729
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 345249727}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 960, y: 540, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1245001717}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &352146546
 GameObject:
   m_ObjectHideFlags: 0
@@ -3003,7 +2955,6 @@ MonoBehaviour:
   paintCanvas: {fileID: 1098085713}
   playerId: 1
   paintSpeedMultiplier: 5
-  playerInkColor: {r: 0.97647065, g: 0.5921569, b: 0.039215688, a: 1}
   brush: {fileID: 11400000, guid: 510f019f83d684f4a8f7d5732b472ae0, type: 2}
   singlePlayerModeManager: {fileID: 704633318}
 --- !u!1 &406853571
@@ -6152,7 +6103,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ColorDefenseMode
   settings: {fileID: 11400000, guid: 7dab3799686961f449dbb8339f20b386, type: 2}
   paintCanvas: {fileID: 1098085713}
-  areaRenderer: {fileID: 345249728}
+  areaRenderer: {fileID: 0}
   paintBattleGameManager: {fileID: 404371782}
 --- !u!1 &813746831
 GameObject:
@@ -8816,7 +8767,6 @@ Transform:
   m_Children:
   - {fileID: 1703290003}
   - {fileID: 811482045}
-  - {fileID: 345249729}
   - {fileID: 1366727909}
   - {fileID: 404371781}
   - {fileID: 1632698949}
@@ -11687,9 +11637,8 @@ MonoBehaviour:
   pitchAnalyzer: {fileID: 968300008}
   creativeModeManager: {fileID: 2078794040}
   singlePlayerModeManager: {fileID: 704633318}
+  mainColorSettings: {fileID: 11400000, guid: f698d370b37dc754d88b7202ca924551, type: 2}
   dominanceThreshold: 50
-  playerColor: {r: 1, g: 0, b: 0, a: 1}
-  enemyColor: {r: 0.00578022, g: 0, b: 1, a: 1}
   colorDefenseMode: {fileID: 811482046}
   paintCanvas: {fileID: 1098085713}
   paintBattleGameManager: {fileID: 404371782}
@@ -12655,11 +12604,12 @@ MonoBehaviour:
   current:
     playerColorIndex: 0
     cpuColorIndex: 1
-    playerColor: {r: 0, g: 0, b: 1, a: 1}
-    cpuColor: {r: 1, g: 0, b: 0, a: 1}
+    playerColor: {r: 1, g: 0, b: 0.9964247, a: 1}
+    cpuColor: {r: 0, g: 1, b: 0.25357676, a: 1}
     brushKey: Default
     enemyLevel: 1
     battleDurationSeconds: 180
+  mainColorSettings: {fileID: 11400000, guid: f698d370b37dc754d88b7202ca924551, type: 2}
   colorSelectionSettings: {fileID: 11400000, guid: c7a8d9f32b7f3f147a71b623823c4fc7, type: 2}
   singlePlayerDefaults: {fileID: 11400000, guid: 8f8593fcdb62d5e4bbd5d45c2c6ad705, type: 2}
 --- !u!1 &1717783647
