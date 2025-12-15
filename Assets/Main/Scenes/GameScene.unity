@@ -1383,97 +1383,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 178525965}
   m_CullTransparentMesh: 1
---- !u!1 &201881636
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 201881637}
-  - component: {fileID: 201881639}
-  - component: {fileID: 201881638}
-  - component: {fileID: 201881640}
-  m_Layer: 5
-  m_Name: PaintSplatterBackground
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!224 &201881637
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 201881636}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 574533158}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1920, y: 1080}
-  m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &201881638
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 201881636}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 2100000, guid: f39cacc0f0eb2ec47910d370b76b57ef, type: 2}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 0
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
---- !u!222 &201881639
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 201881636}
-  m_CullTransparentMesh: 1
---- !u!114 &201881640
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 201881636}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8bc763f34b8969d4b87580ce82dc9e24, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PaintSplatterBackground
-  backgroundImage: {fileID: 201881638}
-  settings: {fileID: 11400000, guid: 2cf9fe81fa7b6c84bbdb1d19aed4678c, type: 2}
-  backgroundShader: {fileID: 4800000, guid: 14122da0205ea414fb4977c5b123e3f9, type: 3}
 --- !u!1 &212731925
 GameObject:
   m_ObjectHideFlags: 0
@@ -2955,6 +2864,7 @@ MonoBehaviour:
   paintCanvas: {fileID: 1098085713}
   playerId: 1
   paintSpeedMultiplier: 5
+  defaultBrush: {fileID: 11400000, guid: 510f019f83d684f4a8f7d5732b472ae0, type: 2}
   singlePlayerModeManager: {fileID: 704633318}
 --- !u!1 &406853571
 GameObject:
@@ -4324,7 +4234,6 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 201881637}
   - {fileID: 1858746419}
   - {fileID: 1017919965}
   - {fileID: 333058051}
@@ -13830,6 +13739,12 @@ MonoBehaviour:
   gameModeSwitcher: {fileID: 1982836769}
   singlePlayerModeManager: {fileID: 704633318}
   colorDefenseLobbyPanel: {fileID: 1105168144}
+  pencilBrushButton: {fileID: 0}
+  paintBrushButton: {fileID: 0}
+  sprayBrushButton: {fileID: 0}
+  pencilBrush: {fileID: 0}
+  paintBrush: {fileID: 0}
+  sprayBrush: {fileID: 0}
 --- !u!1 &1824514122
 GameObject:
   m_ObjectHideFlags: 0

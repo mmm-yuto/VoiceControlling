@@ -166,14 +166,36 @@ public class PaintBattleGameManager : MonoBehaviour
 
     /// <summary>
     /// BattleSettingsからプレイヤー色を取得
+    /// ゲームモードが選択されていない場合はMainColorSettings.mainColor1を使用
     /// </summary>
     private Color GetPlayerColor()
     {
+        // BattleSettingsから色を取得を試みる（ゲームモード選択後）
         if (BattleSettings.Instance != null && BattleSettings.Instance.Current != null)
         {
-            return BattleSettings.Instance.Current.playerColor;
+            Color playerColor = BattleSettings.Instance.Current.playerColor;
+            // playerColorがデフォルト値（Color.blue）でない場合、またはplayerColorIndexが設定されている場合は使用
+            // ただし、HideInInspectorなので、実際に設定されているかどうかを判定するために
+            // playerColorIndexが有効な値（0以上）であれば使用
+            if (BattleSettings.Instance.Current.playerColorIndex >= 0)
+            {
+                // playerColorはRefreshColorsFromIndices()で設定されるので、playerColorIndexが有効なら使用
+                // ただし、ゲームモード選択前はplayerColorIndexが0（デフォルト）でも、まだ適切に設定されていない可能性がある
+                // そのため、ゲームが開始されている場合はplayerColorを使用
+                if (BattleSettings.Instance.IsGameStarted)
+                {
+                    return playerColor;
+                }
+            }
         }
-        return Color.white; // フォールバック
+        
+        // BattleSettingsから色が取得できない場合、またはゲームモード選択前はMainColorSettings.mainColor1を使用
+        if (BattleSettings.Instance != null)
+        {
+            return BattleSettings.Instance.GetMainColor1();
+        }
+        
+        return Color.white; // 最終的なフォールバック
     }
 
     /// <summary>
