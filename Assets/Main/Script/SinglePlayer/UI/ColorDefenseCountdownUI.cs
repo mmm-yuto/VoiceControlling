@@ -117,17 +117,18 @@ public class ColorDefenseCountdownUI : MonoBehaviour
         goColor.a = 1f;
         countdownText.color = goColor;
         
+        // Invoke completion callback immediately when GO! appears (battle starts now)
+        if (onCompleted != null)
+        {
+            onCompleted.Invoke();
+            onCompleted = null; // Prevent double invocation
+        }
+        
         // Show GO for a short duration (optional animation can be added here)
         yield return new WaitForSeconds(goTextDuration);
         
         // Hide the UI
         Hide();
-        
-        // Invoke completion callback
-        if (onCompleted != null)
-        {
-            onCompleted.Invoke();
-        }
     }
     
     /// <summary>
