@@ -461,6 +461,12 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     {
         isGameActive = false;
         
+        // ゲーム開始フラグをリセット
+        if (BattleSettings.Instance != null)
+        {
+            BattleSettings.Instance.SetGameStarted(false);
+        }
+        
         // 終了時のプレイヤー／敵ピクセル数を集計して勝敗判定
         GameResult result = GameResult.Draw;
         float playerRatio = 0f;

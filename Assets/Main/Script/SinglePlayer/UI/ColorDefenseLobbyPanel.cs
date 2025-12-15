@@ -366,6 +366,9 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         // BattleSettings に UI からの設定を反映
         battleSettings.SetFromUI(_workingData);
 
+        // ゲーム開始フラグを立てる
+        battleSettings.SetGameStarted(true);
+
         // 既存の SinglePlayer 設定にゲーム時間・難易度を反映
         battleSettings.ApplyToSinglePlayerSettings();
 

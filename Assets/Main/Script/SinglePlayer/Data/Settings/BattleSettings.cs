@@ -98,6 +98,19 @@ public class BattleSettings : MonoBehaviour
     /// <summary>現在有効な設定の読み取り専用参照。</summary>
     public BattleSettingsData Current => current;
 
+    /// <summary>ゲーム開始フラグ（ColorDefenseモードでゲームが開始されたかどうか）</summary>
+    private bool isGameStarted = false;
+    public bool IsGameStarted => isGameStarted;
+
+    /// <summary>
+    /// ゲーム開始フラグを設定
+    /// </summary>
+    /// <param name="value">ゲーム開始状態</param>
+    public void SetGameStarted(bool value)
+    {
+        isGameStarted = value;
+    }
+
     void Awake()
     {
         if (Instance != null && Instance != this)

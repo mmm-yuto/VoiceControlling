@@ -391,16 +391,8 @@ public class AmbientCanvasEffects : MonoBehaviour
         
         if (!isGameModeDetermined)
         {
-            // ゲームモードが決定される前は、Color Defence Modeの波の色アニメーションを適用
-            if (colorDefenseMode != null && paintCanvas != null)
-            {
-                UpdateColorDefenseWaveColor();
-            }
-            else
-            {
-                // Color Defence Modeのコンポーネントが見つからない場合は、デフォルトの色を使用
-                waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
-            }
+            // ゲームモードが決定されていない時（それ以外の時）: グラデーションの挙動
+            ApplyDefaultGradientWave();
         }
         else
         {
@@ -409,20 +401,19 @@ public class AmbientCanvasEffects : MonoBehaviour
             
             if (currentMode == SinglePlayerGameModeType.ColorDefense)
             {
-                // Color Defence Modeの場合は、プレイヤー/敵の割合に応じて波の色を更新
+                // ColorDefenseモードの時: ColorDefenseの挙動
                 if (colorDefenseMode != null && paintCanvas != null)
                 {
                     UpdateColorDefenseWaveColor();
                 }
                 else
                 {
-                    // 波の色アニメーションを無効化（1色のみ）
-                    waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+                    ApplyDefaultGradientWave();
                 }
             }
             else if (currentMode == SinglePlayerGameModeType.Creative)
             {
-                // クリエイティブモードの場合は、現在の塗り色を波の色に反映（波の色アニメーションは無効化）
+                // Creativeモードの時: Creativeの挙動（既存のコード）
                 if (creativeModeManager != null)
                 {
                     Color currentPaintColor = creativeModeManager.GetCurrentColor();
@@ -433,8 +424,8 @@ public class AmbientCanvasEffects : MonoBehaviour
             }
             else
             {
-                // その他のモードの場合は、波の色アニメーションを無効化（1色のみ）
-                waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+                // その他のモードの時: グラデーションの挙動
+                ApplyDefaultGradientWave();
             }
         }
     }
@@ -590,17 +581,42 @@ public class AmbientCanvasEffects : MonoBehaviour
     }
     
     /// <summary>
+    /// デフォルトのグラデーション（2色のグラデーション、波打つアニメーション）を適用
+    /// ゲームモード選択前や、ColorDefense以外のモードの時などに使用
+    /// </summary>
+    void ApplyDefaultGradientWave()
+    {
+        if (waveformMaterial == null)
+        {
+            return;
+        }
+        
+        // MainColorSettingsから2色を取得
+        Color color1 = Color.white;
+        Color color2 = Color.gray;
+        
+        if (mainColorSettings != null)
+        {
+            color1 = mainColorSettings.mainColor1;
+            color2 = mainColorSettings.mainColor2;
+        }
+        
+        // 2色をグラデーションで表示（波打つアニメーション）
+        waveformMaterial.SetColor("_WaveformColor", color1);
+        waveformMaterial.SetColor("_WaveformColor2", color2);
+        // ブレンドファクターを0.5（50:50）に固定
+        waveformMaterial.SetFloat("_ColorBlendFactor", 0.5f);
+        // アニメーション速度と区切り数をシェーダーに渡す
+        waveformMaterial.SetFloat("_WaveColorSpeed", waveColorSpeed);
+        waveformMaterial.SetFloat("_ColorSegmentCount", colorSegmentCount);
+    }
+    
+    /// <summary>
     /// Color Defence Mode時の波の色を更新
     /// </summary>
     void UpdateColorDefenseWaveColor()
     {
         if (waveformMaterial == null || paintCanvas == null)
-        {
-            return;
-        }
-        
-        // プレイヤーと敵の割合を計算
-        if (!CalculatePlayerEnemyRatio(out float playerRatio, out float enemyRatio))
         {
             return;
         }
@@ -615,6 +631,28 @@ public class AmbientCanvasEffects : MonoBehaviour
         if (mainColorSettings != null)
         {
             enemyColor = mainColorSettings.mainColor2;
+        }
+        
+        // ゲーム開始フラグを確認
+        bool isGameStarted = BattleSettings.Instance != null && BattleSettings.Instance.IsGameStarted;
+        
+        if (!isGameStarted)
+        {
+            // ゲーム開始前：常に2色をグラデーションで表示（波打つアニメーション）
+            waveformMaterial.SetColor("_WaveformColor", playerColor);
+            waveformMaterial.SetColor("_WaveformColor2", enemyColor);
+            // ブレンドファクターを0.5（50:50）に固定
+            waveformMaterial.SetFloat("_ColorBlendFactor", 0.5f);
+            // アニメーション速度と区切り数をシェーダーに渡す
+            waveformMaterial.SetFloat("_WaveColorSpeed", waveColorSpeed);
+            waveformMaterial.SetFloat("_ColorSegmentCount", colorSegmentCount);
+            return;
+        }
+        
+        // ゲーム開始後：プレイヤーと敵の割合を計算して、それに応じて表示を切り替え
+        if (!CalculatePlayerEnemyRatio(out float playerRatio, out float enemyRatio))
+        {
+            return;
         }
         
         // 割合の差を計算
