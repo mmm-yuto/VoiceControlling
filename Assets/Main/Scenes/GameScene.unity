@@ -8142,6 +8142,10 @@ MonoBehaviour:
   pencilBrushKey: PencilBrush
   paintBrushKey: PaintBrush
   sprayBrushKey: SprayBrush
+  selectedButtonColor: {r: 1.2, g: 1.2, b: 1, a: 1}
+  normalButtonColor: {r: 1, g: 1, b: 1, a: 1}
+  selectedButtonScale: 1.2
+  normalButtonScale: 1
 --- !u!1 &1131685976
 GameObject:
   m_ObjectHideFlags: 0

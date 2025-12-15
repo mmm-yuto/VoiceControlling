@@ -79,11 +79,25 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     [Tooltip("Spray Brush ボタンが設定する brushKey")]
     [SerializeField] private string sprayBrushKey = "SprayBrush";
 
+    [Header("Visual Settings")]
+    [Tooltip("選択中のボタンの色（通常色に対して乗算）")]
+    [SerializeField] private Color selectedButtonColor = new Color(1.2f, 1.2f, 1.0f, 1f); // 明るい黄色系
+    [Tooltip("選択されていないボタンの色")]
+    [SerializeField] private Color normalButtonColor = Color.white;
+    [Tooltip("選択中のボタンのスケール")]
+    [SerializeField] private float selectedButtonScale = 1.1f; // 10%大きく
+    [Tooltip("選択されていないボタンのスケール")]
+    [SerializeField] private float normalButtonScale = 1.0f;
+
     // 作業用の設定データ。UI から編集し、StartBattle 時に BattleSettings に渡す。
     private readonly BattleSettingsData _workingData = new BattleSettingsData();
 
     private bool _hasColorSelection = false;
     private bool _hasBrushSelection = false;
+    
+    // 選択状態を追跡
+    private Button selectedColorButton = null;
+    private Button selectedBrushButton = null;
 
     void Awake()
     {
@@ -205,6 +219,8 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         _workingData.cpuColorIndex = colorBPlayerIndex;
 
         _hasColorSelection = true;
+        selectedColorButton = colorAButton;
+        UpdateButtonVisuals();
         UpdateStartButtonInteractable();
     }
 
@@ -217,6 +233,8 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         _workingData.cpuColorIndex = colorAPlayerIndex;
 
         _hasColorSelection = true;
+        selectedColorButton = colorBButton;
+        UpdateButtonVisuals();
         UpdateStartButtonInteractable();
     }
 
@@ -258,6 +276,13 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
 
         _workingData.brushKey = key;
         _hasBrushSelection = true;
+        
+        // どのブラシボタンが選択されたかを特定
+        if (key == pencilBrushKey) selectedBrushButton = pencilBrushButton;
+        else if (key == paintBrushKey) selectedBrushButton = paintBrushButton;
+        else if (key == sprayBrushKey) selectedBrushButton = sprayBrushButton;
+        
+        UpdateButtonVisuals();
         UpdateStartButtonInteractable();
     }
 
@@ -368,6 +393,44 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         startBattleButton.interactable = IsReadyToStart();
     }
 
+    /// <summary>
+    /// ボタンの視覚状態を更新（選択中のボタンをハイライト）
+    /// </summary>
+    private void UpdateButtonVisuals()
+    {
+        // 色選択ボタンの視覚更新
+        UpdateButtonVisual(colorAButton, colorAButton == selectedColorButton);
+        UpdateButtonVisual(colorBButton, colorBButton == selectedColorButton);
+        
+        // ブラシ選択ボタンの視覚更新
+        UpdateButtonVisual(pencilBrushButton, pencilBrushButton == selectedBrushButton);
+        UpdateButtonVisual(paintBrushButton, paintBrushButton == selectedBrushButton);
+        UpdateButtonVisual(sprayBrushButton, sprayBrushButton == selectedBrushButton);
+    }
+
+    /// <summary>
+    /// ボタンの視覚状態を更新（色とスケール）
+    /// </summary>
+    private void UpdateButtonVisual(Button button, bool isSelected)
+    {
+        if (button == null) return;
+        
+        // 色を更新
+        Image buttonImage = button.GetComponent<Image>();
+        if (buttonImage != null)
+        {
+            buttonImage.color = isSelected ? selectedButtonColor : normalButtonColor;
+        }
+        
+        // スケールを更新
+        RectTransform buttonRect = button.GetComponent<RectTransform>();
+        if (buttonRect != null)
+        {
+            float scale = isSelected ? selectedButtonScale : normalButtonScale;
+            buttonRect.localScale = Vector3.one * scale;
+        }
+    }
+
     private bool IsReadyToStart()
     {
         return _hasColorSelection && _hasBrushSelection;
@@ -395,6 +458,10 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
 
         _hasColorSelection = false;
         _hasBrushSelection = false;
+        
+        selectedColorButton = null;
+        selectedBrushButton = null;
+        UpdateButtonVisuals();
         UpdateStartButtonInteractable();
     }
 
