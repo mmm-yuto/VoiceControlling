@@ -69,15 +69,15 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     [Tooltip("プレイヤーが右側の色ボタンを選んだときに使用するプレイヤー色インデックス")]
     [SerializeField] private int colorBPlayerIndex = 1;
 
-    [Header("Brush Keys (for Buttons)")]
-    [Tooltip("Pencil Brush ボタンが設定する brushKey")]
-    [SerializeField] private string pencilBrushKey = "PencilBrush";
+    [Header("Brush ScriptableObjects")]
+    [Tooltip("Pencil Brush の ScriptableObject")]
+    [SerializeField] private BrushStrategyBase pencilBrush;
 
-    [Tooltip("Paint Brush ボタンが設定する brushKey")]
-    [SerializeField] private string paintBrushKey = "PaintBrush";
+    [Tooltip("Paint Brush の ScriptableObject")]
+    [SerializeField] private BrushStrategyBase paintBrush;
 
-    [Tooltip("Spray Brush ボタンが設定する brushKey")]
-    [SerializeField] private string sprayBrushKey = "SprayBrush";
+    [Tooltip("Spray Brush の ScriptableObject")]
+    [SerializeField] private BrushStrategyBase sprayBrush;
 
     [Header("Visual Settings")]
     [Tooltip("選択中のボタンの色（通常色に対して乗算）")]
@@ -127,7 +127,46 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         // ボタンのイベント接続
         SetupButtons();
 
+        // ブラシボタンのアイコンを設定
+        SetupBrushButtonIcons();
+
         UpdateStartButtonInteractable();
+    }
+    
+    /// <summary>
+    /// ブラシボタンのアイコンを設定
+    /// </summary>
+    private void SetupBrushButtonIcons()
+    {
+        // Pencil Brushボタン
+        if (pencilBrushButton != null && pencilBrush != null)
+        {
+            Image buttonImage = pencilBrushButton.GetComponent<Image>();
+            if (buttonImage != null && pencilBrush.GetIcon() != null)
+            {
+                buttonImage.sprite = pencilBrush.GetIcon();
+            }
+        }
+        
+        // Paint Brushボタン
+        if (paintBrushButton != null && paintBrush != null)
+        {
+            Image buttonImage = paintBrushButton.GetComponent<Image>();
+            if (buttonImage != null && paintBrush.GetIcon() != null)
+            {
+                buttonImage.sprite = paintBrush.GetIcon();
+            }
+        }
+        
+        // Spray Brushボタン
+        if (sprayBrushButton != null && sprayBrush != null)
+        {
+            Image buttonImage = sprayBrushButton.GetComponent<Image>();
+            if (buttonImage != null && sprayBrush.GetIcon() != null)
+            {
+                buttonImage.sprite = sprayBrush.GetIcon();
+            }
+        }
     }
 
     /// <summary>
@@ -265,7 +304,7 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     /// </summary>
     public void OnSelectPencilBrush()
     {
-        SetBrushKey(pencilBrushKey);
+        SetBrush(pencilBrush, pencilBrushButton);
     }
 
     /// <summary>
@@ -273,7 +312,7 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     /// </summary>
     public void OnSelectPaintBrush()
     {
-        SetBrushKey(paintBrushKey);
+        SetBrush(paintBrush, paintBrushButton);
     }
 
     /// <summary>
@@ -281,28 +320,28 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     /// </summary>
     public void OnSelectSprayBrush()
     {
-        SetBrushKey(sprayBrushKey);
+        SetBrush(sprayBrush, sprayBrushButton);
     }
 
     /// <summary>
-    /// 汎用的な Brush キー設定。
+    /// Brush を設定。
     /// </summary>
-    /// <param name="key">Brush を識別するキー</param>
-    private void SetBrushKey(string key)
+    /// <param name="brush">Brush の ScriptableObject</param>
+    /// <param name="button">選択されたボタン</param>
+    private void SetBrush(BrushStrategyBase brush, Button button)
     {
-        if (string.IsNullOrEmpty(key))
+        if (brush == null)
         {
-            Debug.LogWarning("ColorDefenseLobbyPanel.SetBrushKey: 空の brushKey は設定できません。");
+            Debug.LogWarning("ColorDefenseLobbyPanel.SetBrush: Brush が null です。");
             return;
         }
 
-        _workingData.brushKey = key;
+        // brushKeyはScriptableObjectの名前を使用
+        _workingData.brushKey = brush.name;
         _hasBrushSelection = true;
         
-        // どのブラシボタンが選択されたかを特定
-        if (key == pencilBrushKey) selectedBrushButton = pencilBrushButton;
-        else if (key == paintBrushKey) selectedBrushButton = paintBrushButton;
-        else if (key == sprayBrushKey) selectedBrushButton = sprayBrushButton;
+        // 選択されたボタンを記録
+        selectedBrushButton = button;
         
         UpdateButtonVisuals();
         UpdateStartButtonInteractable();
@@ -458,9 +497,14 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
                     buttonImage.color = buttonColor;
                 }
             }
+            else if (button == pencilBrushButton || button == paintBrushButton || button == sprayBrushButton)
+            {
+                // ブラシ選択ボタン: アイコンは既に設定済み、色のみ変更
+                buttonImage.color = isSelected ? selectedButtonColor : normalButtonColor;
+            }
             else
             {
-                // ブラシ選択ボタンなどは従来通り
+                // その他のボタンは従来通り
                 buttonImage.color = isSelected ? selectedButtonColor : normalButtonColor;
             }
         }
