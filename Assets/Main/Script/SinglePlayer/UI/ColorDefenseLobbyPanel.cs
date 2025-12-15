@@ -20,6 +20,10 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
 
     [Tooltip("バトル設定のシングルトン。未指定の場合は BattleSettings.Instance を使用")]
     [SerializeField] private BattleSettings battleSettings;
+    
+    [Header("Countdown UI")]
+    [Tooltip("カウントダウンUI（ColorDefense UI root内に配置。未指定の場合は自動検索）")]
+    [SerializeField] private ColorDefenseCountdownUI countdownUI;
 
     [Header("Enemy Level UI")]
     [Tooltip("相手レベルを選択するスライダー（整数値想定）")]
@@ -408,16 +412,31 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         // BattleSettings に UI からの設定を反映
         battleSettings.SetFromUI(_workingData);
 
-        // ゲーム開始フラグを立てる
-        battleSettings.SetGameStarted(true);
+        // ゲーム開始フラグはまだ立てない（カウントダウン終了後に立てる）
+        // battleSettings.SetGameStarted(true); // Moved to OnCountdownCompleted
 
         // 既存の SinglePlayer 設定にゲーム時間・難易度を反映
         battleSettings.ApplyToSinglePlayerSettings();
 
-        // ColorDefense モードでゲーム開始
+        // ColorDefense モードでゲーム開始（初期化とUIの有効化）
         if (singlePlayerModeManager != null)
         {
             singlePlayerModeManager.InitializeMode(SinglePlayerGameModeType.ColorDefense);
+            
+            // カウントダウン中はゲームを一時停止
+            // InitializeMode()がStartGame()を呼ぶので、その直後にPause()を呼ぶ
+            ColorDefenseMode colorDefenseMode = FindObjectOfType<ColorDefenseMode>();
+            if (colorDefenseMode != null)
+            {
+                colorDefenseMode.Pause();
+            }
+            
+            // プレイヤーの塗りを一時停止
+            PaintBattleGameManager paintBattleGameManager = FindObjectOfType<PaintBattleGameManager>();
+            if (paintBattleGameManager != null)
+            {
+                paintBattleGameManager.SetGameActive(false);
+            }
         }
         else
         {
@@ -426,6 +445,50 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
 
         // ロビーを閉じる
         Close();
+        
+        // カウントダウンを開始
+        if (countdownUI == null)
+        {
+            countdownUI = FindObjectOfType<ColorDefenseCountdownUI>();
+        }
+        
+        if (countdownUI != null)
+        {
+            countdownUI.StartCountdown(OnCountdownCompleted);
+        }
+        else
+        {
+            Debug.LogWarning("ColorDefenseLobbyPanel.OnClickStartBattle: ColorDefenseCountdownUI が見つかりません。カウントダウンなしでゲームを開始します。");
+            // フォールバック: カウントダウンがない場合はすぐにゲーム開始
+            OnCountdownCompleted();
+        }
+    }
+
+    /// <summary>
+    /// カウントダウン完了時のコールバック
+    /// ゲームを開始する
+    /// </summary>
+    private void OnCountdownCompleted()
+    {
+        // ゲーム開始フラグを立てる
+        if (battleSettings != null)
+        {
+            battleSettings.SetGameStarted(true);
+        }
+        
+        // ColorDefenseModeを再開
+        ColorDefenseMode colorDefenseMode = FindObjectOfType<ColorDefenseMode>();
+        if (colorDefenseMode != null)
+        {
+            colorDefenseMode.Resume();
+        }
+        
+        // プレイヤーの塗りを再開
+        PaintBattleGameManager paintBattleGameManager = FindObjectOfType<PaintBattleGameManager>();
+        if (paintBattleGameManager != null)
+        {
+            paintBattleGameManager.SetGameActive(true);
+        }
     }
 
     /// <summary>
