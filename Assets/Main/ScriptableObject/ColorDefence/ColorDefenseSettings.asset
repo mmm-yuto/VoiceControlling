@@ -85,3 +85,4 @@ MonoBehaviour:
   enemyMoveSpeed: 200
   enemyStrokeInterval: 0.2
   enemyPaintRadius: 40
+  difficultyTable: {fileID: 11400000, guid: 4c66db7e3d957a349a21c741b9924071, type: 2}
