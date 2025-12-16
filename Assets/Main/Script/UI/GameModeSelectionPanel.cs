@@ -54,6 +54,17 @@ public class GameModeSelectionPanel : MonoBehaviour
 
     [Tooltip("Spray Brush の ScriptableObject")]
     [SerializeField] private BrushStrategyBase sprayBrush;
+
+    [Header("Animation")]
+    [Tooltip("フェードアウトアニメーション用の Animator（selectionPanel にアタッチされている想定）")]
+    [SerializeField] private Animator fadeAnimator;
+
+    [Tooltip("フェードアウトアニメーションのトリガー名")]
+    [SerializeField] private string fadeOutTriggerName = "FadeOut";
+
+    // アニメーション完了後のコールバック
+    private System.Action onFadeOutComplete;
+    private SinglePlayerGameModeType pendingMode;
     
     void Start()
     {
@@ -68,6 +79,12 @@ public class GameModeSelectionPanel : MonoBehaviour
         
         // ブラシボタンのイベントを設定
         SetupBrushButtons();
+
+        // Animator の自動検索（未設定の場合）
+        if (fadeAnimator == null && selectionPanel != null)
+        {
+            fadeAnimator = selectionPanel.GetComponent<Animator>();
+        }
     }
     
     /// <summary>
@@ -208,17 +225,58 @@ public class GameModeSelectionPanel : MonoBehaviour
     {
         Debug.Log($"GameModeSelectionPanel: モード選択 - {mode}");
 
-        // ColorDefense の場合は、直接ゲームを開始せずロビー UI を開く
-        if (mode == SinglePlayerGameModeType.ColorDefense && colorDefenseLobbyPanel != null)
+        // アニメーションが設定されている場合はフェードアウトを開始
+        if (fadeAnimator != null && !string.IsNullOrEmpty(fadeOutTriggerName))
         {
-            // モード選択画面を隠し、ロビー UI を開く
-            Hide();
-            colorDefenseLobbyPanel.Open();
+            pendingMode = mode;
+            
+            // ColorDefense の場合はロビーを開くコールバック、それ以外はゲーム開始のコールバック
+            if (mode == SinglePlayerGameModeType.ColorDefense && colorDefenseLobbyPanel != null)
+            {
+                onFadeOutComplete = () =>
+                {
+                    Hide();
+                    colorDefenseLobbyPanel.Open();
+                };
+            }
+            else
+            {
+                onFadeOutComplete = () =>
+                {
+                    Hide();
+                    StartGame(mode);
+                };
+            }
+
+            // フェードアウトアニメーションを開始
+            fadeAnimator.SetTrigger(fadeOutTriggerName);
         }
         else
         {
-            // それ以外のモードは従来通りすぐにゲーム開始
-            StartGame(mode);
+            // アニメーションが設定されていない場合は従来通り即座に処理
+            if (mode == SinglePlayerGameModeType.ColorDefense && colorDefenseLobbyPanel != null)
+            {
+                Hide();
+                colorDefenseLobbyPanel.Open();
+            }
+            else
+            {
+                StartGame(mode);
+            }
+        }
+    }
+
+    /// <summary>
+    /// アニメーションイベントから呼び出されるメソッド
+    /// アニメーションのキーフレームにこのメソッドを設定してください
+    /// </summary>
+    public void OnFadeOutMidpoint()
+    {
+        // フェードアウトの途中で次の画面を表示
+        if (onFadeOutComplete != null)
+        {
+            onFadeOutComplete.Invoke();
+            onFadeOutComplete = null;
         }
     }
     
@@ -228,9 +286,6 @@ public class GameModeSelectionPanel : MonoBehaviour
     /// <param name="selectedMode">選択されたゲームモード</param>
     private void StartGame(SinglePlayerGameModeType selectedMode)
     {
-        // 選択画面を非表示
-        Hide();
-        
         // GameModeSwitcherでモードを切り替え（直接モードを渡す）
         if (gameModeSwitcher != null)
         {
