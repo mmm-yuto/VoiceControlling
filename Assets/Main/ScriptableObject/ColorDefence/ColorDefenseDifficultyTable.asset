@@ -17,18 +17,18 @@ MonoBehaviour:
     focusUnpaintedWeight: 1
     repaintPlayerWeight: 1
     missRate: 0.2
-  - moveSpeedMultiplier: 1
-    focusUnpaintedWeight: 1
-    repaintPlayerWeight: 1
-    missRate: 0.2
-  - moveSpeedMultiplier: 1
-    focusUnpaintedWeight: 1
-    repaintPlayerWeight: 1
-    missRate: 0.2
-  - moveSpeedMultiplier: 1
-    focusUnpaintedWeight: 1
-    repaintPlayerWeight: 1
-    missRate: 0.2
+  - moveSpeedMultiplier: 2
+    focusUnpaintedWeight: 2
+    repaintPlayerWeight: 2
+    missRate: 0.4
+  - moveSpeedMultiplier: 3
+    focusUnpaintedWeight: 3
+    repaintPlayerWeight: 3
+    missRate: 0.6
+  - moveSpeedMultiplier: 4
+    focusUnpaintedWeight: 4
+    repaintPlayerWeight: 4
+    missRate: 0.8
   - moveSpeedMultiplier: 5
     focusUnpaintedWeight: 5
     repaintPlayerWeight: 5

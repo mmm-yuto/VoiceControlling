@@ -39,10 +39,13 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     [SerializeField] private int maxEnemyLevel = 5;
 
     [Header("Battle Time UI")]
-    [Tooltip("バトル時間を選択するドロップダウン (TMP)")]
-    [SerializeField] private TMP_Dropdown battleTimeDropdown;
+    [Tooltip("バトル時間を選択するスライダー（インデックス指定：0〜(オプション数-1)）")]
+    [SerializeField] private Slider battleTimeSlider;
 
-    [Tooltip("ドロップダウンの各オプションに対応するバトル時間（秒）")]
+    [Tooltip("バトル時間を表示するテキスト (例: 60s, 2m00s)")]
+    [SerializeField] private TextMeshProUGUI battleTimeLabel;
+
+    [Tooltip("利用可能なバトル時間（秒）")]
     [SerializeField] private float[] battleTimeOptionsSeconds = new float[] { 60f, 120f, 180f };
 
     [Header("Start Button")]
@@ -121,12 +124,16 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
             UpdateEnemyLevel((int)enemyLevelSlider.value);
         }
 
-        // バトル時間ドロップダウンの初期値とオプション設定
-        if (battleTimeDropdown != null && battleTimeOptionsSeconds != null && battleTimeOptionsSeconds.Length > 0)
+        // バトル時間スライダーの初期設定
+        if (battleTimeSlider != null && battleTimeOptionsSeconds != null && battleTimeOptionsSeconds.Length > 0)
         {
-            SetupBattleTimeDropdownOptions();
-            battleTimeDropdown.value = 0;
-            OnBattleTimeDropdownChanged(0);
+            battleTimeSlider.minValue = 0;
+            battleTimeSlider.maxValue = battleTimeOptionsSeconds.Length - 1;
+            battleTimeSlider.wholeNumbers = true;
+
+            int defaultIndex = 0;
+            battleTimeSlider.value = defaultIndex;
+            UpdateBattleTimeFromIndex(defaultIndex);
         }
 
         // ボタンのイベント接続
@@ -225,11 +232,11 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
             enemyLevelSlider.onValueChanged.AddListener(OnEnemyLevelSliderChanged);
         }
 
-        // ドロップダウンのイベント接続
-        if (battleTimeDropdown != null)
+        // バトル時間スライダーのイベント接続
+        if (battleTimeSlider != null)
         {
-            battleTimeDropdown.onValueChanged.RemoveAllListeners();
-            battleTimeDropdown.onValueChanged.AddListener(OnBattleTimeDropdownChanged);
+            battleTimeSlider.onValueChanged.RemoveAllListeners();
+            battleTimeSlider.onValueChanged.AddListener(OnBattleTimeSliderChanged);
         }
     }
 
@@ -366,24 +373,20 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     }
 
     /// <summary>
-    /// バトル時間ドロップダウンの値変更イベントから呼び出す。
+    /// バトル時間スライダーの値変更イベントから呼び出す（インデックス指定）。
     /// </summary>
-    /// <param name="optionIndex">選択されたオプションのインデックス</param>
-    public void OnBattleTimeDropdownChanged(int optionIndex)
+    /// <param name="value">スライダー値（0〜オプション数-1）</param>
+    public void OnBattleTimeSliderChanged(float value)
     {
         if (battleTimeOptionsSeconds == null || battleTimeOptionsSeconds.Length == 0)
         {
-            Debug.LogWarning("ColorDefenseLobbyPanel.OnBattleTimeDropdownChanged: battleTimeOptionsSeconds が設定されていません。");
+            Debug.LogWarning("ColorDefenseLobbyPanel.OnBattleTimeSliderChanged: battleTimeOptionsSeconds が設定されていません。");
             return;
         }
 
-        if (optionIndex < 0 || optionIndex >= battleTimeOptionsSeconds.Length)
-        {
-            Debug.LogWarning($"ColorDefenseLobbyPanel.OnBattleTimeDropdownChanged: optionIndex {optionIndex} が範囲外です。");
-            optionIndex = Mathf.Clamp(optionIndex, 0, battleTimeOptionsSeconds.Length - 1);
-        }
-
-        _workingData.battleDurationSeconds = battleTimeOptionsSeconds[optionIndex];
+        int index = Mathf.RoundToInt(value);
+        index = Mathf.Clamp(index, 0, battleTimeOptionsSeconds.Length - 1);
+        UpdateBattleTimeFromIndex(index);
     }
 
     /// <summary>
@@ -492,41 +495,36 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     }
 
     /// <summary>
-    /// バトル時間ドロップダウンのオプションを設定
-    /// battleTimeOptionsSecondsから自動的にテキストを生成
+    /// インデックスからバトル時間を更新し、スライダーとラベルに反映する。
     /// </summary>
-    private void SetupBattleTimeDropdownOptions()
+    private void UpdateBattleTimeFromIndex(int index)
     {
-        if (battleTimeDropdown == null || battleTimeOptionsSeconds == null || battleTimeOptionsSeconds.Length == 0)
+        if (battleTimeOptionsSeconds == null || battleTimeOptionsSeconds.Length == 0)
         {
             return;
         }
 
-        // 既存のオプションをクリア
-        battleTimeDropdown.ClearOptions();
+        index = Mathf.Clamp(index, 0, battleTimeOptionsSeconds.Length - 1);
+        float seconds = battleTimeOptionsSeconds[index];
 
-        // battleTimeOptionsSecondsからテキストを生成してオプションを追加
-        var options = new System.Collections.Generic.List<TMPro.TMP_Dropdown.OptionData>();
-        foreach (float seconds in battleTimeOptionsSeconds)
+        _workingData.battleDurationSeconds = seconds;
+
+        if (battleTimeSlider != null)
         {
-            // Convert seconds to minutes:seconds format
-            int minutes = Mathf.FloorToInt(seconds / 60f);
-            int secs = Mathf.FloorToInt(seconds % 60f);
-            string optionText;
-            
-            if (minutes > 0)
-            {
-                optionText = $"{minutes}m {secs}s";
-            }
-            else
-            {
-                optionText = $"{secs}s";
-            }
-            
-            options.Add(new TMPro.TMP_Dropdown.OptionData(optionText));
+            battleTimeSlider.SetValueWithoutNotify(index);
         }
 
-        battleTimeDropdown.AddOptions(options);
+        if (battleTimeLabel != null)
+        {
+            int minutes = Mathf.FloorToInt(seconds / 60f);
+            int secs = Mathf.FloorToInt(seconds % 60f);
+
+            string text = minutes > 0
+                ? $"{minutes}m {secs:00}s"
+                : $"{secs}s";
+
+            battleTimeLabel.text = text;
+        }
     }
 
     /// <summary>
@@ -675,7 +673,7 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
             _workingData.cpuColor = battleSettings.GetColorFromIndex(colorBPlayerIndex);
         }
 
-        // バトル時間はドロップダウンから設定される想定だが、念のためデフォルトを設定
+        // バトル時間はスライダー（オプション）から設定される想定だが、念のためデフォルトを設定
         if (battleTimeOptionsSeconds != null && battleTimeOptionsSeconds.Length > 0)
         {
             _workingData.battleDurationSeconds = battleTimeOptionsSeconds[0];
@@ -702,8 +700,8 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     {
         UpdateEnemyLevel(_workingData.enemyLevel);
 
-        // バトル時間ドロップダウンの選択を反映
-        if (battleTimeDropdown != null && battleTimeOptionsSeconds != null && battleTimeOptionsSeconds.Length > 0)
+        // バトル時間スライダーの選択を反映
+        if (battleTimeSlider != null && battleTimeOptionsSeconds != null && battleTimeOptionsSeconds.Length > 0)
         {
             int index = 0;
             float current = _workingData.battleDurationSeconds;
@@ -716,7 +714,7 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
                 }
             }
 
-            battleTimeDropdown.SetValueWithoutNotify(index);
+            UpdateBattleTimeFromIndex(index);
         }
     }
 }
