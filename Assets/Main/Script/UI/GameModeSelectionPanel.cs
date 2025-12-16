@@ -62,9 +62,8 @@ public class GameModeSelectionPanel : MonoBehaviour
     [Tooltip("フェードアウトアニメーションのトリガー名")]
     [SerializeField] private string fadeOutTriggerName = "FadeOut";
 
-    // アニメーション完了後のコールバック
-    private System.Action onFadeOutComplete;
-    private SinglePlayerGameModeType pendingMode;
+    [Tooltip("アニメーション開始後、次の画面を表示するまでの遅延時間（秒）")]
+    [SerializeField] private float transitionDelay = 0.3f;
     
     void Start()
     {
@@ -228,28 +227,11 @@ public class GameModeSelectionPanel : MonoBehaviour
         // アニメーションが設定されている場合はフェードアウトを開始
         if (fadeAnimator != null && !string.IsNullOrEmpty(fadeOutTriggerName))
         {
-            pendingMode = mode;
-            
-            // ColorDefense の場合はロビーを開くコールバック、それ以外はゲーム開始のコールバック
-            if (mode == SinglePlayerGameModeType.ColorDefense && colorDefenseLobbyPanel != null)
-            {
-                onFadeOutComplete = () =>
-                {
-                    Hide();
-                    colorDefenseLobbyPanel.Open();
-                };
-            }
-            else
-            {
-                onFadeOutComplete = () =>
-                {
-                    Hide();
-                    StartGame(mode);
-                };
-            }
-
             // フェードアウトアニメーションを開始
             fadeAnimator.SetTrigger(fadeOutTriggerName);
+            
+            // アニメーション開始後、指定した遅延時間後に次の画面を表示
+            StartCoroutine(TransitionToNextScreen(mode));
         }
         else
         {
@@ -261,22 +243,30 @@ public class GameModeSelectionPanel : MonoBehaviour
             }
             else
             {
+                Hide();
                 StartGame(mode);
             }
         }
     }
-
+    
     /// <summary>
-    /// アニメーションイベントから呼び出されるメソッド
-    /// アニメーションのキーフレームにこのメソッドを設定してください
+    /// アニメーション開始後、次の画面に遷移するコルーチン
     /// </summary>
-    public void OnFadeOutMidpoint()
+    private System.Collections.IEnumerator TransitionToNextScreen(SinglePlayerGameModeType mode)
     {
-        // フェードアウトの途中で次の画面を表示
-        if (onFadeOutComplete != null)
+        // アニメーションが流れている間に指定した遅延時間を待機
+        yield return new WaitForSeconds(transitionDelay);
+        
+        // 次の画面を表示
+        if (mode == SinglePlayerGameModeType.ColorDefense && colorDefenseLobbyPanel != null)
         {
-            onFadeOutComplete.Invoke();
-            onFadeOutComplete = null;
+            Hide();
+            colorDefenseLobbyPanel.Open();
+        }
+        else
+        {
+            Hide();
+            StartGame(mode);
         }
     }
     
