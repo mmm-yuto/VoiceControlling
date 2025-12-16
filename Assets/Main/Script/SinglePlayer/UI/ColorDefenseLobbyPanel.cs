@@ -36,7 +36,7 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
     [SerializeField] private int minEnemyLevel = 1;
 
     [Tooltip("相手レベルの最大値")]
-    [SerializeField] private int maxEnemyLevel = 10;
+    [SerializeField] private int maxEnemyLevel = 5;
 
     [Header("Battle Time UI")]
     [Tooltip("バトル時間を選択するドロップダウン (TMP)")]

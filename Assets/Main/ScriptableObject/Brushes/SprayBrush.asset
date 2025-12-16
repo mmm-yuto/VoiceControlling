@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SprayBrush
   radius: 1
   displayName: Spray Brush
-  icon: {fileID: 21300000, guid: 1d87dc9e82da3d343b35cf8c2132eedf, type: 3}
+  icon: {fileID: 21300000, guid: 6688e3209215f164c9b876103925fb09, type: 3}
   particleCount: 60
   particleRadius: 10
   spreadRadius: 120

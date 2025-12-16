@@ -116,6 +116,10 @@ public class ColorDefenseSettings : ScriptableObject
     [Tooltip("敵ペンのブラシ半径（画面座標系、ピクセル単位）")]
     [Range(5f, 150f)]
     public float enemyPaintRadius = 40f;
+
+    [Header("Difficulty Table")]
+    [Tooltip("レベル 1〜5 に対応する難易度テーブル（未指定の場合はベース値のみ使用）")]
+    public ColorDefenseDifficultyTable difficultyTable;
 }
 
 /// <summary>

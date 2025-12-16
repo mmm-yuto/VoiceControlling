@@ -27,6 +27,7 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     private float gameDuration = 180f;
     private bool isGameActive = false;
     private Vector2 lastPlayerPaintPosition = Vector2.zero;
+    private int difficultyLevel = 1;
     
     public enum GameResult
     {
@@ -48,6 +49,7 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
     public void Initialize(SinglePlayerGameModeSettings modeSettings)
     {
         gameDuration = modeSettings.gameDuration;
+        difficultyLevel = Mathf.Clamp(modeSettings.difficultyLevel, 1, 5);
         
         // 設定を取得
         if (modeSettings.colorDefenseSettings != null)
@@ -539,7 +541,7 @@ public class ColorDefenseMode : MonoBehaviour, ISinglePlayerGameMode
         int count = Mathf.Max(1, settings.enemyPainterCount);
         for (int i = 0; i < count; i++)
         {
-            var painter = new EnemyPainter(paintCanvas, settings, brush);
+            var painter = new EnemyPainter(paintCanvas, settings, difficultyLevel, brush);
             enemyPainters.Add(painter);
         }
     }

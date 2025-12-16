@@ -16,7 +16,7 @@ public class SinglePlayerGameModeSettings : ScriptableObject
     public float gameDuration = 180f;
     
     [Tooltip("難易度レベル")]
-    [Range(1, 10)]
+    [Range(1, 5)]
     public int difficultyLevel = 1;
     
     [Header("Mode-Specific Settings")]
