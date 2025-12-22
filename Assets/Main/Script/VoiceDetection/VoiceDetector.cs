@@ -29,6 +29,9 @@ public class VoiceDetector : MonoBehaviour
     
     [DllImport("__Internal")]
     private static extern int GetBufferSize();
+    
+    private bool microphoneRequested = false;
+    private float microphoneRequestDelay = 1.0f; // ユーザーインタラクション後の遅延時間
 #else
     private AudioClip microphoneClip;
 #endif
@@ -44,24 +47,21 @@ public class VoiceDetector : MonoBehaviour
     void InitializeMicrophone()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        // WebGL用の実装
+        // WebGL用の実装 - エラー時もゲームを続行できるようにする
+        samples = new float[bufferSize]; // まずサンプル配列を初期化
+        
         if (!InitializeMicrophone(sampleRate, bufferSize))
         {
-            Debug.LogError("WebGLマイクの初期化に失敗しました");
-            return;
+            Debug.LogWarning("WebGLマイクの初期化に失敗しました。マイクなしで続行します。");
+            return; // エラーでもゲームは続行
         }
         
-        samples = new float[bufferSize];
+        // ユーザーインタラクション後にマイクアクセスを要求するため、遅延させる
+        // ブラウザのセキュリティ制約により、getUserMediaはユーザーインタラクション後にしか呼べない
+        Invoke(nameof(RequestMicrophoneAccess), microphoneRequestDelay);
         
-        // 録音開始
-        if (!StartRecording())
-        {
-            Debug.LogError("WebGLマイクの録音開始に失敗しました");
-            return;
-        }
-        
-        isRecording = true;
-        Debug.Log($"WebGLマイク初期化完了: サンプルレート={sampleRate}, バッファサイズ={bufferSize}");
+        Debug.Log($"WebGLマイク初期化準備完了: サンプルレート={sampleRate}, バッファサイズ={bufferSize}");
+        Debug.Log("注意: マイクアクセスはユーザーインタラクション後に要求されます。");
 #else
         // 非WebGLプラットフォーム用の実装（既存のコード）
         // マイクデバイスの確認
@@ -103,6 +103,40 @@ public class VoiceDetector : MonoBehaviour
         }
 #endif
     }
+    
+#if UNITY_WEBGL && !UNITY_EDITOR
+    // WebGL用: ユーザーインタラクション後にマイクアクセスを要求
+    void RequestMicrophoneAccess()
+    {
+        if (microphoneRequested) return;
+        
+        microphoneRequested = true;
+        
+        // 録音開始（非同期で実行される）
+        if (StartRecording())
+        {
+            Debug.Log("WebGLマイク: アクセス要求を送信しました。ユーザーの許可を待っています...");
+            // 録音状態を定期的にチェック
+            InvokeRepeating(nameof(CheckRecordingStatus), 0.5f, 0.5f);
+        }
+        else
+        {
+            Debug.LogWarning("WebGLマイク: アクセス要求の送信に失敗しました。");
+        }
+    }
+    
+    // 録音状態をチェック
+    void CheckRecordingStatus()
+    {
+        int recordingStatus = IsRecording();
+        if (recordingStatus == 1 && !isRecording)
+        {
+            isRecording = true;
+            Debug.Log("WebGLマイク: 録音が開始されました。");
+            CancelInvoke(nameof(CheckRecordingStatus));
+        }
+    }
+#endif
     
     public float[] GetAudioSamples()
     {
@@ -169,7 +203,8 @@ public class VoiceDetector : MonoBehaviour
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
         // WebGL用の実装
-        if (isRecording)
+        CancelInvoke(); // すべてのInvokeをキャンセル
+        if (isRecording || microphoneRequested)
         {
             StopRecording();
             isRecording = false;
