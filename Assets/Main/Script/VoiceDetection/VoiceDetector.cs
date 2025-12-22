@@ -32,6 +32,12 @@ public class VoiceDetector : MonoBehaviour
     
     private bool microphoneRequested = false;
     private float microphoneRequestDelay = 1.0f; // ユーザーインタラクション後の遅延時間
+    
+    // パフォーマンス最適化用の変数
+    private GCHandle samplesHandle;
+    private bool samplesHandleAllocated = false;
+    private int lastUpdateFrame = -1;
+    private float[] cachedSamples = null;
 #else
     private AudioClip microphoneClip;
 #endif
@@ -42,6 +48,15 @@ public class VoiceDetector : MonoBehaviour
     void Start()
     {
         InitializeMicrophone();
+        
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // GCHandleを事前に確保（パフォーマンス最適化）
+        if (samples != null && !samplesHandleAllocated)
+        {
+            samplesHandle = GCHandle.Alloc(samples, GCHandleType.Pinned);
+            samplesHandleAllocated = true;
+        }
+#endif
     }
     
     void InitializeMicrophone()
@@ -143,19 +158,43 @@ public class VoiceDetector : MonoBehaviour
         if (!isRecording) return null;
         
 #if UNITY_WEBGL && !UNITY_EDITOR
-        // WebGL用の実装
+        // WebGL用の実装 - パフォーマンス最適化版
         if (samples == null)
         {
             samples = new float[bufferSize];
         }
         
-        // アンマネージドメモリにピン留めしてJavaScriptに渡す
-        System.Runtime.InteropServices.GCHandle handle = System.Runtime.InteropServices.GCHandle.Alloc(samples, System.Runtime.InteropServices.GCHandleType.Pinned);
+        // 同じフレーム内での複数回の呼び出しをキャッシュで対応
+        int currentFrame = Time.frameCount;
+        if (currentFrame == lastUpdateFrame && cachedSamples != null)
+        {
+            return cachedSamples;
+        }
+        
+        // GCHandleが確保されていない場合は確保
+        if (!samplesHandleAllocated)
+        {
+            samplesHandle = GCHandle.Alloc(samples, GCHandleType.Pinned);
+            samplesHandleAllocated = true;
+        }
+        
+        // GCHandleが無効な場合は再確保
+        if (!samplesHandle.IsAllocated)
+        {
+            if (samplesHandleAllocated)
+            {
+                samplesHandle = GCHandle.Alloc(samples, GCHandleType.Pinned);
+            }
+        }
+        
         try
         {
-            System.IntPtr ptr = handle.AddrOfPinnedObject();
+            System.IntPtr ptr = samplesHandle.AddrOfPinnedObject();
             if (GetAudioSamples(ptr, bufferSize))
             {
+                // キャッシュを更新
+                lastUpdateFrame = currentFrame;
+                cachedSamples = samples;
                 return samples;
             }
             else
@@ -163,9 +202,10 @@ public class VoiceDetector : MonoBehaviour
                 return null;
             }
         }
-        finally
+        catch (System.Exception e)
         {
-            handle.Free();
+            Debug.LogWarning($"GetAudioSamples failed: {e.Message}");
+            return null;
         }
 #else
         // 非WebGLプラットフォーム用の実装（既存のコード）
@@ -208,6 +248,13 @@ public class VoiceDetector : MonoBehaviour
         {
             StopRecording();
             isRecording = false;
+        }
+        
+        // GCHandleを解放
+        if (samplesHandleAllocated && samplesHandle.IsAllocated)
+        {
+            samplesHandle.Free();
+            samplesHandleAllocated = false;
         }
 #else
         // 非WebGLプラットフォーム用の実装（既存のコード）
