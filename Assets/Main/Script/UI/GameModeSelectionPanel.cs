@@ -224,6 +224,17 @@ public class GameModeSelectionPanel : MonoBehaviour
     {
         Debug.Log($"GameModeSelectionPanel: モード選択 - {mode}");
 
+        // ゲームモード選択時にマイクアクセスを要求（ユーザーインタラクション後）
+        VoiceDetector voiceDetector = FindObjectOfType<VoiceDetector>();
+        if (voiceDetector != null)
+        {
+            voiceDetector.RequestMicrophoneAccess();
+        }
+        else
+        {
+            Debug.LogWarning("GameModeSelectionPanel: VoiceDetectorが見つかりません。マイクなしで続行します。");
+        }
+
         // アニメーションが設定されている場合はフェードアウトを開始
         if (fadeAnimator != null && !string.IsNullOrEmpty(fadeOutTriggerName))
         {
