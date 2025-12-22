@@ -40,17 +40,42 @@ mergeInto(LibraryManager.library, {
 
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(function (stream) {
-                webglMicrophoneStream = stream;
-                
-                // AudioContextの作成
-                var AudioContext = window.AudioContext || window.webkitAudioContext;
-                webglMicrophoneContext = new AudioContext({ sampleRate: webglMicrophoneSampleRate });
-                
-                // マイク入力の取得
-                webglMicrophoneSource = webglMicrophoneContext.createMediaStreamSource(stream);
-                
-                // ScriptProcessorNodeの作成（AudioWorkletのフォールバック）
                 try {
+                    webglMicrophoneStream = stream;
+                    
+                    // UnityのAudioContextをresume（Unityroom環境でのSuspended状態を解除）
+                    try {
+                        if (typeof unityInstance !== 'undefined' && unityInstance && unityInstance.Module && unityInstance.Module.audioContext) {
+                            var unityAudioContext = unityInstance.Module.audioContext;
+                            if (unityAudioContext.state === 'suspended') {
+                                unityAudioContext.resume().then(function() {
+                                    console.log("WebGL Microphone: Unity AudioContext resumed");
+                                }).catch(function(e) {
+                                    console.warn("WebGL Microphone: Failed to resume Unity AudioContext: " + e);
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("WebGL Microphone: Could not access Unity AudioContext: " + e);
+                    }
+                    
+                    // AudioContextの作成
+                    var AudioContext = window.AudioContext || window.webkitAudioContext;
+                    webglMicrophoneContext = new AudioContext({ sampleRate: webglMicrophoneSampleRate });
+                    
+                    // AudioContextがSuspended状態の場合はresume
+                    if (webglMicrophoneContext.state === 'suspended') {
+                        webglMicrophoneContext.resume().then(function() {
+                            console.log("WebGL Microphone: Microphone AudioContext resumed");
+                        }).catch(function(e) {
+                            console.warn("WebGL Microphone: Failed to resume Microphone AudioContext: " + e);
+                        });
+                    }
+                    
+                    // マイク入力の取得
+                    webglMicrophoneSource = webglMicrophoneContext.createMediaStreamSource(stream);
+                    
+                    // ScriptProcessorNodeの作成（AudioWorkletのフォールバック）
                     webglMicrophoneProcessor = webglMicrophoneContext.createScriptProcessor(webglMicrophoneBufferSize, 1, 1);
                     
                     webglMicrophoneProcessor.onaudioprocess = function (e) {
@@ -69,15 +94,30 @@ mergeInto(LibraryManager.library, {
                     webglMicrophoneProcessor.connect(webglMicrophoneContext.destination);
                     
                     webglMicrophoneIsRecording = true;
-                    console.log("WebGL Microphone: Recording started");
+                    console.log("WebGL Microphone: Recording started successfully");
                 } catch (error) {
-                    console.error("WebGL Microphone: Error creating ScriptProcessor: " + error);
-                    StopRecording();
-                    return false;
+                    console.error("WebGL Microphone: Error setting up audio: " + error);
+                    if (webglMicrophoneStream) {
+                        webglMicrophoneStream.getTracks().forEach(function (track) {
+                            track.stop();
+                        });
+                        webglMicrophoneStream = null;
+                    }
+                    webglMicrophoneIsRecording = false;
                 }
             })
             .catch(function (error) {
                 console.error("WebGL Microphone: Error accessing microphone: " + error);
+                console.error("WebGL Microphone: Error name: " + error.name + ", message: " + error.message);
+                if (error.name === 'NotAllowedError') {
+                    console.error("WebGL Microphone: Microphone access denied by user or browser policy");
+                } else if (error.name === 'NotFoundError') {
+                    console.error("WebGL Microphone: No microphone found");
+                } else if (error.name === 'NotReadableError') {
+                    console.error("WebGL Microphone: Microphone is already in use");
+                } else if (error.name === 'OverconstrainedError') {
+                    console.error("WebGL Microphone: Microphone constraints cannot be satisfied");
+                }
                 webglMicrophoneIsRecording = false;
                 return false;
             });

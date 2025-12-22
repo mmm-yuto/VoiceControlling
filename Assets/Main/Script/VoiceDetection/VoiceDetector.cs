@@ -32,6 +32,8 @@ public class VoiceDetector : MonoBehaviour
     
     private bool microphoneRequested = false;
     private float microphoneRequestDelay = 1.0f; // ユーザーインタラクション後の遅延時間
+    private float microphoneCheckTimeout = 5.0f; // マイクアクセスチェックのタイムアウト（秒）
+    private float microphoneCheckStartTime = 0f;
     
     // パフォーマンス最適化用の変数
     private GCHandle samplesHandle;
@@ -126,23 +128,34 @@ public class VoiceDetector : MonoBehaviour
         if (microphoneRequested) return;
         
         microphoneRequested = true;
+        microphoneCheckStartTime = Time.time;
         
         // 録音開始（非同期で実行される）
         if (StartRecording())
         {
             Debug.Log("WebGLマイク: アクセス要求を送信しました。ユーザーの許可を待っています...");
+            Debug.Log("注意: Unityroomなどの環境ではマイクアクセスが制限される場合があります。");
             // 録音状態を定期的にチェック
             InvokeRepeating(nameof(CheckRecordingStatus), 0.5f, 0.5f);
         }
         else
         {
-            Debug.LogWarning("WebGLマイク: アクセス要求の送信に失敗しました。");
+            Debug.LogWarning("WebGLマイク: アクセス要求の送信に失敗しました。マイクなしで続行します。");
+            // マイクなしでもゲームは続行
         }
     }
     
     // 録音状態をチェック
     void CheckRecordingStatus()
     {
+        // タイムアウトチェック
+        if (Time.time - microphoneCheckStartTime > microphoneCheckTimeout)
+        {
+            Debug.LogWarning($"WebGLマイク: タイムアウト（{microphoneCheckTimeout}秒）。マイクアクセスを諦めて続行します。");
+            CancelInvoke(nameof(CheckRecordingStatus));
+            return;
+        }
+        
         int recordingStatus = IsRecording();
         if (recordingStatus == 1 && !isRecording)
         {
