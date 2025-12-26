@@ -23,5 +23,9 @@ public class CreativeSaveSettings : ScriptableObject
     [Tooltip("保存時の画像スケール（1.0 = 元のサイズ）")]
     [Range(0.1f, 2f)] 
     public float imageScale = 1f;
+    
+    [Header("Social Sharing")]
+    [Tooltip("ゲームストアURL（Twitter共有時に使用）")]
+    public string gameStoreUrl = "";
 }
 

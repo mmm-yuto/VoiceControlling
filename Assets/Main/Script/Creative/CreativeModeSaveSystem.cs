@@ -120,7 +120,8 @@ public class CreativeModeSaveSystem : MonoBehaviour
     /// <summary>
     /// 画像を共有（プラットフォーム固有の実装が必要）
     /// </summary>
-    public void ShareImage()
+    /// <param name="title">描画のタイトル（オプション）</param>
+    public void ShareImage(string title = "")
     {
         if (paintCanvas == null)
         {
@@ -152,9 +153,8 @@ public class CreativeModeSaveSystem : MonoBehaviour
             // iOS用の共有処理（Native Share Pluginなどが必要）
             success = ShareImageIOS(tempPath);
             #else
-            // エディタ/その他のプラットフォームではファイルパスをログに出力
-            Debug.Log($"CreativeModeSaveSystem: 共有機能はこのプラットフォームではサポートされていません。ファイルパス: {tempPath}");
-            success = true; // エディタでは成功として扱う
+            // Windows/その他のプラットフォームではTwitter共有を実装
+            success = ShareToTwitter(tempPath, title);
             #endif
             
             // イベント発火
@@ -211,5 +211,56 @@ public class CreativeModeSaveSystem : MonoBehaviour
         return false;
     }
     #endif
+    
+    /// <summary>
+    /// Twitterに共有（Windows/その他のプラットフォーム用）
+    /// </summary>
+    /// <param name="imagePath">画像ファイルのパス</param>
+    /// <param name="title">描画のタイトル</param>
+    private bool ShareToTwitter(string imagePath, string title)
+    {
+        try
+        {
+            // ゲームストアURLを取得
+            string storeUrl = saveSettings != null ? saveSettings.gameStoreUrl : "";
+            
+            // Twitter投稿用のテキストを構築
+            string tweetText = "I drew this with my voice!";
+            
+            // タイトルが入力されている場合は追加
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                tweetText += $"\nThe title of this drawing is 「{title}」";
+            }
+            
+            // ゲームストアURLが設定されている場合は追加
+            if (!string.IsNullOrWhiteSpace(storeUrl))
+            {
+                tweetText += $"\n{storeUrl}";
+            }
+            
+            // URLエンコード
+            string encodedText = Uri.EscapeDataString(tweetText);
+            
+            // Twitter Web Intent URLを構築
+            // 注意: Twitter Web Intentは画像を直接アタッチできないため、
+            // テキストのみで投稿画面を開き、ユーザーが手動で画像をアップロードする必要があります
+            string twitterUrl = $"https://twitter.com/intent/tweet?text={encodedText}";
+            
+            // ブラウザでTwitter投稿画面を開く
+            Application.OpenURL(twitterUrl);
+            
+            // 画像ファイルのパスをログに出力（ユーザーが手動でアップロードするため）
+            Debug.Log($"CreativeModeSaveSystem: Twitter投稿画面を開きました。画像ファイルは以下のパスに保存されています: {imagePath}");
+            Debug.Log($"CreativeModeSaveSystem: 画像を手動でアップロードしてください。");
+            
+            return true;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"CreativeModeSaveSystem: Twitter共有に失敗しました: {e.Message}");
+            return false;
+        }
+    }
 }
 

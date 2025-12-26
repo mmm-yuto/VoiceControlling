@@ -77,6 +77,9 @@ public class CreativeModeUI : MonoBehaviour
     [Tooltip("保存状態ラベル")]
     [SerializeField] private TextMeshProUGUI saveStatusLabel;
     
+    [Tooltip("タイトル入力フィールド（Twitter共有時に使用）")]
+    [SerializeField] private TMP_InputField titleInputField;
+    
     [Header("Navigation")]
     [Tooltip("タイトルに戻るボタン")]
     [SerializeField] private Button backToTitleButton;
@@ -229,7 +232,9 @@ public class CreativeModeUI : MonoBehaviour
             shareButton.onClick.AddListener(() => {
                 if (saveSystem != null)
                 {
-                    saveSystem.ShareImage();
+                    // タイトルを取得（入力がない場合は空文字列）
+                    string title = titleInputField != null ? titleInputField.text : "";
+                    saveSystem.ShareImage(title);
                 }
                 else
                 {
