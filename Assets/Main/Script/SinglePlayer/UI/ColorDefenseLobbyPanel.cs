@@ -653,13 +653,12 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
 
     /// <summary>
     /// 作業データを初期化し、最低限のデフォルト値を設定する。
+    /// 初期状態ではButtonAとSprayBrushが選択されている。
     /// </summary>
     private void ResetWorkingData()
     {
         _workingData.playerColorIndex = colorAPlayerIndex;
         _workingData.cpuColorIndex = colorBPlayerIndex;
-        _workingData.brushKey = string.Empty;
-        _workingData.brush = null;
         _workingData.enemyLevel = minEnemyLevel;
 
         // 実際の色を設定
@@ -683,11 +682,41 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
             _workingData.battleDurationSeconds = 180f;
         }
 
-        _hasColorSelection = false;
-        _hasBrushSelection = false;
+        // 初期状態でButtonA（ColorA）を選択
+        if (colorAButton != null)
+        {
+            _workingData.playerColorIndex = colorAPlayerIndex;
+            _workingData.cpuColorIndex = colorBPlayerIndex;
+            if (battleSettings != null)
+            {
+                _workingData.playerColor = battleSettings.GetColorFromIndex(colorAPlayerIndex);
+                _workingData.cpuColor = battleSettings.GetColorFromIndex(colorBPlayerIndex);
+            }
+            _hasColorSelection = true;
+            selectedColorButton = colorAButton;
+        }
+        else
+        {
+            _hasColorSelection = false;
+            selectedColorButton = null;
+        }
+
+        // 初期状態でSprayBrushを選択
+        if (sprayBrush != null)
+        {
+            _workingData.brushKey = sprayBrush.name;
+            _workingData.brush = sprayBrush;
+            _hasBrushSelection = true;
+            selectedBrushButton = sprayBrushButton;
+        }
+        else
+        {
+            _workingData.brushKey = string.Empty;
+            _workingData.brush = null;
+            _hasBrushSelection = false;
+            selectedBrushButton = null;
+        }
         
-        selectedColorButton = null;
-        selectedBrushButton = null;
         UpdateButtonVisuals();
         UpdateStartButtonInteractable();
     }

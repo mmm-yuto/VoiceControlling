@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ColorSelectionSettings
   method: 0
   presetColors:
-  - {r: 1, g: 0, b: 0, a: 1}
-  - {r: 0, g: 0, b: 1, a: 1}
-  - {r: 0, g: 1, b: 0, a: 1}
+  - {r: 1, g: 0.120469466, b: 0, a: 1}
+  - {r: 1, g: 0.5764706, b: 0, a: 1}
   - {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  - {r: 0, g: 1, b: 0, a: 1}
   - {r: 0, g: 1, b: 1, a: 1}
-  - {r: 1, g: 0, b: 1, a: 1}
-  - {r: 1, g: 1, b: 1, a: 1}
+  - {r: 0, g: 0.5211234, b: 1, a: 1}
+  - {r: 0, g: 0, b: 1, a: 1}
   - {r: 0, g: 0, b: 0, a: 1}
   colorPickerVisibleByDefault: 0

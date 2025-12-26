@@ -152,6 +152,12 @@ public class CreativeModeManager : MonoBehaviour, ISinglePlayerGameMode
     
     public void StartGame()
     {
+        // Canvasに塗られている色をリセット
+        if (paintCanvas != null)
+        {
+            paintCanvas.ResetCanvas();
+        }
+        
         // 初期状態を履歴に保存
         PushHistorySnapshot();
         

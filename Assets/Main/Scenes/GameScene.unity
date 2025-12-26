@@ -8497,9 +8497,9 @@ MonoBehaviour:
   paintBrush: {fileID: 11400000, guid: 41d94d9c2e3345743ba8d62e6fece555, type: 2}
   sprayBrush: {fileID: 11400000, guid: 510f019f83d684f4a8f7d5732b472ae0, type: 2}
   selectedButtonColor: {r: 1.2, g: 1.2, b: 1, a: 1}
-  normalButtonColor: {r: 1, g: 1, b: 1, a: 1}
+  normalButtonColor: {r: 0.3820755, g: 0.3820755, b: 0.3820755, a: 1}
   selectedButtonScale: 1.2
-  normalButtonScale: 1
+  normalButtonScale: 0.8
 --- !u!1 &1131685976
 GameObject:
   m_ObjectHideFlags: 0
@@ -9280,7 +9280,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
   m_sharedMaterial: {fileID: 2094046441526094077, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
@@ -10519,7 +10519,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
   m_sharedMaterial: {fileID: 2094046441526094077, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
@@ -13319,7 +13319,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
   m_sharedMaterial: {fileID: 2094046441526094077, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
@@ -15528,8 +15528,6 @@ MonoBehaviour:
   singlePlayerSettings: {fileID: 11400000, guid: 8f8593fcdb62d5e4bbd5d45c2c6ad705, type: 2}
   colorDefenseMode: {fileID: 811482046}
   creativeModeManager: {fileID: 2078794040}
-  colorDefenseObjects:
-  - {fileID: 2119175415}
 --- !u!1 &2018800907
 GameObject:
   m_ObjectHideFlags: 0

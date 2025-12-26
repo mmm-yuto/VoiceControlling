@@ -103,6 +103,9 @@ public class CreativeModeSaveSystem : MonoBehaviour
             
             Debug.Log($"CreativeModeSaveSystem: 画像を保存しました: {filePath}");
             
+            // 保存したフォルダをエクスプローラーで開く（ShareImageと同じ動作）
+            OpenFileInExplorer(filePath);
+            
             // イベント発火
             OnImageSaved?.Invoke(filePath);
             OnImageSavedUnityEvent?.Invoke(filePath);
