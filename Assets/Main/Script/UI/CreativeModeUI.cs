@@ -80,6 +80,9 @@ public class CreativeModeUI : MonoBehaviour
     [Tooltip("タイトル入力フィールド（Twitter共有時に使用）")]
     [SerializeField] private TMP_InputField titleInputField;
     
+    [Tooltip("タイトル入力フィールドを拡大する際の位置（RectTransformまたはGameObjectを指定）")]
+    [SerializeField] private RectTransform titleInputExpandPosition;
+    
     [Header("Navigation")]
     [Tooltip("タイトルに戻るボタン")]
     [SerializeField] private Button backToTitleButton;
@@ -89,6 +92,15 @@ public class CreativeModeUI : MonoBehaviour
     
     // 動的生成されたブラシボタンの辞書
     private Dictionary<BrushStrategyBase, Button> brushButtons = new Dictionary<BrushStrategyBase, Button>();
+    
+    // タイトル入力フィールドの元の位置とサイズを保存
+    private Vector2 originalTitleInputPosition;
+    private Vector2 originalTitleInputSize;
+    private Vector2 originalTitleInputAnchorMin;
+    private Vector2 originalTitleInputAnchorMax;
+    private float originalTitleInputFontSize;
+    private float originalTitleInputPlaceholderFontSize;
+    private bool isTitleInputFocused = false;
     
     void Start()
     {
@@ -120,6 +132,9 @@ public class CreativeModeUI : MonoBehaviour
         UpdateColorUI(colorSelectionSystem != null ? colorSelectionSystem.GetCurrentColor() : Color.white);
         UpdateUndoUI(creativeModeManager != null && creativeModeManager.CanUndo());
         UpdateBrushUI(creativeModeManager != null ? creativeModeManager.GetCurrentBrush() : null);
+        
+        // タイトル入力フィールドの初期設定
+        SetupTitleInputField();
     }
     
     void OnDestroy()
@@ -541,6 +556,150 @@ public class CreativeModeUI : MonoBehaviour
         else
         {
             Debug.LogWarning("CreativeModeUI: タイトルシーン名が設定されていません");
+        }
+    }
+    
+    /// <summary>
+    /// タイトル入力フィールドの初期設定
+    /// </summary>
+    private void SetupTitleInputField()
+    {
+        if (titleInputField == null) return;
+        
+        // 元の位置、サイズ、アンカー、フォントサイズを保存
+        RectTransform rectTransform = titleInputField.GetComponent<RectTransform>();
+        if (rectTransform != null)
+        {
+            originalTitleInputPosition = rectTransform.anchoredPosition;
+            originalTitleInputSize = rectTransform.sizeDelta;
+            originalTitleInputAnchorMin = rectTransform.anchorMin;
+            originalTitleInputAnchorMax = rectTransform.anchorMax;
+        }
+        
+        if (titleInputField.textComponent != null)
+        {
+            originalTitleInputFontSize = titleInputField.textComponent.fontSize;
+        }
+        
+        // Placeholderのフォントサイズも保存
+        if (titleInputField.placeholder != null)
+        {
+            TextMeshProUGUI placeholderText = titleInputField.placeholder.GetComponent<TextMeshProUGUI>();
+            if (placeholderText != null)
+            {
+                originalTitleInputPlaceholderFontSize = placeholderText.fontSize;
+            }
+        }
+        
+        // フォーカスイベントを設定
+        titleInputField.onSelect.AddListener(OnTitleInputFieldFocused);
+        titleInputField.onDeselect.AddListener(OnTitleInputFieldUnfocused);
+    }
+    
+    /// <summary>
+    /// タイトル入力フィールドがフォーカスされた時の処理
+    /// </summary>
+    private void OnTitleInputFieldFocused(string text)
+    {
+        if (titleInputField == null || isTitleInputFocused) return;
+        
+        isTitleInputFocused = true;
+        RectTransform rectTransform = titleInputField.GetComponent<RectTransform>();
+        if (rectTransform == null) return;
+        
+        // Canvasを取得
+        Canvas canvas = rectTransform.GetComponentInParent<Canvas>();
+        if (canvas == null) return;
+        
+        RectTransform canvasRect = canvas.GetComponent<RectTransform>();
+        if (canvasRect == null) return;
+        
+        // 拡大位置が指定されている場合はその位置を使用、なければ画面中央
+        Vector2 targetPosition;
+        Vector2 targetAnchorMin;
+        Vector2 targetAnchorMax;
+        
+        if (titleInputExpandPosition != null)
+        {
+            // 指定されたRectTransformの位置とアンカーを使用
+            targetPosition = titleInputExpandPosition.anchoredPosition;
+            targetAnchorMin = titleInputExpandPosition.anchorMin;
+            targetAnchorMax = titleInputExpandPosition.anchorMax;
+        }
+        else
+        {
+            // 指定がない場合は画面中央
+            targetPosition = Vector2.zero;
+            targetAnchorMin = new Vector2(0.5f, 0.5f);
+            targetAnchorMax = new Vector2(0.5f, 0.5f);
+        }
+        
+        // アンカーを設定
+        rectTransform.anchorMin = targetAnchorMin;
+        rectTransform.anchorMax = targetAnchorMax;
+        
+        // 位置を設定
+        rectTransform.anchoredPosition = targetPosition;
+        
+        // サイズを大きくする（画面の幅の60%、高さの15%）
+        // Canvasのサイズを取得（Screen Space - Overlayの場合はScreenサイズを使用）
+        float screenWidth = Screen.width;
+        float screenHeight = Screen.height;
+        if (canvas.renderMode != RenderMode.ScreenSpaceOverlay && canvasRect.sizeDelta != Vector2.zero)
+        {
+            screenWidth = canvasRect.sizeDelta.x;
+            screenHeight = canvasRect.sizeDelta.y;
+        }
+        rectTransform.sizeDelta = new Vector2(screenWidth * 0.6f, screenHeight * 0.15f);
+        
+        // フォントサイズも大きくする
+        if (titleInputField.textComponent != null)
+        {
+            titleInputField.textComponent.fontSize = 48f;
+        }
+        
+        // Placeholderのフォントサイズも大きくする
+        if (titleInputField.placeholder != null)
+        {
+            TextMeshProUGUI placeholderText = titleInputField.placeholder.GetComponent<TextMeshProUGUI>();
+            if (placeholderText != null)
+            {
+                placeholderText.fontSize = 48f;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// タイトル入力フィールドのフォーカスが解除された時の処理
+    /// </summary>
+    private void OnTitleInputFieldUnfocused(string text)
+    {
+        if (titleInputField == null || !isTitleInputFocused) return;
+        
+        isTitleInputFocused = false;
+        RectTransform rectTransform = titleInputField.GetComponent<RectTransform>();
+        if (rectTransform == null) return;
+        
+        // 元の位置、サイズ、アンカー、フォントサイズに戻す
+        rectTransform.anchorMin = originalTitleInputAnchorMin;
+        rectTransform.anchorMax = originalTitleInputAnchorMax;
+        rectTransform.anchoredPosition = originalTitleInputPosition;
+        rectTransform.sizeDelta = originalTitleInputSize;
+        
+        // フォントサイズも元に戻す
+        if (titleInputField.textComponent != null)
+        {
+            titleInputField.textComponent.fontSize = originalTitleInputFontSize;
+        }
+        
+        // Placeholderのフォントサイズも元に戻す
+        if (titleInputField.placeholder != null)
+        {
+            TextMeshProUGUI placeholderText = titleInputField.placeholder.GetComponent<TextMeshProUGUI>();
+            if (placeholderText != null)
+            {
+                placeholderText.fontSize = originalTitleInputPlaceholderFontSize;
+            }
         }
     }
 }

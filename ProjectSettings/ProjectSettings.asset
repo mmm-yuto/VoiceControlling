@@ -857,14 +857,14 @@ PlayerSettings:
   editorAssembliesCompatibilityLevel: 1
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
-  metroPackageName: VoiceControlling
+  metroPackageName: ShoutInk
   metroPackageVersion: 
   metroCertificatePath: 
   metroCertificatePassword: 
   metroCertificateSubject: 
   metroCertificateIssuer: 
   metroCertificateNotAfter: 0000000000000000
-  metroApplicationDescription: VoiceControlling
+  metroApplicationDescription: ShoutInk
   wsaImages: {}
   metroTileShortName: 
   metroTileShowName: 0

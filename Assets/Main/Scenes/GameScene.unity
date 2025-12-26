@@ -2824,7 +2824,7 @@ GameObject:
   - component: {fileID: 355047969}
   - component: {fileID: 355047968}
   m_Layer: 5
-  m_Name: SaveStatusLabel(TMP)
+  m_Name: TitleInputExpandPosition
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2846,7 +2846,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -597.2, y: -471.1}
+  m_AnchoredPosition: {x: -1192, y: -307}
   m_SizeDelta: {x: 1920, y: 1080}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &355047968
@@ -2869,7 +2869,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Save Status
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
   m_sharedMaterial: {fileID: 2094046441526094077, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
@@ -12381,6 +12381,7 @@ MonoBehaviour:
   shareButton: {fileID: 669252026}
   saveStatusLabel: {fileID: 355047968}
   titleInputField: {fileID: 866860107}
+  titleInputExpandPosition: {fileID: 355047967}
   backToTitleButton: {fileID: 448122469}
   titleSceneName: GameScene
 --- !u!1 &1659034252

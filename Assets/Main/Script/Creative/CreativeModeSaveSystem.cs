@@ -60,26 +60,22 @@ public class CreativeModeSaveSystem : MonoBehaviour
             return;
         }
         
-        // 保存先ディレクトリを作成（Application.persistentDataPathを使用 - プラットフォーム固有の永続データパス）
-        // Windows: %USERPROFILE%\AppData\LocalLow\<CompanyName>\<ProductName>\Screenshots
-        // macOS: ~/Library/Application Support/<CompanyName>/<ProductName>/Screenshots
-        // Android: /storage/emulated/0/Android/data/<package.name>/files/Screenshots
-        // iOS: /var/mobile/Containers/Data/Application/<GUID>/Documents/Screenshots
-        string saveDirectory = Path.Combine(Application.persistentDataPath, saveSettings.saveDirectory);
+        // 保存先ディレクトリを取得（.exeファイルと同じ場所の「写真」フォルダ）
+        string saveDirectory = GetSaveImageFolder();
         if (!Directory.Exists(saveDirectory))
         {
             Directory.CreateDirectory(saveDirectory);
         }
         
-        // ファイル名を生成
+        // ファイル名を生成（ゲーム名とタイムスタンプ付き）
         string fileName;
         if (saveSettings.includeTimestamp)
         {
-            fileName = string.Format(saveSettings.fileNameFormat, DateTime.Now);
+            fileName = $"ShoutInk_Drawing_{DateTime.Now:yyyyMMdd_HHmmss}.png";
         }
         else
         {
-            fileName = saveSettings.defaultFileName;
+            fileName = "ShoutInk_Drawing.png";
         }
         
         string filePath = Path.Combine(saveDirectory, fileName);
@@ -136,25 +132,34 @@ public class CreativeModeSaveSystem : MonoBehaviour
             return;
         }
         
-        // 一時ファイルに保存
-        string tempPath = Path.Combine(Application.temporaryCachePath, "share_temp.png");
+        // .exeファイルと同じ場所の「写真」フォルダに保存
+        string saveFolder = GetSaveImageFolder();
+        if (!Directory.Exists(saveFolder))
+        {
+            Directory.CreateDirectory(saveFolder);
+        }
+        
+        // ファイル名を生成（ゲーム名とタイムスタンプ付き）
+        string fileName = $"ShoutInk_Drawing_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+        string savePath = Path.Combine(saveFolder, fileName);
+        
         try
         {
             byte[] pngData = texture.EncodeToPNG();
-            File.WriteAllBytes(tempPath, pngData);
+            File.WriteAllBytes(savePath, pngData);
             
             // プラットフォーム固有の共有処理
             bool success = false;
             
             #if UNITY_ANDROID && !UNITY_EDITOR
             // Android用の共有処理（Native Share Pluginなどが必要）
-            success = ShareImageAndroid(tempPath);
+            success = ShareImageAndroid(savePath);
             #elif UNITY_IOS && !UNITY_EDITOR
             // iOS用の共有処理（Native Share Pluginなどが必要）
-            success = ShareImageIOS(tempPath);
+            success = ShareImageIOS(savePath);
             #else
             // Windows/その他のプラットフォームではTwitter共有を実装
-            success = ShareToTwitter(tempPath, title);
+            success = ShareToTwitter(savePath, title);
             #endif
             
             // イベント発火
@@ -213,6 +218,58 @@ public class CreativeModeSaveSystem : MonoBehaviour
     #endif
     
     /// <summary>
+    /// 画像の保存フォルダを取得（.exeファイルと同じ場所の「Screenshots」フォルダ）
+    /// </summary>
+    private string GetSaveImageFolder()
+    {
+        #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+        // Windowsの場合、.exeファイルと同じ場所
+        // Application.dataPathは通常 "実行ファイル名_Data" フォルダなので、その親ディレクトリが.exeの場所
+        string exeDirectory = Directory.GetParent(Application.dataPath).FullName;
+        return Path.Combine(exeDirectory, "Screenshots");
+        #elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        // macOSの場合、.appバンドルの場所
+        // Application.dataPathは通常 "実行ファイル名.app/Contents" なので、その親の親が.appの場所
+        string appDirectory = Directory.GetParent(Directory.GetParent(Application.dataPath).FullName).FullName;
+        return Path.Combine(appDirectory, "Screenshots");
+        #elif UNITY_STANDALONE_LINUX
+        // Linuxの場合、実行ファイルと同じ場所
+        string exeDirectory = Directory.GetParent(Application.dataPath).FullName;
+        return Path.Combine(exeDirectory, "Screenshots");
+        #else
+        // その他のプラットフォームは一時キャッシュ
+        return Application.temporaryCachePath;
+        #endif
+    }
+    
+    /// <summary>
+    /// ファイルをエクスプローラーで開く（Windows用）
+    /// </summary>
+    private void OpenFileInExplorer(string filePath)
+    {
+        try
+        {
+            #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            // Windows: エクスプローラーでファイルを選択状態で開く
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
+            #elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+            // macOS: Finderでファイルを選択状態で開く
+            System.Diagnostics.Process.Start("open", $"-R \"{filePath}\"");
+            #elif UNITY_STANDALONE_LINUX
+            // Linux: ファイルマネージャーで開く（xdg-openを使用）
+            System.Diagnostics.Process.Start("xdg-open", Path.GetDirectoryName(filePath));
+            #else
+            // その他のプラットフォームは何もしない
+            Debug.Log($"CreativeModeSaveSystem: このプラットフォームではファイルを自動的に開けません。パス: {filePath}");
+            #endif
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"CreativeModeSaveSystem: ファイルを開くのに失敗しました: {e.Message}");
+        }
+    }
+    
+    /// <summary>
     /// Twitterに共有（Windows/その他のプラットフォーム用）
     /// </summary>
     /// <param name="imagePath">画像ファイルのパス</param>
@@ -250,9 +307,13 @@ public class CreativeModeSaveSystem : MonoBehaviour
             // ブラウザでTwitter投稿画面を開く
             Application.OpenURL(twitterUrl);
             
-            // 画像ファイルのパスをログに出力（ユーザーが手動でアップロードするため）
-            Debug.Log($"CreativeModeSaveSystem: Twitter投稿画面を開きました。画像ファイルは以下のパスに保存されています: {imagePath}");
-            Debug.Log($"CreativeModeSaveSystem: 画像を手動でアップロードしてください。");
+            // 画像ファイルをエクスプローラーで開く（ユーザーが簡単にアクセスできるように）
+            OpenFileInExplorer(imagePath);
+            
+            // 画像ファイルのパスをログに出力
+            UnityEngine.Debug.Log($"CreativeModeSaveSystem: Twitter投稿画面を開きました。");
+            UnityEngine.Debug.Log($"CreativeModeSaveSystem: 画像ファイルをエクスプローラーで開きました。パス: {imagePath}");
+            UnityEngine.Debug.Log($"CreativeModeSaveSystem: エクスプローラーで表示された画像をTwitterにドラッグ&ドロップしてください。");
             
             return true;
         }
