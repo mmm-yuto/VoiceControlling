@@ -25,6 +25,17 @@ public class ColorDefenseUI : MonoBehaviour
     [SerializeField] private Button retryButton;
     [SerializeField] private Button mainMenuButton;
     
+    [Header("Navigation")]
+    [Tooltip("タイトルに戻るボタン")]
+    [SerializeField] private Button backToTitleButton;
+    
+    [Tooltip("タイトルシーン名（インスペクターで設定）")]
+    [SerializeField] private string titleSceneName = "00_MainMenu";
+    
+    [Header("ColorDefense Objects")]
+    [Tooltip("ColorDefense中に常に表示するオブジェクト（インスペクターで設定）")]
+    [SerializeField] private GameObject[] colorDefenseObjects;
+    
     private int currentScore = 0;
     private int currentCombo = 0;
     private int defendedAreasCount = 0;
@@ -49,10 +60,15 @@ public class ColorDefenseUI : MonoBehaviour
             retryButton.onClick.AddListener(OnRetryClicked);
         if (mainMenuButton != null)
             mainMenuButton.onClick.AddListener(OnMainMenuClicked);
+        if (backToTitleButton != null)
+            backToTitleButton.onClick.AddListener(OnBackToTitleClicked);
         
         // ゲームオーバーパネルを非表示
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
+        
+        // ColorDefense中に表示するオブジェクトを表示
+        SetColorDefenseObjectsVisibility(true);
     }
     
     void OnDestroy()
@@ -64,6 +80,9 @@ public class ColorDefenseUI : MonoBehaviour
         ColorDefenseMode.OnAreaDefended -= OnAreaDefended;
         ColorDefenseMode.OnAreaChanged -= OnAreaChanged;
         ColorDefenseMode.OnGameEnded -= OnGameEnded;
+        
+        // ColorDefense中に表示していたオブジェクトを非表示
+        SetColorDefenseObjectsVisibility(false);
     }
     
     private void UpdateScore(int score)
@@ -164,6 +183,41 @@ public class ColorDefenseUI : MonoBehaviour
     private void OnMainMenuClicked()
     {
         UnityEngine.SceneManagement.SceneManager.LoadScene("00_MainMenu");
+    }
+    
+    /// <summary>
+    /// タイトルに戻るボタンがクリックされた時の処理
+    /// </summary>
+    private void OnBackToTitleClicked()
+    {
+        if (!string.IsNullOrEmpty(titleSceneName))
+        {
+            UnityEngine.SceneManagement.SceneManager.LoadScene(titleSceneName);
+        }
+        else
+        {
+            Debug.LogWarning("ColorDefenseUI: タイトルシーン名が設定されていません");
+        }
+    }
+    
+    /// <summary>
+    /// ColorDefense中に表示するオブジェクトの表示/非表示を設定
+    /// </summary>
+    /// <param name="visible">true = 表示、false = 非表示</param>
+    private void SetColorDefenseObjectsVisibility(bool visible)
+    {
+        if (colorDefenseObjects == null || colorDefenseObjects.Length == 0)
+        {
+            return;
+        }
+        
+        foreach (GameObject obj in colorDefenseObjects)
+        {
+            if (obj != null)
+            {
+                obj.SetActive(visible);
+            }
+        }
     }
 }
 
