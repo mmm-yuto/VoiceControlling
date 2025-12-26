@@ -77,6 +77,13 @@ public class CreativeModeUI : MonoBehaviour
     [Tooltip("保存状態ラベル")]
     [SerializeField] private TextMeshProUGUI saveStatusLabel;
     
+    [Header("Navigation")]
+    [Tooltip("タイトルに戻るボタン")]
+    [SerializeField] private Button backToTitleButton;
+    
+    [Tooltip("タイトルシーン名（インスペクターで設定）")]
+    [SerializeField] private string titleSceneName = "00_MainMenu";
+    
     // 動的生成されたブラシボタンの辞書
     private Dictionary<BrushStrategyBase, Button> brushButtons = new Dictionary<BrushStrategyBase, Button>();
     
@@ -236,6 +243,12 @@ public class CreativeModeUI : MonoBehaviour
         {
             saveSystem.OnImageSaved += HandleImageSaved;
             saveSystem.OnShareCompleted += HandleShareCompleted;
+        }
+        
+        // タイトルに戻るボタン
+        if (backToTitleButton != null)
+        {
+            backToTitleButton.onClick.AddListener(OnBackToTitleClicked);
         }
     }
     
@@ -508,6 +521,21 @@ public class CreativeModeUI : MonoBehaviour
         if (saveStatusLabel != null)
         {
             saveStatusLabel.text = success ? "Share completed" : "Share failed";
+        }
+    }
+    
+    /// <summary>
+    /// タイトルに戻るボタンがクリックされた時の処理
+    /// </summary>
+    private void OnBackToTitleClicked()
+    {
+        if (!string.IsNullOrEmpty(titleSceneName))
+        {
+            UnityEngine.SceneManagement.SceneManager.LoadScene(titleSceneName);
+        }
+        else
+        {
+            Debug.LogWarning("CreativeModeUI: タイトルシーン名が設定されていません");
         }
     }
 }

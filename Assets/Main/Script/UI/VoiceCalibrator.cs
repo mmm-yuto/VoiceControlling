@@ -514,7 +514,7 @@ public class VoiceCalibrator : MonoBehaviour
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
         float startTime = Time.time;
         
-        UpdateCalibrationStatus($"Calibrating minimum volume... Please remain silent for {duration:F1} seconds");
+        UpdateCalibrationStatus($"Calibrating minimum volume...\nPlease remain silent for {duration:F1} seconds");
         
         // イベント購読
         if (volumeAnalyzer != null)
@@ -582,7 +582,7 @@ public class VoiceCalibrator : MonoBehaviour
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
         float startTime = Time.time;
         
-        UpdateCalibrationStatus($"Calibrating maximum volume... Please speak loudly for {duration:F1} seconds");
+        UpdateCalibrationStatus($"Calibrating maximum volume...\nPlease speak loudly for {duration:F1} seconds");
         
         // イベント購読
         if (volumeAnalyzer != null)
@@ -651,7 +651,7 @@ public class VoiceCalibrator : MonoBehaviour
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
         float startTime = Time.time;
         
-        UpdateCalibrationStatus($"Calibrating minimum pitch... Please speak in a low voice for {duration:F1} seconds");
+        UpdateCalibrationStatus($"Calibrating minimum pitch...\nPlease speak in a low voice for {duration:F1} seconds");
         
         // イベント購読
         if (improvedPitchAnalyzer != null)
@@ -720,7 +720,7 @@ public class VoiceCalibrator : MonoBehaviour
         float duration = calibrationSettings != null ? calibrationSettings.stepDuration : 3f;
         float startTime = Time.time;
         
-        UpdateCalibrationStatus($"Calibrating maximum pitch... Please speak in a high voice for {duration:F1} seconds");
+        UpdateCalibrationStatus($"Calibrating maximum pitch...\nPlease speak in a high voice for {duration:F1} seconds");
         
         // イベント購読
         if (improvedPitchAnalyzer != null)
