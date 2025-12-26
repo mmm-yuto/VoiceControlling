@@ -205,9 +205,54 @@ public class ColorDefenseUI : MonoBehaviour
             ratioText.text = $"Player {playerPercent}% : Enemy {enemyPercent}%";
         }
         
+        // GameOverPanelの色を勝利したプレイヤーの色に設定
+        SetGameOverPanelColor(result);
+        
         // ゲーム終了時にオブジェクトを非表示（オプション：必要に応じてコメントアウト）
         // SetColorDefenseObjectsVisibility(false);
         // objectsVisible = false;
+    }
+    
+    /// <summary>
+    /// GameOverPanelの背景色を勝利したプレイヤーの色に設定
+    /// </summary>
+    private void SetGameOverPanelColor(ColorDefenseMode.GameResult result)
+    {
+        if (gameOverPanel == null) return;
+        
+        // BattleSettingsから色を取得
+        BattleSettings battleSettings = BattleSettings.Instance;
+        if (battleSettings == null || battleSettings.Current == null)
+        {
+            return;
+        }
+        
+        Color winnerColor;
+        switch (result)
+        {
+            case ColorDefenseMode.GameResult.PlayerWin:
+                // プレイヤーが勝利した場合、プレイヤーの色を使用
+                winnerColor = battleSettings.Current.playerColor;
+                break;
+            case ColorDefenseMode.GameResult.EnemyWin:
+                // 敵が勝利した場合、敵の色を使用
+                winnerColor = battleSettings.Current.cpuColor;
+                break;
+            default:
+                // 引き分けの場合はデフォルト色（白または半透明）を使用
+                winnerColor = Color.white;
+                break;
+        }
+        
+        // GameOverPanelのImageコンポーネントを取得して色を設定
+        UnityEngine.UI.Image panelImage = gameOverPanel.GetComponent<UnityEngine.UI.Image>();
+        if (panelImage != null)
+        {
+            // 透明度を保持しながら色を設定（アルファ値を保持）
+            Color currentColor = panelImage.color;
+            winnerColor.a = currentColor.a; // 既存の透明度を保持
+            panelImage.color = winnerColor;
+        }
     }
     
     private void OnRetryClicked()

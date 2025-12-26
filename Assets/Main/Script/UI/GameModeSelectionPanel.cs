@@ -65,6 +65,10 @@ public class GameModeSelectionPanel : MonoBehaviour
     [Tooltip("アニメーション開始後、次の画面を表示するまでの遅延時間（秒）")]
     [SerializeField] private float transitionDelay = 0.3f;
     
+    [Header("Exit Button")]
+    [Tooltip("ゲーム終了ボタン")]
+    [SerializeField] private Button exitButton;
+    
     void Start()
     {
         // シーン開始時に選択画面を表示
@@ -192,6 +196,13 @@ public class GameModeSelectionPanel : MonoBehaviour
             tracingButton.onClick.RemoveAllListeners();
             tracingButton.onClick.AddListener(() => OnModeSelected(SinglePlayerGameModeType.Tracing));
         }
+        
+        // 終了ボタンのイベント設定
+        if (exitButton != null)
+        {
+            exitButton.onClick.RemoveAllListeners();
+            exitButton.onClick.AddListener(OnExitButtonClicked);
+        }
     }
     
     /// <summary>
@@ -297,6 +308,22 @@ public class GameModeSelectionPanel : MonoBehaviour
         }
         
         Debug.Log("GameModeSelectionPanel: ゲーム開始");
+    }
+    
+    /// <summary>
+    /// 終了ボタンがクリックされた時の処理
+    /// </summary>
+    private void OnExitButtonClicked()
+    {
+        Debug.Log("GameModeSelectionPanel: ゲームを終了します");
+        
+        #if UNITY_EDITOR
+        // エディタの場合は再生を停止
+        UnityEditor.EditorApplication.isPlaying = false;
+        #else
+        // ビルド版の場合はアプリケーションを終了
+        Application.Quit();
+        #endif
     }
 }
 
