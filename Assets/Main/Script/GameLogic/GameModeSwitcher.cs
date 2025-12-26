@@ -55,6 +55,13 @@ public class GameModeSwitcher : MonoBehaviour
         // ScriptableObject の selectedMode に応じて親オブジェクトを有効化
         var mode = singlePlayerSettings.selectedMode;
 
+        // Noneモードの場合は何も有効化しない
+        if (mode == SinglePlayerGameModeType.None)
+        {
+            Debug.Log("GameModeSwitcher: モードが選択されていません（初期状態）");
+            return;
+        }
+
         bool useColorDefense = (mode == SinglePlayerGameModeType.ColorDefense);
         bool useCreative = (mode == SinglePlayerGameModeType.Creative);
 

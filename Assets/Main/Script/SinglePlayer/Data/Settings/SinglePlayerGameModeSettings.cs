@@ -8,7 +8,7 @@ public class SinglePlayerGameModeSettings : ScriptableObject
 {
     [Header("Mode Selection")]
     [Tooltip("選択されたゲームモード")]
-    public SinglePlayerGameModeType selectedMode = SinglePlayerGameModeType.ColorDefense;
+    public SinglePlayerGameModeType selectedMode = SinglePlayerGameModeType.None;
     
     [Header("Common Settings")]
     [Tooltip("ゲーム時間（秒）")]

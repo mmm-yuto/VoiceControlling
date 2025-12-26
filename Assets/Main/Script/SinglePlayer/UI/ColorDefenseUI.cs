@@ -41,9 +41,13 @@ public class ColorDefenseUI : MonoBehaviour
     private int defendedAreasCount = 0;
     private int changedAreasCount = 0;
     private ColorDefenseMode colorDefenseMode;
+    private bool objectsVisible = false; // オブジェクトが表示されているかどうか
     
     void Start()
     {
+        // 初期状態ではオブジェクトを非表示
+        SetColorDefenseObjectsVisibility(false);
+        
         // ColorDefenseModeを検索
         colorDefenseMode = FindObjectOfType<ColorDefenseMode>();
         
@@ -66,9 +70,13 @@ public class ColorDefenseUI : MonoBehaviour
         // ゲームオーバーパネルを非表示
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
-        
-        // ColorDefense中に表示するオブジェクトを表示
-        SetColorDefenseObjectsVisibility(true);
+    }
+    
+    void OnDisable()
+    {
+        // ColorDefenseモードが無効化されたときにオブジェクトを非表示
+        SetColorDefenseObjectsVisibility(false);
+        objectsVisible = false;
     }
     
     void OnDestroy()
@@ -83,6 +91,23 @@ public class ColorDefenseUI : MonoBehaviour
         
         // ColorDefense中に表示していたオブジェクトを非表示
         SetColorDefenseObjectsVisibility(false);
+        objectsVisible = false;
+    }
+    
+    void Update()
+    {
+        // ColorDefenseModeが存在して、ゲームが開始されたときにオブジェクトを表示
+        if (!objectsVisible && colorDefenseMode != null && colorDefenseMode.IsGameActive())
+        {
+            SetColorDefenseObjectsVisibility(true);
+            objectsVisible = true;
+        }
+        // ゲームが終了したらオブジェクトを非表示（ゲーム終了時のみ）
+        else if (objectsVisible && colorDefenseMode != null && !colorDefenseMode.IsGameActive())
+        {
+            // ゲームが一時停止されているだけかもしれないので、ここでは非表示にしない
+            // EndGame()が呼ばれたときのみ非表示にする（OnGameEndedイベントで処理）
+        }
     }
     
     private void UpdateScore(int score)
@@ -91,6 +116,13 @@ public class ColorDefenseUI : MonoBehaviour
         if (scoreText != null)
         {
             scoreText.text = $"Score: {score}";
+        }
+        
+        // 最初のスコア更新（ゲーム開始時）にオブジェクトを表示
+        if (!objectsVisible)
+        {
+            SetColorDefenseObjectsVisibility(true);
+            objectsVisible = true;
         }
     }
     
@@ -172,6 +204,10 @@ public class ColorDefenseUI : MonoBehaviour
             int enemyPercent = Mathf.RoundToInt(enemyRatio * 100f);
             ratioText.text = $"Player {playerPercent}% : Enemy {enemyPercent}%";
         }
+        
+        // ゲーム終了時にオブジェクトを非表示（オプション：必要に応じてコメントアウト）
+        // SetColorDefenseObjectsVisibility(false);
+        // objectsVisible = false;
     }
     
     private void OnRetryClicked()

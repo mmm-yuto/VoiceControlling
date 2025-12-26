@@ -422,6 +422,12 @@ public class AmbientCanvasEffects : MonoBehaviour
                 // 波の色アニメーションを無効化（1色のみ）
                 waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
             }
+            else if (currentMode == SinglePlayerGameModeType.None)
+            {
+                // Noneモード（初期状態）の時: デフォルトのグラデーション波を適用
+                ApplyDefaultGradientWave();
+                waveformMaterial.SetFloat("_ColorBlendFactor", 1.0f);
+            }
             else
             {
                 // その他のモードの時: グラデーションの挙動
@@ -721,8 +727,8 @@ public class AmbientCanvasEffects : MonoBehaviour
             return SinglePlayerGameModeType.Creative;
         }
         
-        // デフォルトはCreative
-        return SinglePlayerGameModeType.Creative;
+        // デフォルトはNone（初期状態）
+        return SinglePlayerGameModeType.None;
     }
 }
 

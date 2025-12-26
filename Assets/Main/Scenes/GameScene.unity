@@ -10189,7 +10189,7 @@ MonoBehaviour:
   backToTitleButton: {fileID: 2119175417}
   titleSceneName: GameScene
   colorDefenseObjects:
-  - {fileID: 1918767658}
+  - {fileID: 2119175415}
 --- !u!4 &1366727909
 Transform:
   m_ObjectHideFlags: 0
@@ -15246,7 +15246,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1918767659
 RectTransform:
   m_ObjectHideFlags: 0
@@ -15528,6 +15528,8 @@ MonoBehaviour:
   singlePlayerSettings: {fileID: 11400000, guid: 8f8593fcdb62d5e4bbd5d45c2c6ad705, type: 2}
   colorDefenseMode: {fileID: 811482046}
   creativeModeManager: {fileID: 2078794040}
+  colorDefenseObjects:
+  - {fileID: 2119175415}
 --- !u!1 &2018800907
 GameObject:
   m_ObjectHideFlags: 0
@@ -16451,7 +16453,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2119175416
 RectTransform:
   m_ObjectHideFlags: 0

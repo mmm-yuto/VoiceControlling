@@ -72,6 +72,11 @@ public class SinglePlayerModeManager : MonoBehaviour
         // 選択されたモードを有効化
         switch (settings.selectedMode)
         {
+            case SinglePlayerGameModeType.None:
+                // 初期状態：何も選択されていない
+                currentMode = null;
+                Debug.Log("SinglePlayerModeManager: モードが選択されていません（初期状態）");
+                return; // モードが選択されていない場合は何も初期化しない
             case SinglePlayerGameModeType.Creative:
                 if (creativeModeManager != null)
                 {
@@ -114,9 +119,14 @@ public class SinglePlayerModeManager : MonoBehaviour
             currentMode.StartGame();
             OnModeChanged?.Invoke(settings.selectedMode);
         }
-        else
+        else if (settings.selectedMode != SinglePlayerGameModeType.None)
         {
             Debug.LogError($"SinglePlayerModeManager: {settings.selectedMode}モードのコンポーネントが設定されていません");
+        }
+        else
+        {
+            // Noneモードの場合はイベントを発火（モードが選択されていない状態）
+            OnModeChanged?.Invoke(SinglePlayerGameModeType.None);
         }
     }
     
