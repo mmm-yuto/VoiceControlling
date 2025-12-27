@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: PencilBrush
   m_EditorClassIdentifier: Assembly-CSharp::PencilBrush
   radius: 5
-  displayName: Pencil
-  icon: {fileID: 21300000, guid: ea66d4a281d922540b8d2d6fd73a6029, type: 3}
+  displayName: 
+  icon: {fileID: 21300000, guid: de96332083282dc459432d9e27e30193, type: 3}
