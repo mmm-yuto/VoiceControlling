@@ -374,6 +374,36 @@ public class VoiceCalibrator : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// カリブレーション値を手動で設定する（SettingsPanelから呼び出される）
+    /// </summary>
+    public void SetCalibrationValuesManually(float newMinVolume, float newMaxVolume, float newMinPitch, float newMaxPitch)
+    {
+        // 内部変数を更新
+        minVolume = newMinVolume;
+        maxVolume = newMaxVolume;
+        minPitch = newMinPitch;
+        maxPitch = newMaxPitch;
+        
+        // 中心位置を計算
+        CenterVolume = (minVolume + maxVolume) / 2f;
+        CenterPitch = (minPitch + maxPitch) / 2f;
+        
+        // 静的プロパティを更新
+        MinVolume = minVolume;
+        MaxVolume = maxVolume;
+        MinPitch = minPitch;
+        MaxPitch = maxPitch;
+        
+        // 結果を各コンポーネントに適用
+        ApplyCalibrationResults();
+        
+        // イベント通知（手動設定であることを示す）
+        OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
+        
+        Debug.Log($"Calibration values set manually - Volume: {minVolume:F3} - {maxVolume:F3}, Pitch: {minPitch:F1} - {maxPitch:F1} Hz");
+    }
+    
     void OnVolumeDetected(float volume)
     {
         if (!isCalibrating) return;
