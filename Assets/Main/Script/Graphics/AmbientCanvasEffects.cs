@@ -113,6 +113,12 @@ public class AmbientCanvasEffects : MonoBehaviour
     private const float cycleSpeedSmoothTime = 0.15f; // 補間時間（速い反応のため0.15秒）
     private const float silenceVolumeThreshold = 0.01f; // 無音判定の閾値（正規化された音量）
     
+    // ピッチと音量のスムージング用変数
+    private float smoothedNormalizedPitch = 0f;
+    private float smoothedNormalizedVolume = 0f;
+    private float pitchVelocity = 0f;
+    private float volumeVelocity = 0f;
+    
     void Start()
     {
         Initialize();
@@ -324,24 +330,23 @@ public class AmbientCanvasEffects : MonoBehaviour
         ApplySettings();
         
         // 音声入力の音量とピッチを取得して、カリブレーション範囲から正規化してシェーダーに反映
+        // 音量閾値の取得（ImprovedPitchAnalyzerの閾値を優先、VoiceInputHandlerと同じロジック）
+        float volumeThreshold = pitchAnalyzer != null ? pitchAnalyzer.volumeThreshold : silenceVolumeThreshold;
+        
+        // 生の音量値を取得
+        float rawVolume = volumeAnalyzer != null ? volumeAnalyzer.CurrentVolume : 0f;
+        
+        // 音量をカリブレーション範囲から正規化（0-1）
         float normalizedVolume = 0f;
         if (volumeAnalyzer != null && voiceToScreenMapper != null)
         {
-            // 音量をカリブレーション範囲から正規化（0-1）
-            float rawVolume = volumeAnalyzer.CurrentVolume;
             normalizedVolume = NormalizeVolume(rawVolume, voiceToScreenMapper.minVolume, voiceToScreenMapper.maxVolume);
-            waveformMaterial.SetFloat("_AudioVolume", normalizedVolume);
         }
         else if (volumeAnalyzer != null)
         {
             // VoiceToScreenMapperがない場合は、生の音量値をそのまま使用（0-1の範囲を想定）
-            float volume = volumeAnalyzer.CurrentVolume;
-            normalizedVolume = volume;
-            waveformMaterial.SetFloat("_AudioVolume", normalizedVolume);
+            normalizedVolume = rawVolume;
         }
-        
-        // 無音判定（音量が閾値以下の場合）
-        bool isSilent = normalizedVolume <= silenceVolumeThreshold;
         
         // ピッチをカリブレーション範囲から正規化（0-1）
         float normalizedPitch = 0f;
@@ -349,20 +354,29 @@ public class AmbientCanvasEffects : MonoBehaviour
         {
             float rawPitch = pitchAnalyzer.lastDetectedPitch;
             normalizedPitch = NormalizePitch(rawPitch, voiceToScreenMapper.minPitch, voiceToScreenMapper.maxPitch);
-            waveformMaterial.SetFloat("_AudioPitch", normalizedPitch);
         }
         else if (pitchAnalyzer != null)
         {
             // VoiceToScreenMapperがない場合は、生のピッチ値を0-1に正規化（80-1000Hzを想定）
             float rawPitch = pitchAnalyzer.lastDetectedPitch;
             normalizedPitch = Mathf.InverseLerp(80f, 1000f, rawPitch);
-            waveformMaterial.SetFloat("_AudioPitch", normalizedPitch);
         }
-        else
-        {
-            // ピッチアナライザーがない場合は0を設定
-            waveformMaterial.SetFloat("_AudioPitch", 0f);
-        }
+        
+        // 無音判定（InkEffectのマーカーが動かない条件と同じ）
+        // VoiceInputHandler.IsSilentと同じ条件: (latestVolume < threshold) || (latestPitch <= 0f)
+        bool isSilent = (rawVolume < volumeThreshold) || (normalizedPitch <= 0f);
+        
+        // 目標値を設定（無音時は0、それ以外は計算された値）
+        float targetNormalizedVolume = isSilent ? 0f : normalizedVolume;
+        float targetNormalizedPitch = isSilent ? 0f : normalizedPitch;
+        
+        // スムージング処理（周期速度と同じ方法）
+        smoothedNormalizedVolume = Mathf.SmoothDamp(smoothedNormalizedVolume, targetNormalizedVolume, ref volumeVelocity, cycleSpeedSmoothTime);
+        smoothedNormalizedPitch = Mathf.SmoothDamp(smoothedNormalizedPitch, targetNormalizedPitch, ref pitchVelocity, cycleSpeedSmoothTime);
+        
+        // スムージングされた値をシェーダーに渡す
+        waveformMaterial.SetFloat("_AudioVolume", smoothedNormalizedVolume);
+        waveformMaterial.SetFloat("_AudioPitch", smoothedNormalizedPitch);
         
         // 目標の周期速度を計算
         const float minCycleSpeed = 0.5f; // 最小周期速度（初期値、無音時）
