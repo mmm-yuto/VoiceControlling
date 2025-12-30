@@ -62,6 +62,9 @@ public class SettingsPanel : MonoBehaviour
     [Tooltip("VoiceInputHandler（自動検索される）")]
     [SerializeField] private VoiceInputHandler voiceInputHandler;
     
+    [Tooltip("CalibrationSettings（初期値を取得するために使用、自動検索される）")]
+    [SerializeField] private CalibrationSettings calibrationSettings;
+    
     [Header("Back Button")]
     [Tooltip("戻るボタン")]
     [SerializeField] private Button backButton;
@@ -96,7 +99,14 @@ public class SettingsPanel : MonoBehaviour
             voiceInputHandler = FindObjectOfType<VoiceInputHandler>();
         }
         
-        // スライダーの設定
+        // CalibrationSettingsの取得
+        if (calibrationSettings == null && voiceCalibrator != null)
+        {
+            // VoiceCalibratorからCalibrationSettingsを取得
+            calibrationSettings = voiceCalibrator.calibrationSettings;
+        }
+        
+        // スライダーの設定（初期値も設定）
         SetupSliders();
         
         // 現在の値をスライダーに反映
@@ -122,15 +132,31 @@ public class SettingsPanel : MonoBehaviour
     }
     
     /// <summary>
-    /// スライダーの設定（範囲とイベント）
+    /// スライダーの設定（範囲とイベント、初期値）
     /// </summary>
     void SetupSliders()
     {
+        // CalibrationSettingsから初期値を取得
+        float initialMinVol = 0f;
+        float initialMaxVol = 1f;
+        float initialMinPit = 80f;
+        float initialMaxPit = 1000f;
+        
+        if (calibrationSettings != null)
+        {
+            initialMinVol = calibrationSettings.GetInitialMinVolume();
+            initialMaxVol = calibrationSettings.GetInitialMaxVolume();
+            initialMinPit = calibrationSettings.initialMinPitch;
+            initialMaxPit = calibrationSettings.initialMaxPitch;
+        }
+        
         // カリブレーション値のスライダー設定
         if (minVolumeSlider != null)
         {
             minVolumeSlider.minValue = 0f;
             minVolumeSlider.maxValue = 1f;
+            // 初期値を設定（VoiceCalibratorの現在値がデフォルト値(0f)の場合はCalibrationSettingsの初期値を使用）
+            minVolumeSlider.value = (VoiceCalibrator.MinVolume == 0f) ? initialMinVol : VoiceCalibrator.MinVolume;
             minVolumeSlider.onValueChanged.RemoveAllListeners();
             minVolumeSlider.onValueChanged.AddListener(OnMinVolumeChanged);
         }
@@ -139,6 +165,8 @@ public class SettingsPanel : MonoBehaviour
         {
             maxVolumeSlider.minValue = 0f;
             maxVolumeSlider.maxValue = 1f;
+            // 初期値を設定（VoiceCalibratorの現在値がデフォルト値(1f)の場合はCalibrationSettingsの初期値を使用）
+            maxVolumeSlider.value = (VoiceCalibrator.MaxVolume == 1f) ? initialMaxVol : VoiceCalibrator.MaxVolume;
             maxVolumeSlider.onValueChanged.RemoveAllListeners();
             maxVolumeSlider.onValueChanged.AddListener(OnMaxVolumeChanged);
         }
@@ -147,6 +175,8 @@ public class SettingsPanel : MonoBehaviour
         {
             minPitchSlider.minValue = 80f;
             minPitchSlider.maxValue = 1000f;
+            // 初期値を設定（VoiceCalibratorの現在値がデフォルト値(80f)の場合はCalibrationSettingsの初期値を使用）
+            minPitchSlider.value = (VoiceCalibrator.MinPitch == 80f) ? initialMinPit : VoiceCalibrator.MinPitch;
             minPitchSlider.onValueChanged.RemoveAllListeners();
             minPitchSlider.onValueChanged.AddListener(OnMinPitchChanged);
         }
@@ -155,6 +185,8 @@ public class SettingsPanel : MonoBehaviour
         {
             maxPitchSlider.minValue = 80f;
             maxPitchSlider.maxValue = 1000f;
+            // 初期値を設定（VoiceCalibratorの現在値がデフォルト値(1000f)の場合はCalibrationSettingsの初期値を使用）
+            maxPitchSlider.value = (VoiceCalibrator.MaxPitch == 1000f) ? initialMaxPit : VoiceCalibrator.MaxPitch;
             maxPitchSlider.onValueChanged.RemoveAllListeners();
             maxPitchSlider.onValueChanged.AddListener(OnMaxPitchChanged);
         }
@@ -164,6 +196,11 @@ public class SettingsPanel : MonoBehaviour
         {
             volumeThresholdSlider.minValue = 0f;
             volumeThresholdSlider.maxValue = 0.1f;
+            // 初期値を設定（実際の値があればそれを優先）
+            if (improvedPitchAnalyzer != null)
+            {
+                volumeThresholdSlider.value = improvedPitchAnalyzer.volumeThreshold;
+            }
             volumeThresholdSlider.onValueChanged.RemoveAllListeners();
             volumeThresholdSlider.onValueChanged.AddListener(OnVolumeThresholdChanged);
         }
@@ -172,6 +209,11 @@ public class SettingsPanel : MonoBehaviour
         {
             silenceVolumeThresholdSlider.minValue = 0f;
             silenceVolumeThresholdSlider.maxValue = 0.1f;
+            // 初期値を設定（実際の値があればそれを優先）
+            if (voiceInputHandler != null)
+            {
+                silenceVolumeThresholdSlider.value = voiceInputHandler.silenceVolumeThreshold;
+            }
             silenceVolumeThresholdSlider.onValueChanged.RemoveAllListeners();
             silenceVolumeThresholdSlider.onValueChanged.AddListener(OnSilenceVolumeThresholdChanged);
         }
@@ -181,6 +223,11 @@ public class SettingsPanel : MonoBehaviour
         {
             positionSmoothingSlider.minValue = 0f;
             positionSmoothingSlider.maxValue = 1f;
+            // 初期値を設定（実際の値があればそれを優先）
+            if (voiceInputHandler != null)
+            {
+                positionSmoothingSlider.value = voiceInputHandler.positionSmoothing;
+            }
             positionSmoothingSlider.onValueChanged.RemoveAllListeners();
             positionSmoothingSlider.onValueChanged.AddListener(OnPositionSmoothingChanged);
         }
