@@ -29,9 +29,6 @@ public class SettingsPanel : MonoBehaviour
     [Tooltip("ImprovedPitchAnalyzerの音量閾値スライダー")]
     [SerializeField] private Slider volumeThresholdSlider;
     
-    [Tooltip("VoiceInputHandlerの無音判定閾値スライダー（オプション）")]
-    [SerializeField] private Slider silenceVolumeThresholdSlider;
-    
     [Header("Position Sensitivity Sliders")]
     [Tooltip("スムージング係数のスライダー（0.0-1.0）")]
     [SerializeField] private Slider positionSmoothingSlider;
@@ -195,27 +192,23 @@ public class SettingsPanel : MonoBehaviour
         if (volumeThresholdSlider != null)
         {
             volumeThresholdSlider.minValue = 0f;
-            volumeThresholdSlider.maxValue = 0.1f;
+            // 最大値をMinVolumeより少し低い値に制限（MinVolumeの90%程度）
+            UpdateVolumeThresholdSliderMaxValue();
+            
             // 初期値を設定（実際の値があればそれを優先）
             if (improvedPitchAnalyzer != null)
             {
-                volumeThresholdSlider.value = improvedPitchAnalyzer.volumeThreshold;
+                float currentThreshold = improvedPitchAnalyzer.volumeThreshold;
+                // 現在の値が最大値を超えている場合は調整
+                if (currentThreshold > volumeThresholdSlider.maxValue)
+                {
+                    currentThreshold = volumeThresholdSlider.maxValue;
+                    improvedPitchAnalyzer.volumeThreshold = currentThreshold;
+                }
+                volumeThresholdSlider.value = currentThreshold;
             }
             volumeThresholdSlider.onValueChanged.RemoveAllListeners();
             volumeThresholdSlider.onValueChanged.AddListener(OnVolumeThresholdChanged);
-        }
-        
-        if (silenceVolumeThresholdSlider != null)
-        {
-            silenceVolumeThresholdSlider.minValue = 0f;
-            silenceVolumeThresholdSlider.maxValue = 0.1f;
-            // 初期値を設定（実際の値があればそれを優先）
-            if (voiceInputHandler != null)
-            {
-                silenceVolumeThresholdSlider.value = voiceInputHandler.silenceVolumeThreshold;
-            }
-            silenceVolumeThresholdSlider.onValueChanged.RemoveAllListeners();
-            silenceVolumeThresholdSlider.onValueChanged.AddListener(OnSilenceVolumeThresholdChanged);
         }
         
         // 位置のセンシティビティのスライダー設定
@@ -264,14 +257,22 @@ public class SettingsPanel : MonoBehaviour
         }
         
         // 音量閾値
-        if (volumeThresholdSlider != null && improvedPitchAnalyzer != null)
+        if (volumeThresholdSlider != null)
         {
-            volumeThresholdSlider.value = improvedPitchAnalyzer.volumeThreshold;
-        }
-        
-        if (silenceVolumeThresholdSlider != null && voiceInputHandler != null)
-        {
-            silenceVolumeThresholdSlider.value = voiceInputHandler.silenceVolumeThreshold;
+            // 最大値を更新
+            UpdateVolumeThresholdSliderMaxValue();
+            
+            if (improvedPitchAnalyzer != null)
+            {
+                float currentThreshold = improvedPitchAnalyzer.volumeThreshold;
+                // 現在の値が最大値を超えている場合は調整
+                if (currentThreshold > volumeThresholdSlider.maxValue)
+                {
+                    currentThreshold = volumeThresholdSlider.maxValue;
+                    improvedPitchAnalyzer.volumeThreshold = currentThreshold;
+                }
+                volumeThresholdSlider.value = currentThreshold;
+            }
         }
         
         // センシティビティ
@@ -306,6 +307,20 @@ public class SettingsPanel : MonoBehaviour
         
         ApplyCalibrationValues();
         UpdateValueText(minVolumeValueText, value, "F3");
+        
+        // VolumeThresholdの最大値を更新
+        UpdateVolumeThresholdSliderMaxValue();
+        
+        // 現在のVolumeThresholdが新しい最大値を超えている場合は調整
+        if (volumeThresholdSlider != null && volumeThresholdSlider.value > volumeThresholdSlider.maxValue)
+        {
+            float newThreshold = volumeThresholdSlider.maxValue;
+            volumeThresholdSlider.value = newThreshold;
+            if (improvedPitchAnalyzer != null)
+            {
+                improvedPitchAnalyzer.volumeThreshold = newThreshold;
+            }
+        }
     }
     
     /// <summary>
@@ -361,6 +376,20 @@ public class SettingsPanel : MonoBehaviour
     /// </summary>
     void OnVolumeThresholdChanged(float value)
     {
+        // MinVolumeより低い値に制限（MinVolumeの90%程度）
+        float maxAllowed = VoiceCalibrator.MinVolume > 0f 
+            ? VoiceCalibrator.MinVolume * 0.9f 
+            : 0.1f;
+        
+        if (value > maxAllowed)
+        {
+            value = maxAllowed;
+            if (volumeThresholdSlider != null)
+            {
+                volumeThresholdSlider.value = value;
+            }
+        }
+        
         if (improvedPitchAnalyzer != null)
         {
             improvedPitchAnalyzer.volumeThreshold = value;
@@ -368,13 +397,17 @@ public class SettingsPanel : MonoBehaviour
     }
     
     /// <summary>
-    /// 無音判定閾値が変更された時
+    /// VolumeThresholdSliderの最大値をMinVolumeに基づいて更新
     /// </summary>
-    void OnSilenceVolumeThresholdChanged(float value)
+    void UpdateVolumeThresholdSliderMaxValue()
     {
-        if (voiceInputHandler != null)
+        if (volumeThresholdSlider != null)
         {
-            voiceInputHandler.silenceVolumeThreshold = value;
+            // 最大値をMinVolumeより少し低い値に制限（MinVolumeの90%程度）
+            float maxThreshold = VoiceCalibrator.MinVolume > 0f 
+                ? VoiceCalibrator.MinVolume * 0.9f 
+                : 0.1f; // MinVolumeが0の場合はデフォルト値
+            volumeThresholdSlider.maxValue = Mathf.Max(0.01f, maxThreshold);
         }
     }
     
