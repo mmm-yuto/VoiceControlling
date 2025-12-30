@@ -36,9 +36,6 @@ public class SettingsPanel : MonoBehaviour
     [Tooltip("スムージング係数のスライダー（0.0-1.0）")]
     [SerializeField] private Slider positionSmoothingSlider;
     
-    [Tooltip("デッドゾーンのスライダー（ピクセル単位、0-50程度）")]
-    [SerializeField] private Slider positionDeadZoneSlider;
-    
     [Header("Value Display Labels (Optional)")]
     [Tooltip("最小音量の現在値を表示するテキスト")]
     [SerializeField] private TextMeshProUGUI minVolumeValueText;
@@ -187,14 +184,6 @@ public class SettingsPanel : MonoBehaviour
             positionSmoothingSlider.onValueChanged.RemoveAllListeners();
             positionSmoothingSlider.onValueChanged.AddListener(OnPositionSmoothingChanged);
         }
-        
-        if (positionDeadZoneSlider != null)
-        {
-            positionDeadZoneSlider.minValue = 0f;
-            positionDeadZoneSlider.maxValue = 50f;
-            positionDeadZoneSlider.onValueChanged.RemoveAllListeners();
-            positionDeadZoneSlider.onValueChanged.AddListener(OnPositionDeadZoneChanged);
-        }
     }
     
     /// <summary>
@@ -242,11 +231,6 @@ public class SettingsPanel : MonoBehaviour
         if (positionSmoothingSlider != null && voiceInputHandler != null)
         {
             positionSmoothingSlider.value = voiceInputHandler.positionSmoothing;
-        }
-        
-        if (positionDeadZoneSlider != null && voiceInputHandler != null)
-        {
-            positionDeadZoneSlider.value = voiceInputHandler.positionDeadZone;
         }
     }
     
@@ -355,17 +339,6 @@ public class SettingsPanel : MonoBehaviour
         if (voiceInputHandler != null)
         {
             voiceInputHandler.positionSmoothing = value;
-        }
-    }
-    
-    /// <summary>
-    /// 位置のデッドゾーンが変更された時
-    /// </summary>
-    void OnPositionDeadZoneChanged(float value)
-    {
-        if (voiceInputHandler != null)
-        {
-            voiceInputHandler.positionDeadZone = value;
         }
     }
     
