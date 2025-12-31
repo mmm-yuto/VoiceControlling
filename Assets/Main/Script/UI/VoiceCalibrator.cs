@@ -65,6 +65,10 @@ public class VoiceCalibrator : MonoBehaviour
     [Tooltip("各ボタンに対応する設定画面用オブジェクトの配列（settingsButtonsと同じ順序で設定）")]
     [SerializeField] private GameObject[] settingsObjects;
     
+    [Header("Game Selection Panel")]
+    [Tooltip("ゲームセレクト画面への参照（最初の遷移で使用）")]
+    [SerializeField] private GameModeSelectionPanel gameModeSelectionPanel;
+    
     [Header("Target Components")]
     public VoiceDisplay voiceDisplay;
     public CalibrationPanel calibrationPanel;
@@ -92,6 +96,9 @@ public class VoiceCalibrator : MonoBehaviour
     private float minPitch = 80f;
     private float maxPitch = 1000f;
     
+    // 最初の遷移を追跡するフラグ
+    private bool hasShownGameSelection = false;
+    
     void Start()
     {
         // 音声分析コンポーネントを取得
@@ -106,6 +113,12 @@ public class VoiceCalibrator : MonoBehaviour
         
         // 設定ボタンのイベント設定
         SetupSettingsButtons();
+        
+        // GameModeSelectionPanelの自動検索（未設定の場合）
+        if (gameModeSelectionPanel == null)
+        {
+            gameModeSelectionPanel = FindObjectOfType<GameModeSelectionPanel>();
+        }
         
         // 初期カリブレーション値を適用
         ApplyInitialCalibrationValues();
@@ -934,11 +947,50 @@ public class VoiceCalibrator : MonoBehaviour
     }
     
     /// <summary>
-    /// 設定ボタンがクリックされた時の処理（トグル機能）
+    /// 設定ボタンがクリックされた時の処理
+    /// 最初の遷移：GameModeSelectionPanelを表示し、SettingsObjectsを非表示にする
+    /// その後：SettingsPanelをトグル
     /// </summary>
     /// <param name="index">ボタンのインデックス</param>
     void OnSettingsButtonClicked(int index)
     {
+        // 最初の遷移の場合：GameModeSelectionPanelを表示し、SettingsObjectsを非表示にする
+        if (!hasShownGameSelection)
+        {
+            // SettingsObjectsを非表示にする
+            if (settingsObjects != null)
+            {
+                foreach (GameObject settingsObject in settingsObjects)
+                {
+                    if (settingsObject != null)
+                    {
+                        settingsObject.SetActive(false);
+                        
+                        // SettingsPanelコンポーネントがある場合はHide()メソッドも呼ぶ
+                        SettingsPanel settingsPanel = settingsObject.GetComponent<SettingsPanel>();
+                        if (settingsPanel != null)
+                        {
+                            settingsPanel.Hide();
+                        }
+                    }
+                }
+            }
+            
+            // GameModeSelectionPanelを表示
+            if (gameModeSelectionPanel != null)
+            {
+                gameModeSelectionPanel.Show();
+                hasShownGameSelection = true;
+                Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。ゲームセレクト画面を表示し、設定オブジェクトを非表示にしました。");
+            }
+            else
+            {
+                Debug.LogWarning("VoiceCalibrator: GameModeSelectionPanelが設定されていません");
+            }
+            return;
+        }
+        
+        // その後：SettingsPanelをトグル
         if (settingsObjects == null || index < 0 || index >= settingsObjects.Length)
         {
             Debug.LogWarning($"VoiceCalibrator: 無効な設定ボタンインデックス: {index}");

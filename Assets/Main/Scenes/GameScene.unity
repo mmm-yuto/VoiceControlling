@@ -9467,7 +9467,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: -674, y: -168}
+  m_AnchoredPosition: {x: -674, y: -100.6}
   m_SizeDelta: {x: 2975.0305, y: 1534.0001}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1017738479
@@ -9790,8 +9790,9 @@ MonoBehaviour:
   - {fileID: 1188020691}
   settingsObjects:
   - {fileID: 1323142837}
+  gameModeSelectionPanel: {fileID: 1823121604}
   voiceDisplay: {fileID: 0}
-  calibrationPanel: {fileID: 0}
+  calibrationPanel: {fileID: 1203206521}
 --- !u!4 &1082818348
 Transform:
   m_ObjectHideFlags: 0
@@ -10629,7 +10630,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: -674, y: -942}
+  m_AnchoredPosition: {x: -674, y: -997.8}
   m_SizeDelta: {x: 2975.0305, y: 1534.0001}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1188020691
@@ -15491,6 +15492,8 @@ MonoBehaviour:
   voiceInputHandler: {fileID: 1237626386}
   calibrationSettings: {fileID: 11400000, guid: 5b747c719ed5f894ba434f3005dc98af, type: 2}
   backButton: {fileID: 0}
+  nextButton: {fileID: 0}
+  gameModeSelectionPanel: {fileID: 0}
 --- !u!1 &1651187726
 GameObject:
   m_ObjectHideFlags: 0
@@ -19372,7 +19375,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &2052836255
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -19470,7 +19473,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TitlePanel
   titlePanel: {fileID: 2052836253}
-  nextPanel: {fileID: 1823121604}
+  nextPanel: {fileID: 1323142837}
   objectsToHideDuringTitle:
   - {fileID: 1787177001}
   - {fileID: 612787505}

@@ -58,9 +58,15 @@ public class SettingsPanel : MonoBehaviour
     [Tooltip("CalibrationSettings（初期値を取得するために使用、自動検索される）")]
     [SerializeField] private CalibrationSettings calibrationSettings;
     
-    [Header("Back Button")]
+    [Header("Navigation")]
     [Tooltip("戻るボタン")]
     [SerializeField] private Button backButton;
+    
+    [Tooltip("次へボタン（ゲームセレクト画面へ遷移）")]
+    [SerializeField] private Button nextButton;
+    
+    [Tooltip("ゲームセレクト画面への参照")]
+    [SerializeField] private GameModeSelectionPanel gameModeSelectionPanel;
     
     private bool isInitialized = false;
     
@@ -110,6 +116,19 @@ public class SettingsPanel : MonoBehaviour
         {
             backButton.onClick.RemoveAllListeners();
             backButton.onClick.AddListener(Hide);
+        }
+        
+        // 次へボタンの設定
+        if (nextButton != null)
+        {
+            nextButton.onClick.RemoveAllListeners();
+            nextButton.onClick.AddListener(TransitionToGameSelection);
+        }
+        
+        // GameModeSelectionPanelの自動検索（未設定の場合）
+        if (gameModeSelectionPanel == null)
+        {
+            gameModeSelectionPanel = FindObjectOfType<GameModeSelectionPanel>();
         }
         
         isInitialized = true;
@@ -418,6 +437,30 @@ public class SettingsPanel : MonoBehaviour
         if (settingsPanel != null)
         {
             settingsPanel.SetActive(false);
+        }
+    }
+    
+    /// <summary>
+    /// ゲームセレクト画面に遷移
+    /// </summary>
+    private void TransitionToGameSelection()
+    {
+        // 設定画面を非表示（settingsPanelとthis.gameObjectの両方を非表示にする）
+        Hide();
+        if (gameObject != null)
+        {
+            gameObject.SetActive(false);
+        }
+        
+        // ゲームセレクト画面を表示
+        if (gameModeSelectionPanel != null)
+        {
+            gameModeSelectionPanel.Show();
+            Debug.Log("SettingsPanel: ゲームセレクト画面に遷移しました");
+        }
+        else
+        {
+            Debug.LogWarning("SettingsPanel: GameModeSelectionPanelが設定されていません");
         }
     }
 }

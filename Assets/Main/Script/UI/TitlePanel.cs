@@ -10,8 +10,8 @@ public class TitlePanel : MonoBehaviour
     [Tooltip("タイトル画面のルートオブジェクト")]
     [SerializeField] private GameObject titlePanel;
     
-    [Tooltip("次のパネル（GameModeSelectionPanel）への参照")]
-    [SerializeField] private GameModeSelectionPanel nextPanel;
+    [Tooltip("次のパネル（表示するオブジェクト）")]
+    [SerializeField] private GameObject nextPanel;
     
     [Header("Objects to Hide During Title")]
     [Tooltip("タイトル画面中に非表示にしておきたいオブジェクトのリスト")]
@@ -138,14 +138,7 @@ public class TitlePanel : MonoBehaviour
             Hide();
             ShowObjectsAfterTitle();
             
-            if (nextPanel != null)
-            {
-                nextPanel.Show();
-            }
-            else
-            {
-                Debug.LogWarning("TitlePanel: nextPanel が設定されていません");
-            }
+            ShowNextPanel();
         }
     }
     
@@ -164,9 +157,25 @@ public class TitlePanel : MonoBehaviour
         ShowObjectsAfterTitle();
         
         // 次のパネルを表示
+        ShowNextPanel();
+    }
+    
+    /// <summary>
+    /// 次のパネルを表示
+    /// </summary>
+    private void ShowNextPanel()
+    {
         if (nextPanel != null)
         {
-            nextPanel.Show();
+            // オブジェクトを表示
+            nextPanel.SetActive(true);
+            
+            // SettingsPanelコンポーネントがある場合はShow()も呼び出す
+            SettingsPanel settingsPanel = nextPanel.GetComponent<SettingsPanel>();
+            if (settingsPanel != null)
+            {
+                settingsPanel.Show();
+            }
         }
         else
         {
