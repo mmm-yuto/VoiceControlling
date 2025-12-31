@@ -44,6 +44,19 @@ public class VoiceCalibrator : MonoBehaviour
     public Slider calibrationProgressSlider;
     public Button startCalibrationButton;
     
+    [Header("Graph Edge Labels")]
+    [Tooltip("最小音量を表示するテキスト（グラフの端）")]
+    [SerializeField] private TextMeshProUGUI minVolumeText;
+    
+    [Tooltip("最大音量を表示するテキスト（グラフの端）")]
+    [SerializeField] private TextMeshProUGUI maxVolumeText;
+    
+    [Tooltip("最小ピッチを表示するテキスト（グラフの端）")]
+    [SerializeField] private TextMeshProUGUI minPitchText;
+    
+    [Tooltip("最大ピッチを表示するテキスト（グラフの端）")]
+    [SerializeField] private TextMeshProUGUI maxPitchText;
+    
     [Header("Settings Buttons")]
     [Tooltip("設定画面を表示するボタンの配列（インスペクターで設定）")]
     [SerializeField] private Button[] settingsButtons;
@@ -139,10 +152,18 @@ public class VoiceCalibrator : MonoBehaviour
             // 結果を各コンポーネントに適用
             ApplyCalibrationResults();
             
+            // グラフの端のテキストを更新（ApplyCalibrationResults内でも呼ばれるが、念のため）
+            UpdateGraphEdgeLabels();
+            
             // デバッグログ（デシベル値も表示）
             float minVolDb = calibrationSettings.initialMinVolumeDb;
             float maxVolDb = calibrationSettings.initialMaxVolumeDb;
             Debug.Log($"VoiceCalibrator: Initial calibration values applied - Volume: {minVolDb:F0} - {maxVolDb:F0} dB ({initialMinVol:F3} - {initialMaxVol:F3}), Pitch: {initialMinPit:F1} - {initialMaxPit:F1} Hz");
+        }
+        else
+        {
+            // CalibrationSettingsがない場合でも、現在の値をテキストに反映
+            UpdateGraphEdgeLabels();
         }
     }
     
@@ -383,6 +404,56 @@ public class VoiceCalibrator : MonoBehaviour
         {
             voiceToScreenMapper.UpdateCalibrationRanges(minVolume, maxVolume, minPitch, maxPitch);
         }
+        
+        // グラフの端のテキストを更新
+        UpdateGraphEdgeLabels();
+    }
+    
+    /// <summary>
+    /// グラフの端のテキストを更新
+    /// </summary>
+    void UpdateGraphEdgeLabels()
+    {
+        if (minVolumeText != null)
+        {
+            float minVolumeDb = ConvertAmplitudeToDb(MinVolume);
+            minVolumeText.text = $"{minVolumeDb:F0} dB";
+        }
+        
+        if (maxVolumeText != null)
+        {
+            float maxVolumeDb = ConvertAmplitudeToDb(MaxVolume);
+            maxVolumeText.text = $"{maxVolumeDb:F0} dB";
+        }
+        
+        if (minPitchText != null)
+        {
+            minPitchText.text = $"{MinPitch:F0} Hz";
+        }
+        
+        if (maxPitchText != null)
+        {
+            maxPitchText.text = $"{MaxPitch:F0} Hz";
+        }
+    }
+    
+    /// <summary>
+    /// 振幅値（0-1）をデシベル値に変換
+    /// CalibrationSettings.ConvertDbToAmplitude()の逆変換
+    /// </summary>
+    /// <param name="amplitude">振幅値（0-1）</param>
+    /// <returns>デシベル値（0-90）</returns>
+    float ConvertAmplitudeToDb(float amplitude)
+    {
+        if (amplitude <= 0.0001f)
+        {
+            return 0f; // 無音
+        }
+        
+        // 変換式: dB = (log10(amplitude) + 4) * 22.5
+        // 0.0001 = 0 dB, 1.0 = 90 dB
+        float db = (Mathf.Log10(amplitude) + 4f) * 22.5f;
+        return Mathf.Clamp(db, 0f, 90f);
     }
     
     /// <summary>
@@ -863,7 +934,7 @@ public class VoiceCalibrator : MonoBehaviour
     }
     
     /// <summary>
-    /// 設定ボタンがクリックされた時の処理
+    /// 設定ボタンがクリックされた時の処理（トグル機能）
     /// </summary>
     /// <param name="index">ボタンのインデックス</param>
     void OnSettingsButtonClicked(int index)
@@ -881,16 +952,36 @@ public class VoiceCalibrator : MonoBehaviour
             return;
         }
         
-        // 設定オブジェクトを表示
-        targetObject.SetActive(true);
+        // 現在の表示状態を確認してトグル
+        bool isCurrentlyActive = targetObject.activeSelf;
         
-        // SettingsPanelコンポーネントがある場合はShow()メソッドを呼ぶ
-        SettingsPanel settingsPanel = targetObject.GetComponent<SettingsPanel>();
-        if (settingsPanel != null)
+        if (isCurrentlyActive)
         {
-            settingsPanel.Show();
+            // 表示されている場合は非表示にする
+            targetObject.SetActive(false);
+            
+            // SettingsPanelコンポーネントがある場合はHide()メソッドを呼ぶ
+            SettingsPanel settingsPanel = targetObject.GetComponent<SettingsPanel>();
+            if (settingsPanel != null)
+            {
+                settingsPanel.Hide();
+            }
+            
+            Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを非表示にします。");
         }
-        
-        Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを表示します。");
+        else
+        {
+            // 非表示の場合は表示する
+            targetObject.SetActive(true);
+            
+            // SettingsPanelコンポーネントがある場合はShow()メソッドを呼ぶ
+            SettingsPanel settingsPanel = targetObject.GetComponent<SettingsPanel>();
+            if (settingsPanel != null)
+            {
+                settingsPanel.Show();
+            }
+            
+            Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを表示します。");
+        }
     }
 }
