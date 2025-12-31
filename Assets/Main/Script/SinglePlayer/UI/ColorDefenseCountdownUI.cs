@@ -28,6 +28,24 @@ public class ColorDefenseCountdownUI : MonoBehaviour
     [Tooltip("Duration to show 'GO!' text (seconds)")]
     [SerializeField] private float goTextDuration = 0.5f;
     
+    [Header("Instruction Text Settings")]
+    [Tooltip("Instruction text to display after countdown (TMP)")]
+    [SerializeField] private TextMeshProUGUI instructionText;
+    
+    [Tooltip("Text content to display in instruction text")]
+    [TextArea(2, 5)]
+    [SerializeField] private string instructionTextContent = "";
+    
+    [Tooltip("Duration to show instruction text (seconds)")]
+    [SerializeField] private float instructionTextDuration = 2f;
+    
+    [Tooltip("Duration for one fade out + fade in cycle (seconds)")]
+    [SerializeField] private float fadeCycleDuration = 0.5f;
+    
+    [Header("ColorDefense UI Reference")]
+    [Tooltip("ColorDefenseUI to hide after instruction text")]
+    [SerializeField] private ColorDefenseUI colorDefenseUI;
+    
     private Coroutine currentCountdownCoroutine;
     
     /// <summary>
@@ -127,8 +145,84 @@ public class ColorDefenseCountdownUI : MonoBehaviour
         // Show GO for a short duration (optional animation can be added here)
         yield return new WaitForSeconds(goTextDuration);
         
-        // Hide the UI
+        // Hide countdown text
+        if (countdownText != null)
+        {
+            countdownText.text = "";
+        }
+        
+        // Show instruction text with fade in/out animation
+        if (instructionText != null && instructionTextDuration > 0f)
+        {
+            yield return StartCoroutine(ShowInstructionTextCoroutine());
+        }
+        
+        // Hide ColorDefenseUI before hiding countdown UI
+        if (colorDefenseUI != null)
+        {
+            colorDefenseUI.gameObject.SetActive(false);
+        }
+        
+        // Hide the countdown UI
         Hide();
+    }
+    
+    /// <summary>
+    /// Show instruction text with fade in/out animation
+    /// </summary>
+    private IEnumerator ShowInstructionTextCoroutine()
+    {
+        if (instructionText == null)
+        {
+            yield break;
+        }
+        
+        // Set instruction text content
+        if (!string.IsNullOrEmpty(instructionTextContent))
+        {
+            instructionText.text = instructionTextContent;
+        }
+        
+        // Show instruction text
+        instructionText.gameObject.SetActive(true);
+        
+        // Calculate how many fade cycles we can fit in the duration
+        float elapsedTime = 0f;
+        float halfCycleDuration = fadeCycleDuration * 0.5f; // Half cycle = fade out or fade in
+        
+        // Start with fully visible
+        Color textColor = instructionText.color;
+        textColor.a = 1f;
+        instructionText.color = textColor;
+        
+        while (elapsedTime < instructionTextDuration)
+        {
+            float cycleTime = elapsedTime % fadeCycleDuration;
+            
+            if (cycleTime < halfCycleDuration)
+            {
+                // Fade out (first half of cycle)
+                float t = cycleTime / halfCycleDuration;
+                textColor.a = Mathf.Lerp(1f, 0f, t);
+            }
+            else
+            {
+                // Fade in (second half of cycle)
+                float t = (cycleTime - halfCycleDuration) / halfCycleDuration;
+                textColor.a = Mathf.Lerp(0f, 1f, t);
+            }
+            
+            instructionText.color = textColor;
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+        
+        // Ensure text is fully visible at the end
+        textColor.a = 1f;
+        instructionText.color = textColor;
+        
+        // Hide instruction text
+        instructionText.gameObject.SetActive(false);
     }
     
     /// <summary>
@@ -181,8 +275,35 @@ public class ColorDefenseCountdownUI : MonoBehaviour
             countdownRoot = gameObject;
         }
         
+        // Auto-find instruction text if not set
+        if (instructionText == null)
+        {
+            // Try to find by name "InstructionText"
+            TextMeshProUGUI[] texts = GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (var text in texts)
+            {
+                if (text.name.Contains("InstructionText") || text.name.Contains("Instruction"))
+                {
+                    instructionText = text;
+                    break;
+                }
+            }
+        }
+        
+        // Auto-find ColorDefenseUI if not set
+        if (colorDefenseUI == null)
+        {
+            colorDefenseUI = FindObjectOfType<ColorDefenseUI>();
+        }
+        
         // Hide by default
         Hide();
+        
+        // Hide instruction text by default
+        if (instructionText != null)
+        {
+            instructionText.gameObject.SetActive(false);
+        }
     }
 }
 
