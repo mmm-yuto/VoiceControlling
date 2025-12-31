@@ -17,7 +17,7 @@ MonoBehaviour:
   maxVolumeMargin: 1
   minPitchMargin: 0.9
   maxPitchMargin: 1.1
-  initialMinVolumeDb: 20
-  initialMaxVolumeDb: 70
+  initialMinVolumeDb: 40
+  initialMaxVolumeDb: 80
   initialMinPitch: 80
   initialMaxPitch: 300

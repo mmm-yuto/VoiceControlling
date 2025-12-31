@@ -134,8 +134,21 @@ public class VoiceScatterPlot : MonoBehaviour
 	{
 		if (plotArea == null || marker == null) return;
 
-		// 無音判定: ImprovedPitchAnalyzerの閾値があればそれを優先、無ければローカル閾値を使用
-		float threshold = improvedPitchAnalyzer != null ? improvedPitchAnalyzer.volumeThreshold : silenceVolumeThreshold;
+		// 無音判定: 動的閾値計算（MinVolume * volumeDetectionRatio）
+		float threshold;
+		if (improvedPitchAnalyzer != null)
+		{
+			threshold = VoiceCalibrator.MinVolume > 0f 
+				? VoiceCalibrator.MinVolume * improvedPitchAnalyzer.volumeDetectionRatio 
+				: silenceVolumeThreshold; // MinVolumeが0の場合はデフォルト値
+		}
+		else
+		{
+			// フォールバック：デフォルト比率0.75を使用
+			threshold = VoiceCalibrator.MinVolume > 0f 
+				? VoiceCalibrator.MinVolume * 0.75f 
+				: silenceVolumeThreshold;
+		}
 		bool pitchStale = (Time.time - lastPitchUpdateTime) > pitchStaleTimeout;
 		bool isSilent = (volume < threshold) || (pitch <= 0f) || pitchStale;
 		if (isSilent)

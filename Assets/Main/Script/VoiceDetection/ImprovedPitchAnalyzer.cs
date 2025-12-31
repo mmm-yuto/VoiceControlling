@@ -7,7 +7,9 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     public float pitchSensitivity = 1.0f;
     public float minFrequency = 80f;  // 最低周波数
     public float maxFrequency = 1000f; // 最高周波数
-    public float volumeThreshold = 0.01f; // ピッチ検知の音量閾値
+    [Tooltip("検知閾値の比率（MinVolumeに対するパーセンテージ、0.0-1.0）")]
+    [Range(0.0f, 1.0f)]
+    public float volumeDetectionRatio = 0.75f; // ピッチ検知の音量閾値比率（MinVolume * volumeDetectionRatio）
     public float smoothingFactor = 0.1f; // ピッチのスムージング係数
     
     [Header("Advanced Settings")]
@@ -100,7 +102,11 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             {
                 Debug.Log($"Test Mode: Using fixed pitch {testPitch} Hz");
             }
-            ProcessPitch(testPitch, 1.0f, volumeThreshold * 2f); // 高い信頼度と音量でテスト
+            // テスト用の動的閾値を計算
+            float testThreshold = VoiceCalibrator.MinVolume > 0f 
+                ? VoiceCalibrator.MinVolume * volumeDetectionRatio * 2f 
+                : 0.02f;
+            ProcessPitch(testPitch, 1.0f, testThreshold); // 高い信頼度と音量でテスト
         }
         else
         {
@@ -137,12 +143,17 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             float currentVolume = CalculateVolume(samples);
             lastFrameRms = currentVolume;
             
+            // 動的閾値を計算（MinVolume * volumeDetectionRatio）
+            float dynamicThreshold = VoiceCalibrator.MinVolume > 0f 
+                ? VoiceCalibrator.MinVolume * volumeDetectionRatio 
+                : 0.01f; // MinVolumeが0の場合はデフォルト値を使用
+            
             if (enableDebugLog)
             {
-                Debug.Log($"ImprovedPitchAnalyzer - Volume: {currentVolume:F6}, Threshold: {volumeThreshold:F6}, Samples Length: {samples.Length}");
+                Debug.Log($"ImprovedPitchAnalyzer - Volume: {currentVolume:F6}, Dynamic Threshold: {dynamicThreshold:F6} (MinVolume: {VoiceCalibrator.MinVolume:F6}, Ratio: {volumeDetectionRatio:F3}), Samples Length: {samples.Length}");
             }
             
-            if (currentVolume > volumeThreshold)
+            if (currentVolume > dynamicThreshold)
             {
                 // 音量が閾値以上の場合のみピッチを検知
                 if (enableDebugLog)
@@ -165,7 +176,7 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
                 // 音量が低い場合はピッチ検知を停止
                 if (enableDebugLog)
                 {
-                    Debug.Log($"ImprovedPitchAnalyzer - Volume too low: {currentVolume:F6} <= {volumeThreshold:F6}");
+                    Debug.Log($"ImprovedPitchAnalyzer - Volume too low: {currentVolume:F6} <= {dynamicThreshold:F6}");
                 }
                 ProcessPitch(0f, 0f, currentVolume);
             }
@@ -532,12 +543,16 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             return false;
         }
         
-        // 音量の安定性チェック
-        if (volume < volumeThreshold * intentionalVoiceVolumeStability)
+        // 音量の安定性チェック（動的閾値を使用）
+        float dynamicThreshold = VoiceCalibrator.MinVolume > 0f 
+            ? VoiceCalibrator.MinVolume * volumeDetectionRatio 
+            : 0.01f;
+        float stabilityThreshold = dynamicThreshold * intentionalVoiceVolumeStability;
+        if (volume < stabilityThreshold)
         {
             if (enableDebugLog)
             {
-                Debug.Log($"Not intentional - Volume too low: {volume:F6} < {volumeThreshold * intentionalVoiceVolumeStability:F6}");
+                Debug.Log($"Not intentional - Volume too low: {volume:F6} < {stabilityThreshold:F6}");
             }
             return false;
         }
@@ -629,19 +644,31 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     [ContextMenu("Test Left Movement")]
     void TestLeftMovement()
     {
-        ProcessPitch(leftPitch, 1.0f, volumeThreshold * 2f); // 高い信頼度と音量でテスト
+        // テスト用の動的閾値を計算
+        float testThreshold = VoiceCalibrator.MinVolume > 0f 
+            ? VoiceCalibrator.MinVolume * volumeDetectionRatio * 2f 
+            : 0.02f;
+        ProcessPitch(leftPitch, 1.0f, testThreshold); // 高い信頼度と音量でテスト
     }
     
     [ContextMenu("Test Center Movement")]
     void TestCenterMovement()
     {
-        ProcessPitch(centerPitch, 1.0f, volumeThreshold * 2f); // 高い信頼度と音量でテスト
+        // テスト用の動的閾値を計算
+        float testThreshold = VoiceCalibrator.MinVolume > 0f 
+            ? VoiceCalibrator.MinVolume * volumeDetectionRatio * 2f 
+            : 0.02f;
+        ProcessPitch(centerPitch, 1.0f, testThreshold); // 高い信頼度と音量でテスト
     }
     
     [ContextMenu("Test Right Movement")]
     void TestRightMovement()
     {
-        ProcessPitch(rightPitch, 1.0f, volumeThreshold * 2f); // 高い信頼度と音量でテスト
+        // テスト用の動的閾値を計算
+        float testThreshold = VoiceCalibrator.MinVolume > 0f 
+            ? VoiceCalibrator.MinVolume * volumeDetectionRatio * 2f 
+            : 0.02f;
+        ProcessPitch(rightPitch, 1.0f, testThreshold); // 高い信頼度と音量でテスト
     }
     
     public System.Action<float> OnPitchDetected;

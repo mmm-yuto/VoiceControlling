@@ -330,8 +330,21 @@ public class AmbientCanvasEffects : MonoBehaviour
         ApplySettings();
         
         // 音声入力の音量とピッチを取得して、カリブレーション範囲から正規化してシェーダーに反映
-        // 音量閾値の取得（ImprovedPitchAnalyzerの閾値を優先、VoiceInputHandlerと同じロジック）
-        float volumeThreshold = pitchAnalyzer != null ? pitchAnalyzer.volumeThreshold : silenceVolumeThreshold;
+        // 動的閾値の計算（MinVolume * volumeDetectionRatio）
+        float volumeThreshold;
+        if (pitchAnalyzer != null)
+        {
+            volumeThreshold = VoiceCalibrator.MinVolume > 0f 
+                ? VoiceCalibrator.MinVolume * pitchAnalyzer.volumeDetectionRatio 
+                : silenceVolumeThreshold; // MinVolumeが0の場合はデフォルト値
+        }
+        else
+        {
+            // フォールバック：デフォルト比率0.75を使用
+            volumeThreshold = VoiceCalibrator.MinVolume > 0f 
+                ? VoiceCalibrator.MinVolume * 0.75f 
+                : silenceVolumeThreshold;
+        }
         
         // 生の音量値を取得
         float rawVolume = volumeAnalyzer != null ? volumeAnalyzer.CurrentVolume : 0f;

@@ -21,11 +21,6 @@ public class VoiceInputHandler : MonoBehaviour
     [Tooltip("座標変換コンポーネント（Inspectorで接続）")]
     [SerializeField] private VoiceToScreenMapper voiceToScreenMapper;
     
-    [Header("Settings")]
-    [Tooltip("無音判定の音量閾値")]
-    [Range(0f, 0.1f)]
-    public float silenceVolumeThreshold = 0.01f;
-    
     [Header("Smoothing Settings")]
     [Tooltip("音量のスムージング係数（0 = スムージングなし、1 = 完全に固定）")]
     [Range(0f, 1f)]
@@ -197,10 +192,21 @@ public class VoiceInputHandler : MonoBehaviour
             }
         }
         
-        // 無音判定
-        float threshold = improvedPitchAnalyzer != null 
-            ? improvedPitchAnalyzer.volumeThreshold 
-            : silenceVolumeThreshold;
+        // 無音判定（動的閾値計算：MinVolume * volumeDetectionRatio）
+        float threshold;
+        if (improvedPitchAnalyzer != null)
+        {
+            threshold = VoiceCalibrator.MinVolume > 0f 
+                ? VoiceCalibrator.MinVolume * improvedPitchAnalyzer.volumeDetectionRatio 
+                : 0.01f; // MinVolumeが0の場合はデフォルト値
+        }
+        else
+        {
+            // フォールバック：デフォルト比率0.75を使用
+            threshold = VoiceCalibrator.MinVolume > 0f 
+                ? VoiceCalibrator.MinVolume * 0.75f 
+                : 0.01f;
+        }
         
         IsSilent = (latestVolume < threshold) || (latestPitch <= 0f);
         
