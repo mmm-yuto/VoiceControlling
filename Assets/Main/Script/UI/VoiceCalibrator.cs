@@ -44,6 +44,14 @@ public class VoiceCalibrator : MonoBehaviour
     public Slider calibrationProgressSlider;
     public Button startCalibrationButton;
     
+    [Header("Settings Buttons")]
+    [Tooltip("設定画面を表示するボタンの配列（インスペクターで設定）")]
+    [SerializeField] private Button[] settingsButtons;
+    
+    [Header("Settings Objects")]
+    [Tooltip("各ボタンに対応する設定画面用オブジェクトの配列（settingsButtonsと同じ順序で設定）")]
+    [SerializeField] private GameObject[] settingsObjects;
+    
     [Header("Target Components")]
     public VoiceDisplay voiceDisplay;
     public CalibrationPanel calibrationPanel;
@@ -82,6 +90,9 @@ public class VoiceCalibrator : MonoBehaviour
         {
             startCalibrationButton.onClick.AddListener(StartCalibration);
         }
+        
+        // 設定ボタンのイベント設定
+        SetupSettingsButtons();
         
         // 初期カリブレーション値を適用
         ApplyInitialCalibrationValues();
@@ -821,5 +832,65 @@ public class VoiceCalibrator : MonoBehaviour
         {
             individualCalibrationSamples.Add(pitch);
         }
+    }
+    
+    /// <summary>
+    /// 設定ボタンのイベントを設定
+    /// </summary>
+    void SetupSettingsButtons()
+    {
+        if (settingsButtons == null || settingsObjects == null)
+        {
+            return;
+        }
+        
+        // ボタンとオブジェクトの数が一致しているか確認
+        if (settingsButtons.Length != settingsObjects.Length)
+        {
+            Debug.LogWarning($"VoiceCalibrator: 設定ボタン({settingsButtons.Length}個)と設定オブジェクト({settingsObjects.Length}個)の数が一致していません。");
+        }
+        
+        // 各ボタンにイベントを設定
+        for (int i = 0; i < settingsButtons.Length && i < settingsObjects.Length; i++)
+        {
+            if (settingsButtons[i] != null && settingsObjects[i] != null)
+            {
+                int index = i; // クロージャー用にローカル変数にコピー
+                settingsButtons[i].onClick.RemoveAllListeners();
+                settingsButtons[i].onClick.AddListener(() => OnSettingsButtonClicked(index));
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 設定ボタンがクリックされた時の処理
+    /// </summary>
+    /// <param name="index">ボタンのインデックス</param>
+    void OnSettingsButtonClicked(int index)
+    {
+        if (settingsObjects == null || index < 0 || index >= settingsObjects.Length)
+        {
+            Debug.LogWarning($"VoiceCalibrator: 無効な設定ボタンインデックス: {index}");
+            return;
+        }
+        
+        GameObject targetObject = settingsObjects[index];
+        if (targetObject == null)
+        {
+            Debug.LogWarning($"VoiceCalibrator: インデックス{index}の設定オブジェクトが設定されていません。");
+            return;
+        }
+        
+        // 設定オブジェクトを表示
+        targetObject.SetActive(true);
+        
+        // SettingsPanelコンポーネントがある場合はShow()メソッドを呼ぶ
+        SettingsPanel settingsPanel = targetObject.GetComponent<SettingsPanel>();
+        if (settingsPanel != null)
+        {
+            settingsPanel.Show();
+        }
+        
+        Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを表示します。");
     }
 }
