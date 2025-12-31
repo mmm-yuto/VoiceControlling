@@ -58,6 +58,9 @@ public class SettingsPanel : MonoBehaviour
     [Tooltip("CalibrationSettings（初期値を取得するために使用、自動検索される）")]
     [SerializeField] private CalibrationSettings calibrationSettings;
     
+    [Tooltip("PaintCanvas（キャンバスクリア用、自動検索される）")]
+    [SerializeField] private PaintCanvas paintCanvas;
+    
     [Header("Navigation")]
     [Tooltip("戻るボタン")]
     [SerializeField] private Button backButton;
@@ -67,6 +70,10 @@ public class SettingsPanel : MonoBehaviour
     
     [Tooltip("ゲームセレクト画面への参照")]
     [SerializeField] private GameModeSelectionPanel gameModeSelectionPanel;
+    
+    [Header("Canvas Actions")]
+    [Tooltip("色を消すボタン（キャンバスをクリア）")]
+    [SerializeField] private Button clearCanvasButton;
     
     private bool isInitialized = false;
     
@@ -105,6 +112,12 @@ public class SettingsPanel : MonoBehaviour
             calibrationSettings = voiceCalibrator.calibrationSettings;
         }
         
+        // PaintCanvasの取得（キャンバスクリア用）
+        if (paintCanvas == null)
+        {
+            paintCanvas = FindObjectOfType<PaintCanvas>();
+        }
+        
         // スライダーの設定（初期値も設定）
         SetupSliders();
         
@@ -129,6 +142,13 @@ public class SettingsPanel : MonoBehaviour
         if (gameModeSelectionPanel == null)
         {
             gameModeSelectionPanel = FindObjectOfType<GameModeSelectionPanel>();
+        }
+        
+        // 色を消すボタンの設定
+        if (clearCanvasButton != null)
+        {
+            clearCanvasButton.onClick.RemoveAllListeners();
+            clearCanvasButton.onClick.AddListener(ClearCanvas);
         }
         
         isInitialized = true;
@@ -461,6 +481,23 @@ public class SettingsPanel : MonoBehaviour
         else
         {
             Debug.LogWarning("SettingsPanel: GameModeSelectionPanelが設定されていません");
+        }
+    }
+    
+    /// <summary>
+    /// キャンバスをクリア（色を消す）
+    /// CreativeModeManagerのClearCanvasと同じ処理
+    /// </summary>
+    private void ClearCanvas()
+    {
+        if (paintCanvas != null)
+        {
+            paintCanvas.ResetCanvas();
+            Debug.Log("SettingsPanel: キャンバスをクリアしました");
+        }
+        else
+        {
+            Debug.LogWarning("SettingsPanel: PaintCanvasが見つかりません。キャンバスをクリアできません。");
         }
     }
 }
