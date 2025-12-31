@@ -160,6 +160,20 @@ public class SettingsPanel : MonoBehaviour
         {
             // パネルが表示されるたびに現在の値を読み込む
             LoadCurrentValues();
+            
+            // 表示時に現在のカリブレーション値を保存
+            // （SetActive(true)で直接表示された場合でも保存されるように）
+            SaveCurrentCalibrationValues();
+        }
+    }
+    
+    void OnDisable()
+    {
+        if (isInitialized)
+        {
+            // 非表示になる前に現在のカリブレーション値を保存
+            // （SetActive(false)で直接非表示になった場合でも保存されるように）
+            SaveCurrentCalibrationValues();
         }
     }
     
@@ -436,6 +450,33 @@ public class SettingsPanel : MonoBehaviour
     }
     
     /// <summary>
+    /// 現在のカリブレーション値を保存
+    /// </summary>
+    void SaveCurrentCalibrationValues()
+    {
+        Debug.Log("SettingsPanel: SaveCurrentCalibrationValues() が呼ばれました");
+        
+        // 現在のカリブレーション値を取得（スライダーの値またはVoiceCalibratorの現在値）
+        float minVol = minVolumeSlider != null ? minVolumeSlider.value : VoiceCalibrator.MinVolume;
+        float maxVol = maxVolumeSlider != null ? maxVolumeSlider.value : VoiceCalibrator.MaxVolume;
+        float minPit = minPitchSlider != null ? minPitchSlider.value : VoiceCalibrator.MinPitch;
+        float maxPit = maxPitchSlider != null ? maxPitchSlider.value : VoiceCalibrator.MaxPitch;
+        
+        Debug.Log($"SettingsPanel: 保存する値 - Volume: {minVol:F3} - {maxVol:F3}, Pitch: {minPit:F1} - {maxPit:F1} Hz");
+        
+        // カリブレーションデータを保存
+        bool success = CalibrationSaveSystem.SaveCalibrationData(minVol, maxVol, minPit, maxPit);
+        if (success)
+        {
+            Debug.Log($"SettingsPanel: カリブレーション値を保存しました - Volume: {minVol:F3} - {maxVol:F3}, Pitch: {minPit:F1} - {maxPit:F1} Hz");
+        }
+        else
+        {
+            Debug.LogError("SettingsPanel: カリブレーション値の保存に失敗しました");
+        }
+    }
+    
+    /// <summary>
     /// 設定画面を表示
     /// </summary>
     public void Show()
@@ -447,6 +488,9 @@ public class SettingsPanel : MonoBehaviour
         
         // 表示時に現在の値を読み込む
         LoadCurrentValues();
+        
+        // 表示時に現在のカリブレーション値を保存
+        SaveCurrentCalibrationValues();
     }
     
     /// <summary>
@@ -454,6 +498,9 @@ public class SettingsPanel : MonoBehaviour
     /// </summary>
     public void Hide()
     {
+        // 非表示になる前に現在のカリブレーション値を保存
+        SaveCurrentCalibrationValues();
+        
         if (settingsPanel != null)
         {
             settingsPanel.SetActive(false);

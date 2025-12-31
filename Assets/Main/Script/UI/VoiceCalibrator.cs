@@ -120,8 +120,16 @@ public class VoiceCalibrator : MonoBehaviour
             gameModeSelectionPanel = FindObjectOfType<GameModeSelectionPanel>();
         }
         
-        // 初期カリブレーション値を適用
-        ApplyInitialCalibrationValues();
+        // セーブデータを読み込み
+        if (LoadSavedCalibrationData())
+        {
+            Debug.Log("VoiceCalibrator: セーブデータからカリブレーション値を読み込みました");
+        }
+        else
+        {
+            // セーブデータがない場合は初期カリブレーション値を適用
+            ApplyInitialCalibrationValues();
+        }
         
         // 初期状態の設定
         UpdateCalibrationStatus("Please start calibration");
@@ -131,6 +139,22 @@ public class VoiceCalibrator : MonoBehaviour
         {
             Debug.LogWarning("VoiceCalibrator: CalibrationSettingsが設定されていません。デフォルト値を使用します。");
         }
+    }
+    
+    /// <summary>
+    /// セーブデータからカリブレーションデータを読み込む
+    /// </summary>
+    /// <returns>読み込み成功時true</returns>
+    bool LoadSavedCalibrationData()
+    {
+        CalibrationData data;
+        if (CalibrationSaveSystem.LoadCalibrationData(out data))
+        {
+            // セーブデータから値を適用
+            SetCalibrationValuesManually(data.minVolume, data.maxVolume, data.minPitch, data.maxPitch);
+            return true;
+        }
+        return false;
     }
     
     /// <summary>
@@ -379,6 +403,9 @@ public class VoiceCalibrator : MonoBehaviour
         // 結果を各コンポーネントに適用
         ApplyCalibrationResults();
         
+        // カリブレーションデータを保存
+        CalibrationSaveSystem.SaveCalibrationData(minVolume, maxVolume, minPitch, maxPitch);
+        
         // イベント通知
         OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
         OnCalibrationRunningStateChanged?.Invoke(false);
@@ -492,6 +519,9 @@ public class VoiceCalibrator : MonoBehaviour
         
         // 結果を各コンポーネントに適用
         ApplyCalibrationResults();
+        
+        // カリブレーションデータの保存は、SettingsPanelのShow()/Hide()で行う
+        // （スライダーを動かすたびの保存を避けるため）
         
         // イベント通知（手動設定であることを示す）
         OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
@@ -923,27 +953,66 @@ public class VoiceCalibrator : MonoBehaviour
     /// </summary>
     void SetupSettingsButtons()
     {
-        if (settingsButtons == null || settingsObjects == null)
+        Debug.Log($"VoiceCalibrator: SetupSettingsButtons()を呼び出しました。");
+        
+        if (settingsButtons == null)
         {
+            Debug.LogWarning("VoiceCalibrator: settingsButtonsが設定されていません。");
             return;
         }
+        
+        if (settingsObjects == null)
+        {
+            Debug.LogWarning("VoiceCalibrator: settingsObjectsが設定されていません。");
+            return;
+        }
+        
+        Debug.Log($"VoiceCalibrator: settingsButtons.Length={settingsButtons.Length}, settingsObjects.Length={settingsObjects.Length}");
         
         // ボタンとオブジェクトの数が一致しているか確認
         if (settingsButtons.Length != settingsObjects.Length)
         {
-            Debug.LogWarning($"VoiceCalibrator: 設定ボタン({settingsButtons.Length}個)と設定オブジェクト({settingsObjects.Length}個)の数が一致していません。");
+            Debug.LogError($"VoiceCalibrator: 設定ボタン({settingsButtons.Length}個)と設定オブジェクト({settingsObjects.Length}個)の数が一致していません。\n" +
+                          $"インスペクターで Settings Objects 配列に {settingsButtons.Length} 個のオブジェクトを設定してください。");
         }
         
         // 各ボタンにイベントを設定
-        for (int i = 0; i < settingsButtons.Length && i < settingsObjects.Length; i++)
+        for (int i = 0; i < settingsButtons.Length; i++)
         {
-            if (settingsButtons[i] != null && settingsObjects[i] != null)
+            if (settingsButtons[i] == null)
             {
-                int index = i; // クロージャー用にローカル変数にコピー
-                settingsButtons[i].onClick.RemoveAllListeners();
-                settingsButtons[i].onClick.AddListener(() => OnSettingsButtonClicked(index));
+                Debug.LogWarning($"VoiceCalibrator: 設定ボタン[{i}]がnullです。");
+                continue;
+            }
+            
+            Debug.Log($"VoiceCalibrator: 設定ボタン[{i}]にイベントを設定します。ボタン名: {settingsButtons[i].gameObject.name}");
+            
+            // settingsObjectがnullでもボタンにはイベントを設定する（最初の遷移処理のため）
+            int index = i; // クロージャー用にローカル変数にコピー
+            settingsButtons[i].onClick.RemoveAllListeners();
+            settingsButtons[i].onClick.AddListener(() => OnSettingsButtonClicked(index));
+            
+            // イベントリスナーの数を確認
+            int listenerCount = settingsButtons[i].onClick.GetPersistentEventCount();
+            Debug.Log($"VoiceCalibrator: 設定ボタン[{i}]のイベントリスナー数: {listenerCount}");
+            
+            if (i >= settingsObjects.Length)
+            {
+                Debug.LogError($"VoiceCalibrator: 設定オブジェクト[{i}]が設定されていません。\n" +
+                              $"インスペクターで Settings Objects 配列の要素[{i}]にオブジェクトを設定してください。\n" +
+                              $"現在の配列の長さ: {settingsObjects.Length}, 必要な長さ: {settingsButtons.Length}");
+            }
+            else if (settingsObjects[i] == null)
+            {
+                Debug.LogWarning($"VoiceCalibrator: 設定オブジェクト[{i}]がnullです。最初の遷移のみ機能します。");
+            }
+            else
+            {
+                Debug.Log($"VoiceCalibrator: 設定オブジェクト[{i}] = {settingsObjects[i].name}");
             }
         }
+        
+        Debug.Log($"VoiceCalibrator: SetupSettingsButtons()完了。{settingsButtons.Length}個のボタンにイベントを設定しました。");
     }
     
     /// <summary>
@@ -954,9 +1023,13 @@ public class VoiceCalibrator : MonoBehaviour
     /// <param name="index">ボタンのインデックス</param>
     void OnSettingsButtonClicked(int index)
     {
+        Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。hasShownGameSelection={hasShownGameSelection}");
+        
         // 最初の遷移の場合：GameModeSelectionPanelを表示し、SettingsObjectsを非表示にする
         if (!hasShownGameSelection)
         {
+            Debug.Log($"VoiceCalibrator: 最初の遷移処理を実行します（ボタン{index}）");
+            
             // SettingsObjectsを非表示にする
             if (settingsObjects != null)
             {
@@ -991,9 +1064,39 @@ public class VoiceCalibrator : MonoBehaviour
         }
         
         // その後：SettingsPanelをトグル
-        if (settingsObjects == null || index < 0 || index >= settingsObjects.Length)
+        Debug.Log($"VoiceCalibrator: トグル処理を実行します（ボタン{index}）");
+        
+        if (settingsObjects == null)
         {
-            Debug.LogWarning($"VoiceCalibrator: 無効な設定ボタンインデックス: {index}");
+            Debug.LogWarning("VoiceCalibrator: settingsObjectsが設定されていません");
+            return;
+        }
+        
+        Debug.Log($"VoiceCalibrator: settingsObjects.Length={settingsObjects.Length}, index={index}");
+        
+        if (index < 0 || index >= settingsObjects.Length)
+        {
+            Debug.LogError($"VoiceCalibrator: 【エラー】設定ボタン{index}に対応する設定オブジェクトが設定されていません。\n" +
+                          $"現在の状況:\n" +
+                          $"  - Settings Buttons配列の長さ: {settingsButtons.Length}\n" +
+                          $"  - Settings Objects配列の長さ: {settingsObjects.Length}\n" +
+                          $"  - クリックされたボタンのインデックス: {index}\n" +
+                          $"解決方法:\n" +
+                          $"  1. Unityエディタで VoiceCalibrator コンポーネントを選択\n" +
+                          $"  2. Settings Objects 配列のサイズを {settingsButtons.Length} に変更\n" +
+                          $"  3. Element {index} に2つ目の設定画面オブジェクトを設定\n" +
+                          $"現在設定されているオブジェクト:");
+            for (int i = 0; i < settingsObjects.Length; i++)
+            {
+                Debug.Log($"  settingsObjects[{i}] = {(settingsObjects[i] != null ? settingsObjects[i].name : "null")}");
+            }
+            
+            // ユーザーに分かりやすくするため、どのボタンがクリックされたかも表示
+            if (settingsButtons != null && index < settingsButtons.Length && settingsButtons[index] != null)
+            {
+                Debug.LogError($"クリックされたボタン: {settingsButtons[index].gameObject.name}");
+            }
+            
             return;
         }
         
@@ -1001,8 +1104,15 @@ public class VoiceCalibrator : MonoBehaviour
         if (targetObject == null)
         {
             Debug.LogWarning($"VoiceCalibrator: インデックス{index}の設定オブジェクトが設定されていません。");
+            // 配列の内容を確認
+            for (int i = 0; i < settingsObjects.Length; i++)
+            {
+                Debug.Log($"VoiceCalibrator: settingsObjects[{i}] = {(settingsObjects[i] != null ? settingsObjects[i].name : "null")}");
+            }
             return;
         }
+        
+        Debug.Log($"VoiceCalibrator: ターゲットオブジェクト = {targetObject.name}, 現在の状態 = {(targetObject.activeSelf ? "表示" : "非表示")}");
         
         // 現在の表示状態を確認してトグル
         bool isCurrentlyActive = targetObject.activeSelf;
@@ -1010,6 +1120,7 @@ public class VoiceCalibrator : MonoBehaviour
         if (isCurrentlyActive)
         {
             // 表示されている場合は非表示にする
+            Debug.Log($"VoiceCalibrator: 設定オブジェクトを非表示にします。");
             targetObject.SetActive(false);
             
             // SettingsPanelコンポーネントがある場合はHide()メソッドを呼ぶ
@@ -1019,21 +1130,27 @@ public class VoiceCalibrator : MonoBehaviour
                 settingsPanel.Hide();
             }
             
-            Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを非表示にします。");
+            Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを非表示にしました。");
         }
         else
         {
             // 非表示の場合は表示する
+            Debug.Log($"VoiceCalibrator: 設定オブジェクトを表示します。");
             targetObject.SetActive(true);
             
             // SettingsPanelコンポーネントがある場合はShow()メソッドを呼ぶ
             SettingsPanel settingsPanel = targetObject.GetComponent<SettingsPanel>();
             if (settingsPanel != null)
             {
+                Debug.Log($"VoiceCalibrator: SettingsPanel.Show()を呼び出します。");
                 settingsPanel.Show();
             }
+            else
+            {
+                Debug.Log($"VoiceCalibrator: SettingsPanelコンポーネントが見つかりませんでした。SetActive(true)のみ実行しました。");
+            }
             
-            Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを表示します。");
+            Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを表示しました。現在の状態 = {targetObject.activeSelf}");
         }
     }
 }

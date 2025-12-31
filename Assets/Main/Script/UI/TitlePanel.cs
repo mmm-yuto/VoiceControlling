@@ -10,8 +10,11 @@ public class TitlePanel : MonoBehaviour
     [Tooltip("タイトル画面のルートオブジェクト")]
     [SerializeField] private GameObject titlePanel;
     
-    [Tooltip("次のパネル（表示するオブジェクト）")]
+    [Tooltip("次のパネル（表示するオブジェクト、通常は設定画面）")]
     [SerializeField] private GameObject nextPanel;
+    
+    [Tooltip("ゲームモード選択パネル（セーブデータがある場合に直接遷移）")]
+    [SerializeField] private GameModeSelectionPanel gameModeSelectionPanel;
     
     [Header("Objects to Hide During Title")]
     [Tooltip("タイトル画面中に非表示にしておきたいオブジェクトのリスト")]
@@ -41,6 +44,29 @@ public class TitlePanel : MonoBehaviour
         if (fadeAnimator == null && titlePanel != null)
         {
             fadeAnimator = titlePanel.GetComponent<Animator>();
+        }
+        
+        // GameModeSelectionPanelの自動検索（未設定の場合）
+        if (gameModeSelectionPanel == null)
+        {
+            gameModeSelectionPanel = FindObjectOfType<GameModeSelectionPanel>();
+        }
+        
+        // セーブデータがある場合は、nextPanelをGameModeSelectionPanelに設定
+        if (CalibrationSaveSystem.HasCalibrationData())
+        {
+            Debug.Log("TitlePanel: セーブデータが見つかりました。ゲームモード選択画面に直接遷移します。");
+            // nextPanelをGameModeSelectionPanelに変更（一時的に）
+            if (gameModeSelectionPanel != null)
+            {
+                // 一時的にnextPanelをGameModeSelectionPanelのGameObjectに設定
+                // ただし、元のnextPanelは保持しておく（設定画面に戻る場合に備えて）
+                // ここでは直接GameModeSelectionPanelを表示するロジックを使用
+            }
+        }
+        else
+        {
+            Debug.Log("TitlePanel: セーブデータが見つかりませんでした。設定画面に遷移します。");
         }
     }
     
@@ -165,8 +191,16 @@ public class TitlePanel : MonoBehaviour
     /// </summary>
     private void ShowNextPanel()
     {
-        if (nextPanel != null)
+        // セーブデータがある場合は、GameModeSelectionPanelに直接遷移
+        if (CalibrationSaveSystem.HasCalibrationData() && gameModeSelectionPanel != null)
         {
+            // ゲームモード選択画面を表示
+            gameModeSelectionPanel.Show();
+            Debug.Log("TitlePanel: ゲームモード選択画面に遷移しました（セーブデータあり）");
+        }
+        else if (nextPanel != null)
+        {
+            // セーブデータがない場合は、従来通り設定画面に遷移
             // オブジェクトを表示
             nextPanel.SetActive(true);
             
@@ -176,6 +210,7 @@ public class TitlePanel : MonoBehaviour
             {
                 settingsPanel.Show();
             }
+            Debug.Log("TitlePanel: 設定画面に遷移しました（セーブデータなし）");
         }
         else
         {
