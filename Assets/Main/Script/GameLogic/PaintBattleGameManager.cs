@@ -15,6 +15,10 @@ public class PaintBattleGameManager : MonoBehaviour
     [Tooltip("塗りキャンバス（Inspectorで接続）")]
     public PaintCanvas paintCanvas;
     
+    [Header("Calibration Canvas")]
+    [Tooltip("カリブレーション設定画面用の塗りキャンバス（オプション、未設定の場合は通常のキャンバスを使用）")]
+    [SerializeField] private PaintCanvas calibrationPaintCanvas;
+    
     [Header("Game Settings")]
     [Tooltip("プレイヤーID（Phase 1では1で固定）")]
     public int playerId = 1;
@@ -33,6 +37,9 @@ public class PaintBattleGameManager : MonoBehaviour
     [Header("Game Mode Reference")]
     [Tooltip("シングルプレイモードマネージャー（ColorDefenseモードの状態確認用）")]
     [SerializeField] private SinglePlayerModeManager singlePlayerModeManager;
+    
+    // カリブレーション関連のキャッシュ
+    private VoiceCalibrator voiceCalibrator;
     
     // 内部状態
     private bool isGameActive = true;
@@ -64,6 +71,9 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             singlePlayerModeManager = FindObjectOfType<SinglePlayerModeManager>();
         }
+        
+        // VoiceCalibratorをキャッシュ（カリブレーションパネルの状態確認用）
+        voiceCalibrator = FindObjectOfType<VoiceCalibrator>();
         
         // BattleSettingsからBrushを取得
         RefreshBrushFromBattleSettings();
@@ -99,7 +109,8 @@ public class PaintBattleGameManager : MonoBehaviour
     
     void Update()
     {
-        if (!isGameActive || voiceInputHandler == null || paintCanvas == null)
+        PaintCanvas activeCanvas = GetActivePaintCanvas();
+        if (!isGameActive || voiceInputHandler == null || activeCanvas == null)
         {
             return;
         }
@@ -141,7 +152,7 @@ public class PaintBattleGameManager : MonoBehaviour
         if (voiceInputHandler.IsSilent)
         {
             // 無音時は塗らない
-            paintCanvas.NotifyPaintingSuppressed();
+            activeCanvas.NotifyPaintingSuppressed();
             // 線の継続をリセット（次の発声から新しい線として扱う）
             hasLastPosition = false;
             return;
@@ -162,6 +173,39 @@ public class PaintBattleGameManager : MonoBehaviour
     public void SetGameActive(bool active)
     {
         isGameActive = active;
+    }
+
+    /// <summary>
+    /// Get the active PaintCanvas based on the current context (calibration settings or game)
+    /// </summary>
+    private PaintCanvas GetActivePaintCanvas()
+    {
+        // Check if calibration panel is active
+        if (calibrationPaintCanvas != null && IsCalibrationPanelActive())
+        {
+            return calibrationPaintCanvas;
+        }
+        
+        // Default to main game canvas
+        return paintCanvas;
+    }
+    
+    /// <summary>
+    /// Check if the calibration panel is currently active
+    /// </summary>
+    private bool IsCalibrationPanelActive()
+    {
+        if (voiceCalibrator == null)
+        {
+            return false;
+        }
+        
+        if (voiceCalibrator.calibrationPanel != null)
+        {
+            return voiceCalibrator.calibrationPanel.gameObject.activeSelf;
+        }
+        
+        return false;
     }
 
     /// <summary>
@@ -198,7 +242,8 @@ public class PaintBattleGameManager : MonoBehaviour
     /// </summary>
     private void PaintAt(Vector2 position, float intensity)
     {
-        if (paintCanvas == null)
+        PaintCanvas activeCanvas = GetActivePaintCanvas();
+        if (activeCanvas == null)
         {
             return;
         }
@@ -208,7 +253,7 @@ public class PaintBattleGameManager : MonoBehaviour
         // ブラシが設定されていない場合は、従来通り1点塗り（後方互換用）
         if (brush == null)
         {
-            paintCanvas.PaintAt(position, playerId, intensity, playerColor);
+            activeCanvas.PaintAt(position, playerId, intensity, playerColor);
             return;
         }
 
@@ -220,7 +265,7 @@ public class PaintBattleGameManager : MonoBehaviour
         else
         {
             // 最初の点はそのまま塗る
-            brush.Paint(paintCanvas, position, playerId, playerColor, intensity);
+            brush.Paint(activeCanvas, position, playerId, playerColor, intensity);
         }
 
         // 現在の位置を記録
@@ -233,7 +278,8 @@ public class PaintBattleGameManager : MonoBehaviour
     /// </summary>
     private void PaintLineBetween(Vector2 startPos, Vector2 endPos, float intensity)
     {
-        if (paintCanvas == null || brush == null)
+        PaintCanvas activeCanvas = GetActivePaintCanvas();
+        if (activeCanvas == null || brush == null)
         {
             return;
         }
@@ -249,7 +295,7 @@ public class PaintBattleGameManager : MonoBehaviour
         // 距離が短い場合は補間をスキップ（半径の1/4以下）
         if (distance < radius * 0.25f)
         {
-            brush.Paint(paintCanvas, endPos, playerId, playerColor, intensity);
+            brush.Paint(activeCanvas, endPos, playerId, playerColor, intensity);
             return;
         }
 
@@ -265,7 +311,7 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             float t = (float)i / steps;
             Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
-            brush.Paint(paintCanvas, interpolatedPos, playerId, playerColor, intensity);
+            brush.Paint(activeCanvas, interpolatedPos, playerId, playerColor, intensity);
         }
     }
     
