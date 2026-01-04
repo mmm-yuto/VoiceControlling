@@ -302,5 +302,14 @@ public class PaintBattleGameManager : MonoBehaviour
         
         return false;
     }
+    
+    /// <summary>
+    /// Reset last paint position (called when voice detection is disabled)
+    /// </summary>
+    public void ResetLastPosition()
+    {
+        hasLastPosition = false;
+        lastPaintPosition = Vector2.zero;
+    }
 }
 

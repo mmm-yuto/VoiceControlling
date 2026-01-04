@@ -17,41 +17,41 @@ public class VoiceDetector : MonoBehaviour
     
     void InitializeMicrophone()
     {
-        // マイクデバイスの確認
+        // Check microphone device
         string[] devices = Microphone.devices;
         if (devices.Length == 0)
         {
-            Debug.LogError("マイクデバイスが見つかりません");
+            Debug.LogError("VoiceDetector: No microphone device found");
             return;
         }
         
         try
         {
-            // マイク開始
+            // Start microphone
             microphoneClip = Microphone.Start(devices[0], true, 1, sampleRate);
             
-            // マイクが正常に開始されたかチェック
+            // Check if microphone started successfully
             if (microphoneClip == null)
             {
-                Debug.LogError("マイクの開始に失敗しました");
+                Debug.LogError("VoiceDetector: Failed to start microphone");
                 return;
             }
             
-            // バッファサイズをマイクのサンプル数に合わせて調整
+            // Adjust buffer size to match microphone samples
             if (bufferSize > microphoneClip.samples)
             {
                 bufferSize = microphoneClip.samples;
-                Debug.LogWarning($"バッファサイズを{microphoneClip.samples}に調整しました");
+                Debug.LogWarning($"VoiceDetector: Buffer size adjusted to {microphoneClip.samples}");
             }
             
             samples = new float[bufferSize];
             isRecording = true;
             
-            Debug.Log($"マイク開始: {devices[0]}, サンプル数: {microphoneClip.samples}, バッファサイズ: {bufferSize}");
+            Debug.Log($"VoiceDetector: Microphone started - Device: {devices[0]}, Samples: {microphoneClip.samples}, Buffer Size: {bufferSize}");
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"マイク初期化エラー: {e.Message}");
+            Debug.LogError($"VoiceDetector: Microphone initialization error: {e.Message}");
             isRecording = false;
         }
     }
@@ -85,6 +85,41 @@ public class VoiceDetector : MonoBehaviour
             Debug.LogWarning($"GetData failed: {e.Message}");
             return null;
         }
+    }
+    
+    /// <summary>
+    /// Get voice detection state
+    /// </summary>
+    public bool IsDetectionEnabled => isRecording;
+    
+    /// <summary>
+    /// Enable voice detection
+    /// </summary>
+    public void EnableDetection()
+    {
+        if (isRecording)
+        {
+            Debug.Log("VoiceDetector: Voice detection is already enabled");
+            return;
+        }
+        
+        isRecording = true;
+        Debug.Log("VoiceDetector: Voice detection enabled");
+    }
+    
+    /// <summary>
+    /// Disable voice detection
+    /// </summary>
+    public void DisableDetection()
+    {
+        if (!isRecording)
+        {
+            Debug.Log("VoiceDetector: Voice detection is already disabled");
+            return;
+        }
+        
+        isRecording = false;
+        Debug.Log("VoiceDetector: Voice detection disabled");
     }
     
     void OnDestroy()

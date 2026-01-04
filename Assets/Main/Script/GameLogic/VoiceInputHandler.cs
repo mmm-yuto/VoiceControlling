@@ -13,6 +13,9 @@ public class VoiceInputHandler : MonoBehaviour
     [Tooltip("ピッチ分析コンポーネント（Inspectorで接続）")]
     [SerializeField] private ImprovedPitchAnalyzer improvedPitchAnalyzer;
     
+    [Tooltip("音声検出コンポーネント（Inspectorで接続、自動検索される）")]
+    [SerializeField] private VoiceDetector voiceDetector;
+    
     [Header("Debug Mode (Optional)")]
     [Tooltip("デバッグモード（VoiceDebugSimulatorを使用する場合）")]
     [SerializeField] private VoiceDebugSimulator voiceDebugSimulator;
@@ -92,8 +95,13 @@ public class VoiceInputHandler : MonoBehaviour
             voiceToScreenMapper = FindObjectOfType<VoiceToScreenMapper>();
             if (voiceToScreenMapper == null)
             {
-                Debug.LogWarning("VoiceInputHandler: VoiceToScreenMapperが見つかりません");
+                Debug.LogWarning("VoiceInputHandler: VoiceToScreenMapper not found");
             }
+        }
+        
+        if (voiceDetector == null)
+        {
+            voiceDetector = FindObjectOfType<VoiceDetector>();
         }
         
         // VoiceDebugSimulatorの自動検索（Inspectorで接続されていない場合）
@@ -165,6 +173,14 @@ public class VoiceInputHandler : MonoBehaviour
     
     void Update()
     {
+        // Check if voice detection is disabled
+        if (voiceDetector != null && !voiceDetector.IsDetectionEnabled)
+        {
+            // Reset voice input when detection is disabled
+            ResetVoiceInput();
+            return;
+        }
+        
         // 実行中にデバッグモードが変更された場合に対応
         if (voiceDebugSimulator != null)
         {
@@ -287,6 +303,36 @@ public class VoiceInputHandler : MonoBehaviour
     public bool IsDebugModeActive()
     {
         return voiceDebugSimulator != null && voiceDebugSimulator.enableDebugMode && Input.GetMouseButton(0);
+    }
+    
+    /// <summary>
+    /// Reset voice input values (called when voice detection is disabled)
+    /// </summary>
+    public void ResetVoiceInput()
+    {
+        latestVolume = 0f;
+        latestPitch = 0f;
+        smoothedVolume = 0f;
+        smoothedPitch = 0f;
+        
+        // Reset screen position to center
+        if (voiceToScreenMapper != null)
+        {
+            smoothedScreenPosition = voiceToScreenMapper.MapToCenter();
+        }
+        else
+        {
+            smoothedScreenPosition = Vector2.zero;
+        }
+        
+        CurrentVolume = 0f;
+        CurrentPitch = 0f;
+        CurrentScreenPosition = smoothedScreenPosition;
+        IsSilent = true;
+        
+        // Notify listeners
+        OnVoiceInputUpdated?.Invoke(0f, 0f);
+        OnScreenPositionUpdated?.Invoke(smoothedScreenPosition);
     }
 }
 

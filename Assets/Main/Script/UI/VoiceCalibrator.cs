@@ -65,6 +65,13 @@ public class VoiceCalibrator : MonoBehaviour
     [Tooltip("各ボタンに対応する設定画面用オブジェクトの配列（settingsButtonsと同じ順序で設定）")]
     [SerializeField] private GameObject[] settingsObjects;
     
+    [Header("Voice Detection Toggle")]
+    [Tooltip("音検知のOn/Offを切り替えるボタン（インスペクターで設定）")]
+    [SerializeField] private Button voiceDetectionToggleButton;
+    
+    [Tooltip("音検知の状態を表示するテキスト（オプション）")]
+    [SerializeField] private TextMeshProUGUI voiceDetectionStatusText;
+    
     [Header("Game Selection Panel")]
     [Tooltip("ゲームセレクト画面への参照（最初の遷移で使用）")]
     [SerializeField] private GameModeSelectionPanel gameModeSelectionPanel;
@@ -75,6 +82,7 @@ public class VoiceCalibrator : MonoBehaviour
     
     private VolumeAnalyzer volumeAnalyzer;
     private ImprovedPitchAnalyzer improvedPitchAnalyzer;
+    private VoiceDetector voiceDetector;
     private bool isCalibrating = false;
     private CalibrationStep currentStep = CalibrationStep.None;
     private float stepStartTime;
@@ -104,11 +112,19 @@ public class VoiceCalibrator : MonoBehaviour
         // 音声分析コンポーネントを取得
         volumeAnalyzer = FindObjectOfType<VolumeAnalyzer>();
         improvedPitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
+        voiceDetector = FindObjectOfType<VoiceDetector>();
         
         // ボタンのイベント設定
         if (startCalibrationButton != null)
         {
             startCalibrationButton.onClick.AddListener(StartCalibration);
+        }
+        
+        // 音検知On/Offボタンのイベント設定
+        if (voiceDetectionToggleButton != null)
+        {
+            voiceDetectionToggleButton.onClick.AddListener(ToggleVoiceDetection);
+            UpdateVoiceDetectionButton();
         }
         
         // 設定ボタンのイベント設定
@@ -1040,37 +1056,37 @@ public class VoiceCalibrator : MonoBehaviour
             else
             {
                 // カリブレーションデータがない場合のみ、GameModeSelectionPanelに遷移
-                // SettingsObjectsを非表示にする
-                if (settingsObjects != null)
+            // SettingsObjectsを非表示にする
+            if (settingsObjects != null)
+            {
+                foreach (GameObject settingsObject in settingsObjects)
                 {
-                    foreach (GameObject settingsObject in settingsObjects)
+                    if (settingsObject != null)
                     {
-                        if (settingsObject != null)
+                        settingsObject.SetActive(false);
+                        
+                        // SettingsPanelコンポーネントがある場合はHide()メソッドも呼ぶ
+                        SettingsPanel settingsPanel = settingsObject.GetComponent<SettingsPanel>();
+                        if (settingsPanel != null)
                         {
-                            settingsObject.SetActive(false);
-                            
-                            // SettingsPanelコンポーネントがある場合はHide()メソッドも呼ぶ
-                            SettingsPanel settingsPanel = settingsObject.GetComponent<SettingsPanel>();
-                            if (settingsPanel != null)
-                            {
-                                settingsPanel.Hide();
-                            }
+                            settingsPanel.Hide();
                         }
                     }
                 }
-                
-                // GameModeSelectionPanelを表示
-                if (gameModeSelectionPanel != null)
-                {
-                    gameModeSelectionPanel.Show();
-                    hasShownGameSelection = true;
-                    Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。ゲームセレクト画面を表示し、設定オブジェクトを非表示にしました。");
-                }
-                else
-                {
-                    Debug.LogWarning("VoiceCalibrator: GameModeSelectionPanelが設定されていません");
-                }
-                return;
+            }
+            
+            // GameModeSelectionPanelを表示
+            if (gameModeSelectionPanel != null)
+            {
+                gameModeSelectionPanel.Show();
+                hasShownGameSelection = true;
+                Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。ゲームセレクト画面を表示し、設定オブジェクトを非表示にしました。");
+            }
+            else
+            {
+                Debug.LogWarning("VoiceCalibrator: GameModeSelectionPanelが設定されていません");
+            }
+            return;
             }
         }
         
@@ -1162,6 +1178,80 @@ public class VoiceCalibrator : MonoBehaviour
             }
             
             Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを表示しました。現在の状態 = {targetObject.activeSelf}");
+        }
+    }
+    
+    /// <summary>
+    /// Toggle voice detection On/Off
+    /// </summary>
+    void ToggleVoiceDetection()
+    {
+        if (voiceDetector == null)
+        {
+            Debug.LogWarning("VoiceCalibrator: VoiceDetector not found");
+            return;
+        }
+        
+        if (voiceDetector.IsDetectionEnabled)
+        {
+            voiceDetector.DisableDetection();
+            // Stop drawing when detection is disabled
+            StopDrawingOnDetectionDisabled();
+        }
+        else
+        {
+            voiceDetector.EnableDetection();
+        }
+        
+        UpdateVoiceDetectionButton();
+    }
+    
+    /// <summary>
+    /// Stop drawing when voice detection is disabled
+    /// </summary>
+    void StopDrawingOnDetectionDisabled()
+    {
+        // Reset VoiceInputHandler's latest values to stop drawing
+        VoiceInputHandler voiceInputHandler = FindObjectOfType<VoiceInputHandler>();
+        if (voiceInputHandler != null)
+        {
+            voiceInputHandler.ResetVoiceInput();
+        }
+        
+        // Reset PaintBattleGameManager's last position
+        PaintBattleGameManager paintBattleGameManager = FindObjectOfType<PaintBattleGameManager>();
+        if (paintBattleGameManager != null)
+        {
+            paintBattleGameManager.ResetLastPosition();
+        }
+    }
+    
+    /// <summary>
+    /// Update voice detection button state
+    /// </summary>
+    void UpdateVoiceDetectionButton()
+    {
+        if (voiceDetector == null)
+        {
+            return;
+        }
+        
+        bool isEnabled = voiceDetector.IsDetectionEnabled;
+        
+        // Update button text
+        if (voiceDetectionToggleButton != null)
+        {
+            TextMeshProUGUI buttonText = voiceDetectionToggleButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
+            {
+                buttonText.text = isEnabled ? "Voice Detection: ON" : "Voice Detection: OFF";
+            }
+        }
+        
+        // Update status text
+        if (voiceDetectionStatusText != null)
+        {
+            voiceDetectionStatusText.text = isEnabled ? "Voice Detection: Enabled" : "Voice Detection: Disabled";
         }
     }
 }
