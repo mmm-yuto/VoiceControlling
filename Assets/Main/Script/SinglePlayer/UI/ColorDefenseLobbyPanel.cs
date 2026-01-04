@@ -284,6 +284,9 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         selectedColorButton = colorAButton;
         UpdateButtonVisuals();
         UpdateStartButtonInteractable();
+        
+        // Immediately apply settings to BattleSettings for preview
+        ApplySettingsToBattleSettings();
     }
 
     /// <summary>
@@ -309,6 +312,9 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         selectedColorButton = colorBButton;
         UpdateButtonVisuals();
         UpdateStartButtonInteractable();
+        
+        // Immediately apply settings to BattleSettings for preview
+        ApplySettingsToBattleSettings();
     }
 
     /// <summary>
@@ -359,6 +365,9 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         
         UpdateButtonVisuals();
         UpdateStartButtonInteractable();
+        
+        // Immediately apply settings to BattleSettings for preview
+        ApplySettingsToBattleSettings();
     }
 
     /// <summary>
@@ -719,6 +728,22 @@ public class ColorDefenseLobbyPanel : MonoBehaviour
         
         UpdateButtonVisuals();
         UpdateStartButtonInteractable();
+    }
+
+    /// <summary>
+    /// Apply current working data to BattleSettings immediately for preview
+    /// </summary>
+    private void ApplySettingsToBattleSettings()
+    {
+        if (battleSettings == null)
+        {
+            battleSettings = BattleSettings.Instance;
+        }
+        
+        if (battleSettings != null)
+        {
+            battleSettings.SetFromUI(_workingData);
+        }
     }
 
     /// <summary>
