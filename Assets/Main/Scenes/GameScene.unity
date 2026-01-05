@@ -12413,6 +12413,7 @@ MonoBehaviour:
   - {fileID: 2052836253}
   - {fileID: 1105168139}
   - {fileID: 1823121599}
+  calibrationSettingPanel: {fileID: 1323142837}
   checkInterval: 0
   showArrowInitially: 0
 --- !u!1 &1324192942
@@ -16363,7 +16364,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 2
+  m_SortingOrder: 9
   m_TargetDisplay: 0
 --- !u!114 &1648339147
 MonoBehaviour:
