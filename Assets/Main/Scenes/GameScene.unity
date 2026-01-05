@@ -11171,6 +11171,9 @@ MonoBehaviour:
   step2Message: Please speak loudly (measuring maximum volume)
   step3Message: Please speak in a low voice (measuring minimum pitch)
   step4Message: Please speak in a high voice (measuring maximum pitch)
+  calibrationSettingPanel: {fileID: 1323142837}
+  targetCanvas: {fileID: 574533157}
+  calibrationCanvas: {fileID: 1623509424}
 --- !u!1 &1224307166
 GameObject:
   m_ObjectHideFlags: 0
@@ -15817,7 +15820,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 2
+  m_SortingOrder: 10
   m_TargetDisplay: 0
 --- !u!1 &1623577061
 GameObject:
@@ -16392,6 +16395,7 @@ MonoBehaviour:
   paintCanvas: {fileID: 1098085713}
   backButton: {fileID: 0}
   nextButton: {fileID: 0}
+  onlineOfflineSelectionPanel: {fileID: 0}
   gameModeSelectionPanel: {fileID: 1823121604}
   clearCanvasButton: {fileID: 1498736812}
 --- !u!1 &1651187726

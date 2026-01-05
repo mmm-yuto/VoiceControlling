@@ -30,6 +30,19 @@ public class CalibrationPanel : MonoBehaviour
     [TextArea(2, 4)]
     [SerializeField] private string step4Message = "Step 4: Please speak in a high voice (measuring maximum pitch)";
 
+    [Header("Canvas Layer Control")]
+    [Tooltip("CalibrationのSettingが開かれているかどうかを監視するSettingsPanelのGameObject")]
+    [SerializeField] private GameObject calibrationSettingPanel;
+    
+    [Tooltip("レイヤーを制御する特定のCanvas")]
+    [SerializeField] private Canvas targetCanvas;
+    
+    [Tooltip("基準となるCalibrationCanvas")]
+    [SerializeField] private Canvas calibrationCanvas;
+
+    private int originalSortingOrder = 0;
+    private bool wasSettingOpen = false;
+
     private void Awake()
     {
         if (voiceCalibrator == null)
@@ -43,11 +56,23 @@ public class CalibrationPanel : MonoBehaviour
         SubscribeToEvents();
         BindButtonCallbacks();
         UpdateUI();
+        
+        // 元のレイヤーを保存
+        if (targetCanvas != null)
+        {
+            originalSortingOrder = targetCanvas.sortingOrder;
+        }
+        
+        // 初期状態を確認
+        CheckAndUpdateCanvasLayer();
     }
 
     private void OnDisable()
     {
         UnsubscribeFromEvents();
+        
+        // 無効化時にレイヤーを元に戻す
+        RestoreOriginalLayer();
     }
 
     private void SubscribeToEvents()
@@ -231,6 +256,55 @@ public class CalibrationPanel : MonoBehaviour
         };
 
         stepLabel.text = message;
+    }
+
+    private void Update()
+    {
+        // Settingの状態を監視して、変更があったときにレイヤーを更新
+        CheckAndUpdateCanvasLayer();
+    }
+
+    /// <summary>
+    /// CalibrationのSettingが開かれているかどうかを確認し、Canvasのレイヤーを更新
+    /// </summary>
+    private void CheckAndUpdateCanvasLayer()
+    {
+        if (targetCanvas == null || calibrationCanvas == null || calibrationSettingPanel == null)
+        {
+            return;
+        }
+
+        // Settingが開かれているかどうかを確認
+        bool isSettingOpen = calibrationSettingPanel.activeInHierarchy;
+
+        // 状態が変わったときのみレイヤーを更新
+        if (isSettingOpen != wasSettingOpen)
+        {
+            if (isSettingOpen)
+            {
+                // Settingが開かれたとき：特定のCanvasのレイヤーをCalibratonCanvasのレイヤーの一つ下に設定
+                int calibrationCanvasOrder = calibrationCanvas.sortingOrder;
+                targetCanvas.sortingOrder = calibrationCanvasOrder - 1;
+            }
+            else
+            {
+                // Settingが閉じられたとき：特定のCanvasのレイヤーを元に戻す
+                RestoreOriginalLayer();
+            }
+            
+            wasSettingOpen = isSettingOpen;
+        }
+    }
+
+    /// <summary>
+    /// 特定のCanvasのレイヤーを元の値に戻す
+    /// </summary>
+    private void RestoreOriginalLayer()
+    {
+        if (targetCanvas != null)
+        {
+            targetCanvas.sortingOrder = originalSortingOrder;
+        }
     }
 }
 
