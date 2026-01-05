@@ -3956,6 +3956,8 @@ GameObject:
   m_Component:
   - component: {fileID: 404371781}
   - component: {fileID: 404371782}
+  - component: {fileID: 404371783}
+  - component: {fileID: 404371784}
   m_Layer: 0
   m_Name: PaintBattleGameManager
   m_TagString: Untagged
@@ -3996,6 +3998,47 @@ MonoBehaviour:
   paintSpeedMultiplier: 5
   defaultBrush: {fileID: 11400000, guid: 510f019f83d684f4a8f7d5732b472ae0, type: 2}
   singlePlayerModeManager: {fileID: 704633318}
+--- !u!114 &404371783
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 404371778}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 1741101709
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &404371784
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 404371778}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b72a5d5052a9b841b5fe0ecca8f5f28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkPaintBattleGameManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  localPaintManager: {fileID: 404371782}
+  networkPaintCanvas: {fileID: 1098085715}
+  onlyWorkInOnlineMode: 1
 --- !u!1 &406853571
 GameObject:
   m_ObjectHideFlags: 0
@@ -10211,6 +10254,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1098085712}
   - component: {fileID: 1098085713}
+  - component: {fileID: 1098085714}
+  - component: {fileID: 1098085715}
   m_Layer: 0
   m_Name: PaintCanvasManager
   m_TagString: Untagged
@@ -10247,6 +10292,47 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PaintCanvas
   settings: {fileID: 11400000, guid: 16aef70e91c83824a872f045f5334839, type: 2}
   showDebugGizmos: 0
+--- !u!114 &1098085714
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1098085711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 570932985
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &1098085715
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1098085711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f8c339951253954899aa9e17776e994, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkPaintCanvas
+  ShowTopMostFoldoutHeaderGroup: 1
+  paintCanvas: {fileID: 1098085713}
+  sendRateLimit: 2
+  enableSendRateLimit: 1
 --- !u!1 &1099454914
 GameObject:
   m_ObjectHideFlags: 0
