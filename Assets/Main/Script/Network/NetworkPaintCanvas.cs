@@ -93,19 +93,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
         // 送信元のクライアントIDを取得して、そのクライアントには送信しない（既にローカルで塗られているため）
         ulong senderClientId = rpcParams.Receive.SenderClientId;
         
-        // 全クライアントに送信（送信元を除く）
-        ApplyPaintCommandClientRpc(position, playerId, intensity, color, new ClientRpcParams
-        {
-            Send = new ClientRpcSendParams
-            {
-                TargetClientIds = new System.Collections.Generic.List<ulong>(NetworkManager.Singleton.ConnectedClientsIds)
-                {
-                    // 送信元のクライアントIDを除外
-                }
-            }
-        });
-        
-        // 送信元のクライアントIDを除外
+        // 送信元のクライアントIDを除外したリストを作成
         var targetClients = new System.Collections.Generic.List<ulong>();
         foreach (var clientId in NetworkManager.Singleton.ConnectedClientsIds)
         {
@@ -115,6 +103,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
             }
         }
         
+        // 送信先が存在する場合のみ送信
         if (targetClients.Count > 0)
         {
             ApplyPaintCommandClientRpc(position, playerId, intensity, color, new ClientRpcParams
@@ -131,7 +120,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
     /// 塗りコマンドを受信して適用（ClientRpc）
     /// </summary>
     [ClientRpc]
-    private void ApplyPaintCommandClientRpc(Vector2 position, int playerId, float intensity, Color color)
+    private void ApplyPaintCommandClientRpc(Vector2 position, int playerId, float intensity, Color color, ClientRpcParams rpcParams = default)
     {
         // ローカルで塗りを実行
         if (paintCanvas != null)
