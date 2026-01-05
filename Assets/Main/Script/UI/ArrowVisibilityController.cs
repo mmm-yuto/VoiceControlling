@@ -14,6 +14,10 @@ public class ArrowVisibilityController : MonoBehaviour
     [Tooltip("このオブジェクトが表示されているとき、Arrowを非表示にします\n複数のオブジェクトを設定した場合、いずれか1つでも表示されていればArrowが非表示になります")]
     [SerializeField] private GameObject[] referenceObjects;
     
+    [Header("Calibration Setting")]
+    [Tooltip("CalibrationのSetting画面のGameObject\nこの画面が開かれているときは、参照オブジェクトの状態に関係なく常にArrowを表示します")]
+    [SerializeField] private GameObject calibrationSettingPanel;
+    
     [Header("Settings")]
     [Tooltip("参照オブジェクトの表示状態をチェックする間隔（秒）\n0の場合は毎フレームチェックします")]
     [SerializeField] private float checkInterval = 0f;
@@ -57,11 +61,24 @@ public class ArrowVisibilityController : MonoBehaviour
         
         lastCheckTime = Time.time;
         
-        // 参照オブジェクトの表示状態をチェック
-        bool isReferenceObjectVisible = CheckReferenceObjectsVisibility();
+        // CalibrationのSetting画面が開かれているかチェック
+        bool isCalibrationSettingOpen = CheckCalibrationSettingOpen();
         
-        // 参照オブジェクトが表示されている場合はArrowを非表示、非表示の場合はArrowを表示
-        bool shouldShowArrow = !isReferenceObjectVisible;
+        // CalibrationのSetting画面が開かれている場合は常にArrowを表示
+        // 閉じられている場合は従来のロジックに従う
+        bool shouldShowArrow;
+        if (isCalibrationSettingOpen)
+        {
+            shouldShowArrow = true;
+        }
+        else
+        {
+            // 参照オブジェクトの表示状態をチェック
+            bool isReferenceObjectVisible = CheckReferenceObjectsVisibility();
+            
+            // 参照オブジェクトが表示されている場合はArrowを非表示、非表示の場合はArrowを表示
+            shouldShowArrow = !isReferenceObjectVisible;
+        }
         
         // Arrowの表示状態を更新（状態が変わった場合のみ）
         if (shouldShowArrow != lastArrowState)
@@ -69,6 +86,19 @@ public class ArrowVisibilityController : MonoBehaviour
             UpdateArrowVisibility(shouldShowArrow);
             lastArrowState = shouldShowArrow;
         }
+    }
+    
+    /// <summary>
+    /// CalibrationのSetting画面が開かれているかチェック
+    /// </summary>
+    /// <returns>CalibrationのSetting画面が開かれている場合はtrue</returns>
+    private bool CheckCalibrationSettingOpen()
+    {
+        if (calibrationSettingPanel != null)
+        {
+            return calibrationSettingPanel.activeInHierarchy;
+        }
+        return false;
     }
     
     /// <summary>
@@ -130,8 +160,22 @@ public class ArrowVisibilityController : MonoBehaviour
     /// </summary>
     public void RefreshArrowVisibility()
     {
-        bool isReferenceObjectVisible = CheckReferenceObjectsVisibility();
-        bool shouldShowArrow = !isReferenceObjectVisible;
+        // CalibrationのSetting画面が開かれているかチェック
+        bool isCalibrationSettingOpen = CheckCalibrationSettingOpen();
+        
+        // CalibrationのSetting画面が開かれている場合は常にArrowを表示
+        // 閉じられている場合は従来のロジックに従う
+        bool shouldShowArrow;
+        if (isCalibrationSettingOpen)
+        {
+            shouldShowArrow = true;
+        }
+        else
+        {
+            bool isReferenceObjectVisible = CheckReferenceObjectsVisibility();
+            shouldShowArrow = !isReferenceObjectVisible;
+        }
+        
         UpdateArrowVisibility(shouldShowArrow);
         lastArrowState = shouldShowArrow;
     }
