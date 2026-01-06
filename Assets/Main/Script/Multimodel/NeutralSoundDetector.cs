@@ -35,8 +35,14 @@ public class NeutralSoundDetector : MonoBehaviour
     [SerializeField] private float defaultNeutralVolume = 0.5f;
     
     [Header("UI")]
-    [Tooltip("検出状態を表示するテキスト（オプション）")]
+    [Tooltip("検出状態を表示するテキスト（検知中のみ使用、オプション）")]
     [SerializeField] private TMPro.TextMeshProUGUI statusText;
+    
+    [Tooltip("Neutral Soundを常時表示するテキスト（検知完了後に使用、オプション）")]
+    [SerializeField] private TMPro.TextMeshProUGUI neutralSoundDisplayText;
+    
+    [Tooltip("現在検出中のピッチとボリュームを表示するテキスト（常時更新、オプション）")]
+    [SerializeField] private TMPro.TextMeshProUGUI currentAudioDisplayText;
     
     // Neutral Soundの基準値
     public float NeutralPitch { get; private set; } = 400f;
@@ -76,7 +82,17 @@ public class NeutralSoundDetector : MonoBehaviour
         // セーブデータを読み込み（将来の拡張用）
         LoadNeutralSoundData();
         
-        UpdateStatusText("Neutral Sound not detected (using default values)");
+        // 初期状態の表示
+        if (IsDetected)
+        {
+            UpdateNeutralSoundDisplay();
+            HideStatusText();
+        }
+        else
+        {
+            UpdateStatusText("Neutral Sound not detected (using default values)");
+            HideNeutralSoundDisplay();
+        }
     }
     
     /// <summary>
@@ -97,7 +113,8 @@ public class NeutralSoundDetector : MonoBehaviour
         currentSampleCount = 0;
         
         OnDetectionStarted?.Invoke();
-        UpdateStatusText("Detecting Neutral Sound... Please speak");
+        UpdateStatusTextWithProgress();
+        HideNeutralSoundDisplay(); // 検知中は常時表示テキストを非表示
         
         Debug.Log("NeutralSoundDetector: Detection started");
     }
@@ -123,6 +140,7 @@ public class NeutralSoundDetector : MonoBehaviour
         else
         {
             UpdateStatusText("Neutral Sound detection failed (insufficient samples)");
+            HideNeutralSoundDisplay();
         }
     }
     
@@ -138,14 +156,21 @@ public class NeutralSoundDetector : MonoBehaviour
         
         OnDetectionStopped?.Invoke();
         UpdateStatusText("Neutral Sound detection cancelled");
+        HideNeutralSoundDisplay();
     }
     
     void Update()
     {
+        // 現在の音声データを常時更新表示
+        UpdateCurrentAudioDisplay();
+        
         if (!IsDetecting)
         {
             return;
         }
+        
+        // 検知中は進行状況を更新
+        UpdateStatusTextWithProgress();
         
         // 音声データを取得
         float currentVolume = GetCurrentVolume();
@@ -238,7 +263,10 @@ public class NeutralSoundDetector : MonoBehaviour
         // セーブ（将来の拡張用）
         SaveNeutralSoundData();
         
-        UpdateStatusText($"Neutral Sound detected - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
+        // 検知完了後はStatusテキストを非表示にして、常時表示テキストを使用
+        HideStatusText();
+        UpdateNeutralSoundDisplay();
+        
         Debug.Log($"NeutralSoundDetector: Neutral Sound detected - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
     }
     
@@ -271,7 +299,8 @@ public class NeutralSoundDetector : MonoBehaviour
         IsDetected = true;
         
         SaveNeutralSoundData();
-        UpdateStatusText($"Neutral Sound set - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
+        HideStatusText();
+        UpdateNeutralSoundDisplay();
         
         Debug.Log($"NeutralSoundDetector: Neutral Sound manually set - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
     }
@@ -287,6 +316,7 @@ public class NeutralSoundDetector : MonoBehaviour
         
         SaveNeutralSoundData();
         UpdateStatusText("Neutral Sound reset (default values)");
+        HideNeutralSoundDisplay();
         
         Debug.Log("NeutralSoundDetector: Neutral Sound reset");
     }
@@ -299,7 +329,101 @@ public class NeutralSoundDetector : MonoBehaviour
         if (statusText != null)
         {
             statusText.text = message;
+            statusText.gameObject.SetActive(true);
         }
+    }
+    
+    /// <summary>
+    /// 状態テキストを進行状況付きで更新（検知中のみ）
+    /// </summary>
+    private void UpdateStatusTextWithProgress()
+    {
+        if (statusText != null)
+        {
+            string baseMessage = "Detecting Neutral Sound... Please speak";
+            string progressMessage = $" ({currentSampleCount}/{sampleCount})";
+            statusText.text = baseMessage + progressMessage;
+            statusText.gameObject.SetActive(true);
+        }
+    }
+    
+    /// <summary>
+    /// 状態テキストを非表示
+    /// </summary>
+    private void HideStatusText()
+    {
+        if (statusText != null)
+        {
+            statusText.gameObject.SetActive(false);
+        }
+    }
+    
+    /// <summary>
+    /// Neutral Soundの常時表示テキストを更新
+    /// </summary>
+    private void UpdateNeutralSoundDisplay()
+    {
+        if (neutralSoundDisplayText != null)
+        {
+            // 音量をdBに変換（基準値1.0に対する比率）
+            float volumeDb = VolumeToDecibel(NeutralVolume);
+            
+            // 表示形式: Pitch\nXXX Hz\nvolume\nXXX dB
+            neutralSoundDisplayText.text = $"Pitch\n{NeutralPitch:F0} Hz\nvolume\n{volumeDb:F0} dB";
+            neutralSoundDisplayText.gameObject.SetActive(true);
+        }
+    }
+    
+    /// <summary>
+    /// 音量値をdBに変換
+    /// </summary>
+    /// <param name="volume">音量値（0-1の範囲）</param>
+    /// <returns>dB値（0-120の範囲）</returns>
+    private float VolumeToDecibel(float volume)
+    {
+        // 音量が0の場合は0 dB、音量が0.1の場合は120 dB
+        // 0から0.1の範囲を0から120dBに線形マッピング
+        const float maxVolumeFor120dB = 0.1f;
+        
+        // 音量を0.1で正規化（0.1以上は120dBにクランプ）
+        float normalizedVolume = Mathf.Clamp01(volume / maxVolumeFor120dB);
+        
+        // 0-120 dBの範囲にマッピング
+        float db = normalizedVolume * 120f;
+        
+        return db;
+    }
+    
+    /// <summary>
+    /// Neutral Soundの常時表示テキストを非表示
+    /// </summary>
+    private void HideNeutralSoundDisplay()
+    {
+        if (neutralSoundDisplayText != null)
+        {
+            neutralSoundDisplayText.gameObject.SetActive(false);
+        }
+    }
+    
+    /// <summary>
+    /// 現在検出中のピッチとボリュームを表示するテキストを更新
+    /// </summary>
+    private void UpdateCurrentAudioDisplay()
+    {
+        if (currentAudioDisplayText == null)
+        {
+            return;
+        }
+        
+        // 現在の音声データを取得
+        float currentVolume = GetCurrentVolume();
+        float currentPitch = GetCurrentPitch();
+        
+        // 音量をdBに変換
+        float volumeDb = VolumeToDecibel(currentVolume);
+        
+        // 表示形式: Pitch\nXXX Hz\nvolume\nXXX dB
+        currentAudioDisplayText.text = $"Pitch\n{currentPitch:F0} Hz\nvolume\n{volumeDb:F0} dB";
     }
     
     /// <summary>
@@ -327,7 +451,8 @@ public class NeutralSoundDetector : MonoBehaviour
             
             if (IsDetected)
             {
-                UpdateStatusText($"Neutral Sound loaded - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
+                UpdateNeutralSoundDisplay();
+                HideStatusText();
             }
         }
     }

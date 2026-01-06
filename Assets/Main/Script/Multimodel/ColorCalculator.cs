@@ -24,35 +24,107 @@ public class ColorCalculator : MonoBehaviour
     [Range(0.01f, 0.1f)]
     [SerializeField] private float neutralSoundThreshold = 0.05f;
     
+    [Header("Volume Saturation Settings")]
+    [Tooltip("音量比率に基づいて彩度を調整するか")]
+    [SerializeField] private bool useVolumeForSaturation = true;
+    
+    [Tooltip("音量比率の範囲（最小値）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float volumeRatioMin = 0.5f;
+    
+    [Tooltip("音量比率の範囲（最大値）")]
+    [Range(0f, 2f)]
+    [SerializeField] private float volumeRatioMax = 1.5f;
+    
+    [Tooltip("最小彩度（音量が小さい場合）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float minSaturation = 0.3f;
+    
+    [Tooltip("最大彩度（音量が大きい場合）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float maxSaturation = 1.0f;
+    
     /// <summary>
-    /// ピッチ比率に基づいて色を決定
+    /// ピッチ比率と音量比率に基づいて色を決定
     /// </summary>
     /// <param name="pitchRatio">ピッチ比率（現在のピッチ / Neutral Soundのピッチ）</param>
-    /// <param name="volumeRatio">ボリューム比率（現在は使用しないが、将来の拡張用）</param>
+    /// <param name="volumeRatio">ボリューム比率（現在のボリューム / Neutral Soundのボリューム）</param>
     /// <returns>決定された色</returns>
     public Color CalculateColor(float pitchRatio, float volumeRatio)
     {
         // 区分を判定
         PitchCategory category = GetPitchCategory(pitchRatio);
         
-        // 区分に応じた色を返す
+        // 区分に応じた基本色を取得
+        Color baseColor;
         switch (category)
         {
             case PitchCategory.NeutralSound:
-                return neutralSoundColor;
+                baseColor = neutralSoundColor;
+                break;
             
             case PitchCategory.LowPitch:
-                return lowPitchColor;
+                baseColor = lowPitchColor;
+                break;
             
             case PitchCategory.MediumPitch:
-                return mediumPitchColor;
+                baseColor = mediumPitchColor;
+                break;
             
             case PitchCategory.HighPitch:
-                return highPitchColor;
+                baseColor = highPitchColor;
+                break;
             
             default:
-                return neutralSoundColor;
+                baseColor = neutralSoundColor;
+                break;
         }
+        
+        // 音量比率に基づいて彩度を調整
+        if (useVolumeForSaturation)
+        {
+            return ApplyVolumeSaturation(baseColor, volumeRatio);
+        }
+        
+        return baseColor;
+    }
+    
+    /// <summary>
+    /// 音量比率に基づいて彩度を適用
+    /// </summary>
+    private Color ApplyVolumeSaturation(Color baseColor, float volumeRatio)
+    {
+        // 音量比率を0.0～1.0の範囲に正規化
+        float normalizedVolumeRatio = NormalizeVolumeRatio(volumeRatio);
+        
+        // 彩度を計算（音量が大きいほど彩度が高い）
+        float saturation = Mathf.Lerp(minSaturation, maxSaturation, normalizedVolumeRatio);
+        
+        // 基本色をHSVに変換
+        Color.RGBToHSV(baseColor, out float h, out float s, out float v);
+        
+        // 彩度を音量比率に基づいて調整
+        s = saturation;
+        
+        // HSVからRGBに戻す
+        return Color.HSVToRGB(h, s, v);
+    }
+    
+    /// <summary>
+    /// 音量比率を0.0～1.0の範囲に正規化
+    /// </summary>
+    private float NormalizeVolumeRatio(float volumeRatio)
+    {
+        // 音量比率をmin～maxの範囲にクランプ
+        float clampedRatio = Mathf.Clamp(volumeRatio, volumeRatioMin, volumeRatioMax);
+        
+        // 0.0～1.0の範囲に正規化
+        if (volumeRatioMax > volumeRatioMin)
+        {
+            return (clampedRatio - volumeRatioMin) / (volumeRatioMax - volumeRatioMin);
+        }
+        
+        return 0.5f; // min == max の場合は0.5を返す
     }
     
     /// <summary>
