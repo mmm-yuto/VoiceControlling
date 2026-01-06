@@ -76,7 +76,7 @@ public class NeutralSoundDetector : MonoBehaviour
         // セーブデータを読み込み（将来の拡張用）
         LoadNeutralSoundData();
         
-        UpdateStatusText("Neutral Sound未検出（デフォルト値を使用）");
+        UpdateStatusText("Neutral Sound not detected (using default values)");
     }
     
     /// <summary>
@@ -86,7 +86,7 @@ public class NeutralSoundDetector : MonoBehaviour
     {
         if (IsDetecting)
         {
-            Debug.LogWarning("NeutralSoundDetector: 既に検出中です");
+            Debug.LogWarning("NeutralSoundDetector: Already detecting");
             return;
         }
         
@@ -97,9 +97,9 @@ public class NeutralSoundDetector : MonoBehaviour
         currentSampleCount = 0;
         
         OnDetectionStarted?.Invoke();
-        UpdateStatusText("Neutral Sound検出中... 声を出してください");
+        UpdateStatusText("Detecting Neutral Sound... Please speak");
         
-        Debug.Log("NeutralSoundDetector: 検出を開始しました");
+        Debug.Log("NeutralSoundDetector: Detection started");
     }
     
     /// <summary>
@@ -122,7 +122,7 @@ public class NeutralSoundDetector : MonoBehaviour
         }
         else
         {
-            UpdateStatusText("Neutral Sound検出失敗（サンプル不足）");
+            UpdateStatusText("Neutral Sound detection failed (insufficient samples)");
         }
     }
     
@@ -137,7 +137,7 @@ public class NeutralSoundDetector : MonoBehaviour
         currentSampleCount = 0;
         
         OnDetectionStopped?.Invoke();
-        UpdateStatusText("Neutral Sound検出をキャンセルしました");
+        UpdateStatusText("Neutral Sound detection cancelled");
     }
     
     void Update()
@@ -219,7 +219,7 @@ public class NeutralSoundDetector : MonoBehaviour
     {
         if (pitchSamples.Count == 0 || volumeSamples.Count == 0)
         {
-            Debug.LogWarning("NeutralSoundDetector: サンプルが不足しています");
+            Debug.LogWarning("NeutralSoundDetector: Insufficient samples");
             return;
         }
         
@@ -238,8 +238,8 @@ public class NeutralSoundDetector : MonoBehaviour
         // セーブ（将来の拡張用）
         SaveNeutralSoundData();
         
-        UpdateStatusText($"Neutral Sound検出完了 - ピッチ: {NeutralPitch:F1}Hz, ボリューム: {NeutralVolume:F3}");
-        Debug.Log($"NeutralSoundDetector: Neutral Sound検出完了 - ピッチ: {NeutralPitch:F1}Hz, ボリューム: {NeutralVolume:F3}");
+        UpdateStatusText($"Neutral Sound detected - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
+        Debug.Log($"NeutralSoundDetector: Neutral Sound detected - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
     }
     
     /// <summary>
@@ -271,9 +271,9 @@ public class NeutralSoundDetector : MonoBehaviour
         IsDetected = true;
         
         SaveNeutralSoundData();
-        UpdateStatusText($"Neutral Sound設定 - ピッチ: {NeutralPitch:F1}Hz, ボリューム: {NeutralVolume:F3}");
+        UpdateStatusText($"Neutral Sound set - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
         
-        Debug.Log($"NeutralSoundDetector: Neutral Soundを手動設定 - ピッチ: {NeutralPitch:F1}Hz, ボリューム: {NeutralVolume:F3}");
+        Debug.Log($"NeutralSoundDetector: Neutral Sound manually set - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
     }
     
     /// <summary>
@@ -286,9 +286,9 @@ public class NeutralSoundDetector : MonoBehaviour
         IsDetected = false;
         
         SaveNeutralSoundData();
-        UpdateStatusText("Neutral Soundをリセットしました（デフォルト値）");
+        UpdateStatusText("Neutral Sound reset (default values)");
         
-        Debug.Log("NeutralSoundDetector: Neutral Soundをリセットしました");
+        Debug.Log("NeutralSoundDetector: Neutral Sound reset");
     }
     
     /// <summary>
@@ -327,7 +327,7 @@ public class NeutralSoundDetector : MonoBehaviour
             
             if (IsDetected)
             {
-                UpdateStatusText($"Neutral Sound読み込み完了 - ピッチ: {NeutralPitch:F1}Hz, ボリューム: {NeutralVolume:F3}");
+                UpdateStatusText($"Neutral Sound loaded - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
             }
         }
     }

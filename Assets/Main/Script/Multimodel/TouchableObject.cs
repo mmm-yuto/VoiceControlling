@@ -115,7 +115,7 @@ public class TouchableObject : MonoBehaviour
         Collider2D collider = GetComponent<Collider2D>();
         if (collider == null)
         {
-            Debug.LogWarning($"TouchableObject: {gameObject.name}にCollider2Dが設定されていません");
+            Debug.LogWarning($"TouchableObject: {gameObject.name} does not have Collider2D component");
         }
     }
     
@@ -153,9 +153,9 @@ public class TouchableObject : MonoBehaviour
         if (detectMouseClick && Input.GetMouseButton(0))
         {
             Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            Collider2D collider = GetComponent<Collider2D>();
+            TouchableObject frontmostObject = GetFrontmostTouchableObject(mousePosition);
             
-            if (collider != null && collider.OverlapPoint(mousePosition))
+            if (frontmostObject == this)
             {
                 isTouching = true;
             }
@@ -168,9 +168,9 @@ public class TouchableObject : MonoBehaviour
             {
                 Touch touch = Input.GetTouch(i);
                 Vector2 touchPosition = Camera.main.ScreenToWorldPoint(touch.position);
-                Collider2D collider = GetComponent<Collider2D>();
+                TouchableObject frontmostObject = GetFrontmostTouchableObject(touchPosition);
                 
-                if (collider != null && collider.OverlapPoint(touchPosition))
+                if (frontmostObject == this)
                 {
                     isTouching = true;
                     break;
@@ -182,15 +182,71 @@ public class TouchableObject : MonoBehaviour
         if (!wasTouching && isTouching)
         {
             OnTouchStarted?.Invoke(this);
-            Debug.Log($"TouchableObject: {gameObject.name}がタッチされました");
+            Debug.Log($"TouchableObject: {gameObject.name} touched");
         }
         
         // タッチ終了
         if (wasTouching && !isTouching)
         {
             OnTouchEnded?.Invoke(this);
-            Debug.Log($"TouchableObject: {gameObject.name}のタッチが終了しました");
+            Debug.Log($"TouchableObject: {gameObject.name} touch ended");
         }
+    }
+    
+    /// <summary>
+    /// 指定位置にある最も手前のTouchableObjectを取得
+    /// </summary>
+    private TouchableObject GetFrontmostTouchableObject(Vector2 worldPosition)
+    {
+        // その位置にある全てのCollider2Dを取得
+        Collider2D[] colliders = Physics2D.OverlapPointAll(worldPosition);
+        
+        if (colliders.Length == 0)
+        {
+            return null;
+        }
+        
+        TouchableObject frontmostObject = null;
+        int highestSortingOrder = int.MinValue;
+        float highestZ = float.MinValue;
+        
+        // 全てのCollider2DからTouchableObjectを探す
+        foreach (Collider2D col in colliders)
+        {
+            TouchableObject touchable = col.GetComponent<TouchableObject>();
+            if (touchable == null)
+            {
+                continue;
+            }
+            
+            // SortingOrderを取得（SpriteRendererの場合）
+            int sortingOrder = 0;
+            float zPosition = touchable.transform.position.z;
+            
+            SpriteRenderer spriteRenderer = touchable.GetComponent<SpriteRenderer>();
+            if (spriteRenderer != null)
+            {
+                sortingOrder = spriteRenderer.sortingOrder;
+            }
+            else
+            {
+                // SpriteRendererがない場合は、Z座標を使用
+                // Z座標が大きいほど手前
+                zPosition = touchable.transform.position.z;
+            }
+            
+            // 最も手前のオブジェクトを選択
+            // 優先順位: 1. SortingOrderが大きい、2. Z座標が大きい
+            if (sortingOrder > highestSortingOrder || 
+                (sortingOrder == highestSortingOrder && zPosition > highestZ))
+            {
+                highestSortingOrder = sortingOrder;
+                highestZ = zPosition;
+                frontmostObject = touchable;
+            }
+        }
+        
+        return frontmostObject;
     }
     
     /// <summary>

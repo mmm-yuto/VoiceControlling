@@ -72,9 +72,9 @@ public class MultimodelManager : MonoBehaviour
         }
         
         isInitialized = true;
-        UpdateStatus("Multimodel System 初期化完了");
+        UpdateStatus("Multimodel System initialized");
         
-        Debug.Log("MultimodelManager: 初期化完了");
+        Debug.Log("MultimodelManager: Initialized");
     }
     
     /// <summary>
@@ -134,8 +134,8 @@ public class MultimodelManager : MonoBehaviour
     {
         if (neutralSoundDetector == null)
         {
-            Debug.LogError("MultimodelManager: NeutralSoundDetectorが見つかりません");
-            UpdateStatus("エラー: NeutralSoundDetectorが見つかりません");
+            Debug.LogError("MultimodelManager: NeutralSoundDetector not found");
+            UpdateStatus("Error: NeutralSoundDetector not found");
             return;
         }
         
@@ -167,7 +167,7 @@ public class MultimodelManager : MonoBehaviour
         if (neutralSoundDetector != null)
         {
             neutralSoundDetector.ResetNeutralSound();
-            UpdateStatus("Neutral Soundをリセットしました");
+            UpdateStatus("Neutral Sound reset");
         }
     }
     
@@ -176,8 +176,8 @@ public class MultimodelManager : MonoBehaviour
     /// </summary>
     private void OnNeutralSoundDetected(float pitch, float volume)
     {
-        UpdateStatus($"Neutral Sound検出完了 - ピッチ: {pitch:F1}Hz, ボリューム: {volume:F3}");
-        Debug.Log($"MultimodelManager: Neutral Sound検出完了 - ピッチ: {pitch:F1}Hz, ボリューム: {volume:F3}");
+        UpdateStatus($"Neutral Sound detected - Pitch: {pitch:F1}Hz, Volume: {volume:F3}");
+        Debug.Log($"MultimodelManager: Neutral Sound detected - Pitch: {pitch:F1}Hz, Volume: {volume:F3}");
     }
     
     /// <summary>
@@ -185,7 +185,7 @@ public class MultimodelManager : MonoBehaviour
     /// </summary>
     private void OnDetectionStarted()
     {
-        UpdateStatus("Neutral Sound検出中... 声を出してください");
+        UpdateStatus("Detecting Neutral Sound... Please speak");
     }
     
     /// <summary>
@@ -195,11 +195,11 @@ public class MultimodelManager : MonoBehaviour
     {
         if (neutralSoundDetector != null && neutralSoundDetector.IsDetected)
         {
-            UpdateStatus($"Neutral Sound検出済み - ピッチ: {neutralSoundDetector.NeutralPitch:F1}Hz, ボリューム: {neutralSoundDetector.NeutralVolume:F3}");
+            UpdateStatus($"Neutral Sound detected - Pitch: {neutralSoundDetector.NeutralPitch:F1}Hz, Volume: {neutralSoundDetector.NeutralVolume:F3}");
         }
         else
         {
-            UpdateStatus("Neutral Sound未検出");
+            UpdateStatus("Neutral Sound not detected");
         }
     }
     
@@ -222,20 +222,20 @@ public class MultimodelManager : MonoBehaviour
     {
         if (neutralSoundDetector == null)
         {
-            return "NeutralSoundDetectorが見つかりません";
+            return "NeutralSoundDetector not found";
         }
         
         if (neutralSoundDetector.IsDetected)
         {
-            return $"Neutral Sound検出済み - ピッチ: {neutralSoundDetector.NeutralPitch:F1}Hz, ボリューム: {neutralSoundDetector.NeutralVolume:F3}";
+            return $"Neutral Sound detected - Pitch: {neutralSoundDetector.NeutralPitch:F1}Hz, Volume: {neutralSoundDetector.NeutralVolume:F3}";
         }
         else if (neutralSoundDetector.IsDetecting)
         {
-            return "Neutral Sound検出中...";
+            return "Detecting Neutral Sound...";
         }
         else
         {
-            return "Neutral Sound未検出";
+            return "Neutral Sound not detected";
         }
     }
     
