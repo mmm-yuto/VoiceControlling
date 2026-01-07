@@ -29,27 +29,53 @@ public class NetworkTestHelper : MonoBehaviour
     [Tooltip("コンソールに詳細ログを出力するか")]
     [SerializeField] private bool enableDebugLog = true;
     
+    void Awake()
+    {
+        if (enableDebugLog)
+        {
+            Debug.Log($"NetworkTestHelper: Awake() が呼ばれました - GameObject: {gameObject.name}, Enabled: {enabled}");
+        }
+    }
+    
     void Start()
     {
+        if (enableDebugLog)
+        {
+            Debug.Log("NetworkTestHelper: Start() が呼ばれました");
+        }
+        
         // ボタンのイベントを設定
         if (hostButton != null)
         {
             hostButton.onClick.AddListener(StartHost);
+            if (enableDebugLog)
+            {
+                Debug.Log("NetworkTestHelper: ホストボタンのイベントを設定しました");
+            }
         }
         
         if (clientButton != null)
         {
             clientButton.onClick.AddListener(StartClient);
+            if (enableDebugLog)
+            {
+                Debug.Log("NetworkTestHelper: クライアントボタンのイベントを設定しました");
+            }
         }
         
         if (disconnectButton != null)
         {
             disconnectButton.onClick.AddListener(Disconnect);
+            if (enableDebugLog)
+            {
+                Debug.Log("NetworkTestHelper: 切断ボタンのイベントを設定しました");
+            }
         }
         
         if (enableDebugLog)
         {
             Debug.Log("NetworkTestHelper: 初期化完了 - Hキー: ホスト開始, Cキー: クライアント接続, Dキー: 切断");
+            Debug.Log($"NetworkTestHelper: 接続先設定 - IP: {serverIP}, Port: {serverPort}");
         }
     }
     
@@ -90,16 +116,26 @@ public class NetworkTestHelper : MonoBehaviour
     /// </summary>
     public void StartClient()
     {
+        if (enableDebugLog)
+        {
+            Debug.Log("NetworkTestHelper: StartClient() が呼ばれました");
+        }
+        
         if (NetworkManager.Singleton == null)
         {
             Debug.LogError("NetworkTestHelper: NetworkManagerが見つかりません。GameSceneにNetworkManagerを配置してください。");
             return;
         }
         
+        if (enableDebugLog)
+        {
+            Debug.Log($"NetworkTestHelper: NetworkManagerが見つかりました - IsHost: {NetworkManager.Singleton.IsHost}, IsClient: {NetworkManager.Singleton.IsClient}");
+        }
+        
         // 既に接続されている場合は切断
         if (NetworkManager.Singleton.IsHost || NetworkManager.Singleton.IsClient)
         {
-            Debug.LogWarning("NetworkTestHelper: 既に接続されています。先に切断してください。");
+            Debug.LogWarning($"NetworkTestHelper: 既に接続されています (IsHost: {NetworkManager.Singleton.IsHost}, IsClient: {NetworkManager.Singleton.IsClient})。先に切断してください。");
             return;
         }
         
@@ -117,7 +153,13 @@ public class NetworkTestHelper : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("NetworkTestHelper: Unity Transportが見つかりません。NetworkManagerにUnity Transportが設定されているか確認してください。");
+            Debug.LogError("NetworkTestHelper: Unity Transportが見つかりません。NetworkManagerにUnity Transportが設定されているか確認してください。");
+            return;
+        }
+        
+        if (enableDebugLog)
+        {
+            Debug.Log("NetworkTestHelper: StartClient() を実行します...");
         }
         
         bool success = NetworkManager.Singleton.StartClient();
@@ -181,14 +223,26 @@ public class NetworkTestHelper : MonoBehaviour
         // エディタモードまたはPlayモードで実行
         if (Input.GetKeyDown(KeyCode.H))
         {
+            if (enableDebugLog)
+            {
+                Debug.Log("NetworkTestHelper: Hキーが押されました - ホスト開始");
+            }
             StartHost();
         }
         else if (Input.GetKeyDown(KeyCode.C))
         {
+            if (enableDebugLog)
+            {
+                Debug.Log("NetworkTestHelper: Cキーが押されました - クライアント接続開始");
+            }
             StartClient();
         }
         else if (Input.GetKeyDown(KeyCode.D))
         {
+            if (enableDebugLog)
+            {
+                Debug.Log("NetworkTestHelper: Dキーが押されました - 切断");
+            }
             Disconnect();
         }
     }
@@ -199,6 +253,9 @@ public class NetworkTestHelper : MonoBehaviour
     void OnGUI()
     {
         if (!enableDebugLog) return;
+        
+        // NetworkTestHelperの状態を表示
+        GUI.Label(new Rect(10, 10, 400, 20), $"NetworkTestHelper: {gameObject.name} (Enabled: {enabled})");
         
         if (NetworkManager.Singleton != null)
         {
@@ -212,8 +269,24 @@ public class NetworkTestHelper : MonoBehaviour
                 status = "クライアント";
             }
             
-            GUI.Label(new Rect(10, 10, 300, 20), $"ネットワーク状態: {status}");
-            GUI.Label(new Rect(10, 30, 300, 20), "H: ホスト開始, C: クライアント接続, D: 切断");
+            GUI.Label(new Rect(10, 30, 400, 20), $"ネットワーク状態: {status}");
+            GUI.Label(new Rect(10, 50, 400, 20), $"接続先: {serverIP}:{serverPort}");
+            GUI.Label(new Rect(10, 70, 400, 20), "H: ホスト開始, C: クライアント接続, D: 切断");
+            
+            // Unity Transportの状態を表示
+            var transport = NetworkManager.Singleton.GetComponent<Unity.Netcode.Transports.UTP.UnityTransport>();
+            if (transport != null)
+            {
+                GUI.Label(new Rect(10, 90, 400, 20), $"Unity Transport: 設定済み");
+            }
+            else
+            {
+                GUI.Label(new Rect(10, 90, 400, 20), $"Unity Transport: 未設定 (エラー)");
+            }
+        }
+        else
+        {
+            GUI.Label(new Rect(10, 30, 400, 20), "NetworkManager: 見つかりません (エラー)");
         }
     }
 }
