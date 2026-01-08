@@ -15,13 +15,13 @@ public class NetworkPaintCanvas : NetworkBehaviour
     
     [Header("Network Settings")]
     [Tooltip("差分送信の間隔（秒）")]
-    [SerializeField] private float sendInterval = 0.2f; // 0.2秒ごと
+    [SerializeField] private float sendInterval = 0.1f; // 0.1秒ごと（より頻繁に送信して、1回あたりのデータ量を減らす）
     
     [Tooltip("分割送信のチャンクサイズ（バイト）")]
     [SerializeField] private int chunkSize = 500000; // 500KB（Unity Netcodeの制限は約1MB）
     
     [Tooltip("差分送信の最大ピクセル数（これを超える場合は分割送信）")]
-    [SerializeField] private int maxPixelsPerMessage = 30000; // 約480KB（30000ピクセル × 16バイト）
+    [SerializeField] private int maxPixelsPerMessage = 5000; // 約160KB（5000ピクセル × 32バイト、安全マージンを考慮）
     
     // 差分検出マネージャー
     private PaintDiffManager diffManager;
@@ -85,12 +85,33 @@ public class NetworkPaintCanvas : NetworkBehaviour
         
         if (changes.Count > 0)
         {
-            // 大きすぎる場合は分割送信
-            if (changes.Count > maxPixelsPerMessage)
+            // 実際のデータサイズを計算（1ピクセルあたり32バイト）
+            // int x(4) + int y(4) + Color(16) + int playerId(4) + float timestamp(4) = 32バイト
+            // RPCのオーバーヘッド（ヘッダー、メタデータなど）を考慮して、より小さな制限を設定
+            const int bytesPerPixel = 32;
+            const int maxBytesPerMessage = 150000; // 150KB（Unity Netcodeの制限は約1MBだが、RPCオーバーヘッドを考慮して安全マージンを大きく取る）
+            int estimatedBytes = changes.Count * bytesPerPixel;
+            
+            if (Application.isEditor)
             {
-                SendPaintDiffSplit(changes);
+                Debug.Log($"[DEBUG] SendPaintDiff: {changes.Count}ピクセル変更、推定サイズ: {estimatedBytes}バイト ({estimatedBytes / 1024}KB)");
+            }
+            
+            // ピクセル数またはデータサイズが制限を超える場合は分割送信
+            if (changes.Count > maxPixelsPerMessage || estimatedBytes > maxBytesPerMessage)
+            {
+                // データサイズに基づいて適切なチャンクサイズを計算
+                // より安全なサイズ（maxBytesPerMessageの半分）を使用
+                int safePixelsPerChunk = Mathf.Min(maxPixelsPerMessage, (maxBytesPerMessage / 2) / bytesPerPixel);
+                if (Application.isEditor)
+                {
+                    Debug.Log($"[DEBUG] SendPaintDiff: 分割送信が必要 - {changes.Count}ピクセル、チャンクサイズ: {safePixelsPerChunk}ピクセル");
+                }
+                SendPaintDiffSplit(changes, safePixelsPerChunk);
             }
             else
+            {
+            try
             {
                 // データをパック
                 PaintDiffData diffData = PackDiffData(changes);
@@ -100,8 +121,18 @@ public class NetworkPaintCanvas : NetworkBehaviour
                 
                 if (Application.isEditor)
                 {
-                    Debug.Log($"NetworkPaintCanvas: 差分を送信 - {changes.Count}ピクセル変更");
+                    Debug.Log($"NetworkPaintCanvas: 差分を送信 - {changes.Count}ピクセル変更 ({estimatedBytes / 1024}KB)");
                 }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[DEBUG] SendPaintDiff: 送信エラーが発生しました - {ex.GetType().Name}: {ex.Message}");
+                // エラーが発生した場合は、より小さなチャンクに分割して再送信
+                // より安全なサイズ（1000ピクセル）に分割
+                int safePixelsPerChunk = Mathf.Max(100, Mathf.Min(1000, maxPixelsPerMessage / 5));
+                Debug.LogWarning($"[DEBUG] SendPaintDiff: より小さなチャンク ({safePixelsPerChunk}ピクセル/チャンク) に分割して再送信します");
+                SendPaintDiffSplit(changes, safePixelsPerChunk);
+            }
             }
         }
     }
@@ -109,15 +140,17 @@ public class NetworkPaintCanvas : NetworkBehaviour
     /// <summary>
     /// 差分を分割して送信
     /// </summary>
-    private void SendPaintDiffSplit(List<PaintDiffManager.PixelChange> changes)
+    private void SendPaintDiffSplit(List<PaintDiffManager.PixelChange> changes, int pixelsPerChunk)
     {
         int totalPixels = changes.Count;
-        int pixelsPerChunk = maxPixelsPerMessage;
         int chunkCount = Mathf.CeilToInt((float)totalPixels / pixelsPerChunk);
+        
+        const int bytesPerPixel = 32;
+        int estimatedTotalBytes = totalPixels * bytesPerPixel;
         
         if (Application.isEditor)
         {
-            Debug.Log($"NetworkPaintCanvas: 差分を分割送信 - {totalPixels}ピクセル、{chunkCount}チャンクに分割");
+            Debug.Log($"[DEBUG] SendPaintDiffSplit: {totalPixels}ピクセル（推定{estimatedTotalBytes / 1024}KB）を{pixelsPerChunk}ピクセル/チャンクで{chunkCount}チャンクに分割");
         }
         
         // 各チャンクを送信
@@ -134,11 +167,36 @@ public class NetworkPaintCanvas : NetworkBehaviour
                 chunkChanges.Add(changes[i]);
             }
             
-            // データをパック
-            PaintDiffData diffData = PackDiffData(chunkChanges);
-            
-            // チャンクを送信
-            ApplyPaintDiffClientRpc(diffData);
+            try
+            {
+                // データをパック
+                PaintDiffData diffData = PackDiffData(chunkChanges);
+                
+                int chunkBytes = chunkPixelCount * bytesPerPixel;
+                if (Application.isEditor)
+                {
+                    Debug.Log($"[DEBUG] SendPaintDiffSplit: チャンク {chunkIndex + 1}/{chunkCount} を送信 - {chunkPixelCount}ピクセル（推定{chunkBytes / 1024}KB）");
+                }
+                
+                // チャンクを送信
+                ApplyPaintDiffClientRpc(diffData);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[DEBUG] SendPaintDiffSplit: チャンク {chunkIndex + 1}/{chunkCount} の送信でエラーが発生しました - {ex.GetType().Name}: {ex.Message}");
+                // エラーが発生した場合は、このチャンクをさらに小さく分割
+                if (chunkPixelCount > 100)
+                {
+                    // より安全なサイズ（500ピクセル以下）に分割
+                    int smallerChunkSize = Mathf.Max(100, Mathf.Min(500, pixelsPerChunk / 10));
+                    Debug.LogWarning($"[DEBUG] SendPaintDiffSplit: チャンクをさらに小さく分割 ({smallerChunkSize}ピクセル/チャンク) して再送信します");
+                    SendPaintDiffSplit(chunkChanges, smallerChunkSize);
+                }
+                else
+                {
+                    Debug.LogError($"[DEBUG] SendPaintDiffSplit: チャンクサイズが既に最小 ({chunkPixelCount}ピクセル) です。送信をスキップします。");
+                }
+            }
         }
     }
     
@@ -249,24 +307,56 @@ public class NetworkPaintCanvas : NetworkBehaviour
             return;
         }
         
-        // 各ピクセルを更新
-        for (int i = 0; i < diffData.pixelCount; i++)
+        try
         {
-            int x = diffData.xCoords[i];
-            int y = diffData.yCoords[i];
+            // データの妥当性チェック
+            if (diffData.pixelCount <= 0)
+            {
+                Debug.LogWarning($"[DEBUG] ApplyPaintDiffClientRpc: 無効なpixelCount ({diffData.pixelCount})");
+                return;
+            }
             
-            // タイムスタンプを比較して適用
-            paintCanvas.PaintAtWithTimestamp(
-                x, y,
-                diffData.playerIds[i],
-                diffData.colors[i],
-                diffData.timestamps[i]
-            );
+            if (diffData.xCoords == null || diffData.yCoords == null || 
+                diffData.colors == null || diffData.playerIds == null || 
+                diffData.timestamps == null)
+            {
+                Debug.LogError("[DEBUG] ApplyPaintDiffClientRpc: データ配列がnullです");
+                return;
+            }
+            
+            if (diffData.xCoords.Length < diffData.pixelCount ||
+                diffData.yCoords.Length < diffData.pixelCount ||
+                diffData.colors.Length < diffData.pixelCount ||
+                diffData.playerIds.Length < diffData.pixelCount ||
+                diffData.timestamps.Length < diffData.pixelCount)
+            {
+                Debug.LogError($"[DEBUG] ApplyPaintDiffClientRpc: データ配列のサイズが不足しています (pixelCount: {diffData.pixelCount})");
+                return;
+            }
+            
+            // 各ピクセルを更新
+            for (int i = 0; i < diffData.pixelCount; i++)
+            {
+                int x = diffData.xCoords[i];
+                int y = diffData.yCoords[i];
+                
+                // タイムスタンプを比較して適用
+                paintCanvas.PaintAtWithTimestamp(
+                    x, y,
+                    diffData.playerIds[i],
+                    diffData.colors[i],
+                    diffData.timestamps[i]
+                );
+            }
+            
+            if (Application.isEditor)
+            {
+                Debug.Log($"[DEBUG] NetworkPaintCanvas: 差分を受信して適用 - {diffData.pixelCount}ピクセル");
+            }
         }
-        
-        if (Application.isEditor)
+        catch (System.Exception ex)
         {
-            Debug.Log($"NetworkPaintCanvas: 差分を受信して適用 - {diffData.pixelCount}ピクセル");
+            Debug.LogError($"[DEBUG] ApplyPaintDiffClientRpc: エラーが発生しました - {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
         }
     }
     
