@@ -298,8 +298,13 @@ public class NetworkPaintCanvas : NetworkBehaviour
     [ClientRpc]
     private void ApplyPaintDiffClientRpc(PaintDiffData diffData, ClientRpcParams rpcParams = default)
     {
-        // サーバー側では実行しない（サーバーは既に最新の状態を持っている）
-        if (IsServer) return;
+        // 純粋なサーバー（IsServer && !IsClient）のみ早期リターン
+        // ホスト側（IsServer && IsClient）でも差分を適用する必要がある
+        // これにより、クライアント側で塗った処理がホスト側にも反映される
+        if (IsServer && !IsClient)
+        {
+            return; // 純粋なサーバーのみ早期リターン
+        }
         
         if (paintCanvas == null)
         {
@@ -334,6 +339,9 @@ public class NetworkPaintCanvas : NetworkBehaviour
                 return;
             }
             
+            // ホスト側かどうかを判定
+            bool isHost = IsServer && IsClient;
+            
             // 各ピクセルを更新
             for (int i = 0; i < diffData.pixelCount; i++)
             {
@@ -341,6 +349,8 @@ public class NetworkPaintCanvas : NetworkBehaviour
                 int y = diffData.yCoords[i];
                 
                 // タイムスタンプを比較して適用
+                // ホスト側では既にサーバー側のPaintCanvasに直接描画されているため、
+                // PaintAtWithTimestamp()のタイムスタンプチェックで重複を防ぐ
                 paintCanvas.PaintAtWithTimestamp(
                     x, y,
                     diffData.playerIds[i],
@@ -351,7 +361,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
             
             if (Application.isEditor)
             {
-                Debug.Log($"[DEBUG] NetworkPaintCanvas: 差分を受信して適用 - {diffData.pixelCount}ピクセル");
+                Debug.Log($"[DEBUG] NetworkPaintCanvas: 差分を受信して適用 - {diffData.pixelCount}ピクセル (IsHost: {isHost}, IsServer: {IsServer}, IsClient: {IsClient})");
             }
         }
         catch (System.Exception ex)

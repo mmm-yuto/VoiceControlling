@@ -13,7 +13,10 @@ public class TitlePanel : MonoBehaviour
     [Tooltip("次のパネル（表示するオブジェクト、通常は設定画面）")]
     [SerializeField] private GameObject nextPanel;
     
-    [Tooltip("ゲームモード選択パネル（セーブデータがある場合に直接遷移）")]
+    [Tooltip("オフライン/オンライン選択パネル（セーブデータがある場合に遷移）")]
+    [SerializeField] private OnlineOfflineSelectionPanel onlineOfflineSelectionPanel;
+    
+    [Tooltip("ゲームモード選択パネル（セーブデータがある場合に直接遷移 - 非推奨、OnlineOfflineSelectionPanel経由を推奨）")]
     [SerializeField] private GameModeSelectionPanel gameModeSelectionPanel;
     
     [Header("Objects to Hide During Title")]
@@ -46,23 +49,22 @@ public class TitlePanel : MonoBehaviour
             fadeAnimator = titlePanel.GetComponent<Animator>();
         }
         
-        // GameModeSelectionPanelの自動検索（未設定の場合）
+        // OnlineOfflineSelectionPanelの自動検索（未設定の場合）
+        if (onlineOfflineSelectionPanel == null)
+        {
+            onlineOfflineSelectionPanel = FindObjectOfType<OnlineOfflineSelectionPanel>();
+        }
+        
+        // GameModeSelectionPanelの自動検索（未設定の場合、後方互換性のため）
         if (gameModeSelectionPanel == null)
         {
             gameModeSelectionPanel = FindObjectOfType<GameModeSelectionPanel>();
         }
         
-        // セーブデータがある場合は、nextPanelをGameModeSelectionPanelに設定
+        // セーブデータがある場合は、OnlineOfflineSelectionPanelに遷移
         if (CalibrationSaveSystem.HasCalibrationData())
         {
-            Debug.Log("TitlePanel: セーブデータが見つかりました。ゲームモード選択画面に直接遷移します。");
-            // nextPanelをGameModeSelectionPanelに変更（一時的に）
-            if (gameModeSelectionPanel != null)
-            {
-                // 一時的にnextPanelをGameModeSelectionPanelのGameObjectに設定
-                // ただし、元のnextPanelは保持しておく（設定画面に戻る場合に備えて）
-                // ここでは直接GameModeSelectionPanelを表示するロジックを使用
-            }
+            Debug.Log("TitlePanel: セーブデータが見つかりました。オフライン/オンライン選択画面に遷移します。");
         }
         else
         {
@@ -191,12 +193,25 @@ public class TitlePanel : MonoBehaviour
     /// </summary>
     private void ShowNextPanel()
     {
-        // セーブデータがある場合は、GameModeSelectionPanelに直接遷移
-        if (CalibrationSaveSystem.HasCalibrationData() && gameModeSelectionPanel != null)
+        // セーブデータがある場合は、OnlineOfflineSelectionPanelに遷移
+        if (CalibrationSaveSystem.HasCalibrationData())
         {
-            // ゲームモード選択画面を表示
-            gameModeSelectionPanel.Show();
-            Debug.Log("TitlePanel: ゲームモード選択画面に遷移しました（セーブデータあり）");
+            if (onlineOfflineSelectionPanel != null)
+            {
+                // オフライン/オンライン選択画面を表示
+                onlineOfflineSelectionPanel.Show();
+                Debug.Log("TitlePanel: オフライン/オンライン選択画面に遷移しました（セーブデータあり）");
+            }
+            else if (gameModeSelectionPanel != null)
+            {
+                // 後方互換性: OnlineOfflineSelectionPanelがない場合は直接GameModeSelectionPanelに遷移
+                gameModeSelectionPanel.Show();
+                Debug.Log("TitlePanel: ゲームモード選択画面に直接遷移しました（後方互換性）");
+            }
+            else
+            {
+                Debug.LogWarning("TitlePanel: OnlineOfflineSelectionPanel または GameModeSelectionPanel が設定されていません");
+            }
         }
         else if (nextPanel != null)
         {
