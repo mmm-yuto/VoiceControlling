@@ -39,6 +39,12 @@ public class PaintRenderer : MonoBehaviour
         
         // 初期Spriteを作成（1回だけ）
         CreateSpriteOnce();
+        
+        // PaintCanvasのテクスチャ更新イベントを購読
+        if (paintCanvas != null)
+        {
+            paintCanvas.OnTextureUpdated += OnTextureUpdated;
+        }
     }
     
     void Update()
@@ -72,7 +78,7 @@ public class PaintRenderer : MonoBehaviour
     
     /// <summary>
     /// テクスチャのサイズが変更された場合のみSpriteを再生成
-    /// 通常のテクスチャ更新（ピクセルデータの変更）は自動的に反映されるため、再生成不要
+    /// 通常のテクスチャ更新（ピクセルデータの変更）はOnTextureUpdatedイベントで処理される
     /// </summary>
     private void UpdateSpriteIfNeeded()
     {
@@ -123,8 +129,40 @@ public class PaintRenderer : MonoBehaviour
         return displayImage != null ? displayImage.rectTransform : null;
     }
     
+    /// <summary>
+    /// テクスチャ更新イベントのハンドラ
+    /// </summary>
+    private void OnTextureUpdated()
+    {
+        if (displayImage == null || paintCanvas == null) return;
+        
+        Texture2D texture = paintCanvas.GetTexture();
+        if (texture == null) return;
+        
+        // Spriteを再生成してImageを更新
+        if (canvasSprite != null)
+        {
+            Destroy(canvasSprite);
+        }
+        
+        canvasSprite = Sprite.Create(
+            texture,
+            new Rect(0, 0, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f)
+        );
+        displayImage.sprite = canvasSprite;
+        
+        Debug.Log("[DEBUG] PaintRenderer: テクスチャ更新イベントを受信し、Spriteを再生成しました");
+    }
+    
     void OnDestroy()
     {
+        // イベント購読を解除
+        if (paintCanvas != null)
+        {
+            paintCanvas.OnTextureUpdated -= OnTextureUpdated;
+        }
+        
         // リソースをクリーンアップ
         if (canvasSprite != null)
         {

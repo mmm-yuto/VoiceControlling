@@ -20,12 +20,19 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     private Color[,] colorData;
     private float[,] intensityData;
     
+    // Phase 4で追加：タイムスタンプデータ（各ピクセルが最後に塗られた時刻）
+    private float[,] paintTimestamp;
+    
     // Phase 2で追加：内部Texture2D（描画・保存用）
     private Texture2D canvasTexture;
     
     // イベント
     public event System.Action<Vector2, int, float> OnPaintCompleted;
     public event System.Action OnPaintingSuppressed;
+    public event System.Action OnTextureUpdated; // テクスチャ更新イベント（PaintRenderer用）
+    
+    // タイムスタンプ取得用のコールバック（ネットワーク同期用）
+    private System.Func<float> getTimestampCallback;
     
     // 内部状態
     private int frameCount = 0;
@@ -55,6 +62,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         paintData = new int[settings.textureWidth, settings.textureHeight];
         colorData = new Color[settings.textureWidth, settings.textureHeight];
         intensityData = new float[settings.textureWidth, settings.textureHeight];
+        paintTimestamp = new float[settings.textureWidth, settings.textureHeight];
         
         // 内部Texture2Dを作成
         canvasTexture = new Texture2D(settings.textureWidth, settings.textureHeight, TextureFormat.RGBA32, false);
@@ -169,9 +177,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     /// </summary>
     public void PaintAt(Vector2 screenPosition, int playerId, float intensity, Color color)
     {
+        Debug.Log($"[DEBUG] PaintCanvas.PaintAt 呼ばれました - Position: {screenPosition}, PlayerId: {playerId}, Intensity: {intensity}, Color: {color}");
+        
         if (!isInitialized || settings == null)
         {
-            Debug.LogWarning("PaintCanvas: 初期化されていません");
+            Debug.LogWarning("[DEBUG] PaintCanvas: 初期化されていません");
             return;
         }
         
@@ -179,30 +189,37 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         frameCount++;
         if (frameCount % settings.updateFrequency != 0)
         {
+            Debug.Log($"[DEBUG] 更新頻度チェックでスキップ - frameCount: {frameCount}, updateFrequency: {settings.updateFrequency}");
             return;
         }
+        
+        Debug.Log("[DEBUG] 更新頻度チェック通過");
         
         // 画面座標をキャンバス座標に変換
         int canvasX = Mathf.RoundToInt((screenPosition.x / Screen.width) * settings.textureWidth);
         int canvasY = Mathf.RoundToInt((screenPosition.y / Screen.height) * settings.textureHeight);
         
+        Debug.Log($"[DEBUG] キャンバス座標変換 - 画面座標: ({screenPosition.x:F1}, {screenPosition.y:F1}), キャンバス座標: ({canvasX}, {canvasY})");
+        
         // 範囲チェック
         if (canvasX < 0 || canvasX >= settings.textureWidth || 
             canvasY < 0 || canvasY >= settings.textureHeight)
         {
+            Debug.LogWarning($"[DEBUG] 範囲外でスキップ - canvasX: {canvasX}, canvasY: {canvasY}, textureWidth: {settings.textureWidth}, textureHeight: {settings.textureHeight}");
             return;
         }
+        
+        Debug.Log("[DEBUG] 範囲チェック通過");
         
         // 塗り強度が閾値以上の場合のみ塗る
         float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
         if (effectiveIntensity < settings.minVolumeThreshold)
         {
-            if (playerId == -1) // 敵の色の場合のみデバッグログ
-            {
-                Debug.LogWarning($"[PaintCanvas] PaintAt - 強度が閾値以下でスキップ: effectiveIntensity={effectiveIntensity:F4}, minVolumeThreshold={settings.minVolumeThreshold:F4}, playerId={playerId}");
-            }
+            Debug.LogWarning($"[DEBUG] 強度が閾値以下でスキップ - effectiveIntensity: {effectiveIntensity:F4}, minVolumeThreshold: {settings.minVolumeThreshold:F4}, playerId: {playerId}");
             return;
         }
+        
+        Debug.Log("[DEBUG] 強度チェック通過");
         
         // 塗り処理（優先順位ロジックを追加）
         int existingPlayerId = paintData[canvasX, canvasY];
@@ -230,6 +247,12 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         paintData[canvasX, canvasY] = playerId;
         colorData[canvasX, canvasY] = color;
         intensityData[canvasX, canvasY] = effectiveIntensity;
+        
+        // タイムスタンプを記録（ネットワーク同期用）
+        if (getTimestampCallback != null)
+        {
+            paintTimestamp[canvasX, canvasY] = getTimestampCallback();
+        }
         
         if (playerId == -1) // 敵の色の場合のみデバッグログ
         {
@@ -289,7 +312,13 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     /// </summary>
     private void PaintAtWithRadiusInternal(Vector2 screenPosition, int playerId, float intensity, Color color, float radius, bool checkUpdateFrequency)
     {
-        if (!isInitialized || settings == null) return;
+        Debug.Log($"[DEBUG] PaintCanvas.PaintAtWithRadiusInternal 呼ばれました - Position: {screenPosition}, PlayerId: {playerId}, Intensity: {intensity}, Color: {color}, Radius: {radius}, checkUpdateFrequency: {checkUpdateFrequency}");
+        
+        if (!isInitialized || settings == null)
+        {
+            Debug.LogWarning("[DEBUG] PaintCanvas: 初期化されていません");
+            return;
+        }
         
         // 更新頻度チェック（checkUpdateFrequency が true の場合のみ）
         if (checkUpdateFrequency)
@@ -297,8 +326,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             frameCount++;
             if (frameCount % settings.updateFrequency != 0)
             {
+                Debug.Log($"[DEBUG] 更新頻度チェックでスキップ - frameCount: {frameCount}, updateFrequency: {settings.updateFrequency}");
                 return;
             }
+            Debug.Log("[DEBUG] 更新頻度チェック通過");
         }
         
         // 画面座標をキャンバス座標に変換
@@ -309,12 +340,17 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         float radiusInCanvas = (radius / Screen.width) * settings.textureWidth;
         int radiusPixels = Mathf.RoundToInt(radiusInCanvas);
         
+        Debug.Log($"[DEBUG] キャンバス座標変換 - 画面座標: ({screenPosition.x:F1}, {screenPosition.y:F1}), キャンバス座標: ({centerX}, {centerY}), 半径: {radius} -> {radiusPixels}ピクセル");
+        
         // 塗り強度が閾値以上の場合のみ塗る
         float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
         if (effectiveIntensity < settings.minVolumeThreshold)
         {
+            Debug.LogWarning($"[DEBUG] 強度が閾値以下でスキップ - effectiveIntensity: {effectiveIntensity:F4}, minVolumeThreshold: {settings.minVolumeThreshold:F4}, playerId: {playerId}");
             return;
         }
+        
+        Debug.Log("[DEBUG] 強度チェック通過 - 塗り処理を開始します");
         
         // 円形のブラシで塗る（常に後から塗った色が優先される）
         bool hasPainted = false;
@@ -350,6 +386,12 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                     colorData[x, y] = color;
                     intensityData[x, y] = effectiveIntensity;
                     
+                    // タイムスタンプを記録（ネットワーク同期用）
+                    if (getTimestampCallback != null)
+                    {
+                        paintTimestamp[x, y] = getTimestampCallback();
+                    }
+                    
                     // テクスチャを更新
                     UpdateTexturePixel(x, y, color);
                     hasPainted = true;
@@ -363,6 +405,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             FlushTextureUpdates();
             lastPaintFrame = Time.frameCount; // 塗りが実行されたフレームを記録
             OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
+            Debug.Log($"[DEBUG] 塗り処理完了 - テクスチャを更新しました");
+        }
+        else
+        {
+            Debug.LogWarning("[DEBUG] 塗り処理が実行されませんでした（hasPainted = false）");
         }
     }
     
@@ -593,6 +640,9 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         {
             canvasTexture.Apply();
             textureNeedsFlush = false;
+            
+            // テクスチャ更新イベントを発火（PaintRenderer用）
+            OnTextureUpdated?.Invoke();
         }
     }
     
@@ -620,6 +670,7 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 paintData[x, y] = 0;
                 colorData[x, y] = Color.clear;
                 intensityData[x, y] = 0f;
+                paintTimestamp[x, y] = 0f;
             }
         }
         
@@ -871,6 +922,84 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     public Texture2D GetTexture()
     {
         return canvasTexture;
+    }
+    
+    /// <summary>
+    /// タイムスタンプ配列を取得（ネットワーク同期用）
+    /// </summary>
+    public float[,] GetPaintTimestamps()
+    {
+        return paintTimestamp;
+    }
+    
+    /// <summary>
+    /// 色データ配列を取得（ネットワーク同期用）
+    /// </summary>
+    public Color[,] GetColorData()
+    {
+        return colorData;
+    }
+    
+    /// <summary>
+    /// プレイヤーIDデータ配列を取得（ネットワーク同期用）
+    /// </summary>
+    public int[,] GetPaintData()
+    {
+        return paintData;
+    }
+    
+    /// <summary>
+    /// タイムスタンプ取得用のコールバックを設定（ネットワーク同期用）
+    /// </summary>
+    public void SetTimestampCallback(System.Func<float> callback)
+    {
+        getTimestampCallback = callback;
+    }
+    
+    /// <summary>
+    /// タイムスタンプ付きで塗る（ネットワーク同期用、コンフリクト解決）
+    /// </summary>
+    /// <param name="x">キャンバス座標X</param>
+    /// <param name="y">キャンバス座標Y</param>
+    /// <param name="playerId">プレイヤーID</param>
+    /// <param name="color">色</param>
+    /// <param name="timestamp">タイムスタンプ（サーバー時刻）</param>
+    public void PaintAtWithTimestamp(int x, int y, int playerId, Color color, float timestamp)
+    {
+        if (!isInitialized || settings == null)
+        {
+            Debug.LogWarning("PaintCanvas: 初期化されていません");
+            return;
+        }
+        
+        // 範囲チェック
+        if (x < 0 || x >= settings.textureWidth || y < 0 || y >= settings.textureHeight)
+        {
+            return;
+        }
+        
+        // 既存のタイムスタンプと比較
+        if (timestamp > paintTimestamp[x, y])
+        {
+            // 新しいタイムスタンプの場合のみ塗りを適用
+            int existingPlayerId = paintData[x, y];
+            
+            // ピクセル数のキャッシュを更新
+            if (pixelCountCacheValid)
+            {
+                UpdatePixelCountCache(existingPlayerId, playerId);
+            }
+            
+            paintData[x, y] = playerId;
+            colorData[x, y] = color;
+            paintTimestamp[x, y] = timestamp;
+            
+            // テクスチャを更新
+            UpdateTexturePixel(x, y, color);
+            
+            // テクスチャの更新をフラッシュ
+            FlushTextureUpdates();
+        }
     }
     
     void OnDrawGizmos()

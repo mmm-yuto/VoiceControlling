@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Netcode;
 
 /// <summary>
 /// 塗りバトルゲームのマネージャー
@@ -67,6 +68,30 @@ public class PaintBattleGameManager : MonoBehaviour
         
         // BattleSettingsからBrushを取得
         RefreshBrushFromBattleSettings();
+        
+        // オンラインモードの場合、ネットワーククライアントIDからプレイヤーIDを取得
+        // ただし、NetworkPaintBattleGameManagerが存在する場合は、そちらで設定されるため、ここでは設定しない
+        if (GameModeManager.Instance != null && GameModeManager.Instance.IsOnlineMode)
+        {
+            // NetworkPaintBattleGameManagerが存在する場合は、そちらで設定されるためスキップ
+            NetworkPaintBattleGameManager networkManager = FindObjectOfType<NetworkPaintBattleGameManager>();
+            if (networkManager == null && NetworkManager.Singleton != null)
+            {
+                // NetworkPaintBattleGameManagerが存在しない場合のみ、ここで設定
+                if (NetworkManager.Singleton.IsHost)
+                {
+                    playerId = 1; // ホストは常に1
+                    Debug.Log($"PaintBattleGameManager: オンラインモード（ホスト） - PlayerId: {playerId}");
+                }
+                else if (NetworkManager.Singleton.IsClient)
+                {
+                    // クライアントIDをプレイヤーIDに変換
+                    ulong localClientId = NetworkManager.Singleton.LocalClientId;
+                    playerId = (int)localClientId + 1;
+                    Debug.Log($"PaintBattleGameManager: オンラインモード（クライアント） - PlayerId: {playerId}, LocalClientId: {localClientId}");
+                }
+            }
+        }
     }
     
     /// <summary>
