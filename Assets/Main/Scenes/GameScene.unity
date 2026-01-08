@@ -21371,6 +21371,10 @@ PrefabInstance:
       propertyPath: networkPaintCanvas
       value: 
       objectReference: {fileID: 1098085715}
+    - target: {fileID: 5908072618881495534, guid: f33463ff9eacc0f499db3e67c7638d40, type: 3}
+      propertyPath: onlyWorkInOnlineMode
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7031727434410006835, guid: f33463ff9eacc0f499db3e67c7638d40, type: 3}
       propertyPath: m_LocalPosition.x
       value: 1056.6796

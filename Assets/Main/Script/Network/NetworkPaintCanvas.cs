@@ -17,6 +17,12 @@ public class NetworkPaintCanvas : NetworkBehaviour
     [Tooltip("差分送信の間隔（秒）")]
     [SerializeField] private float sendInterval = 0.2f; // 0.2秒ごと
     
+    [Tooltip("分割送信のチャンクサイズ（バイト）")]
+    [SerializeField] private int chunkSize = 500000; // 500KB（Unity Netcodeの制限は約1MB）
+    
+    [Tooltip("差分送信の最大ピクセル数（これを超える場合は分割送信）")]
+    [SerializeField] private int maxPixelsPerMessage = 30000; // 約480KB（30000ピクセル × 16バイト）
+    
     // 差分検出マネージャー
     private PaintDiffManager diffManager;
     
@@ -79,16 +85,60 @@ public class NetworkPaintCanvas : NetworkBehaviour
         
         if (changes.Count > 0)
         {
-            // データをパック
-            PaintDiffData diffData = PackDiffData(changes);
-            
-            // 全クライアントに送信
-            ApplyPaintDiffClientRpc(diffData);
-            
-            if (Application.isEditor)
+            // 大きすぎる場合は分割送信
+            if (changes.Count > maxPixelsPerMessage)
             {
-                Debug.Log($"NetworkPaintCanvas: 差分を送信 - {changes.Count}ピクセル変更");
+                SendPaintDiffSplit(changes);
             }
+            else
+            {
+                // データをパック
+                PaintDiffData diffData = PackDiffData(changes);
+                
+                // 全クライアントに送信
+                ApplyPaintDiffClientRpc(diffData);
+                
+                if (Application.isEditor)
+                {
+                    Debug.Log($"NetworkPaintCanvas: 差分を送信 - {changes.Count}ピクセル変更");
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 差分を分割して送信
+    /// </summary>
+    private void SendPaintDiffSplit(List<PaintDiffManager.PixelChange> changes)
+    {
+        int totalPixels = changes.Count;
+        int pixelsPerChunk = maxPixelsPerMessage;
+        int chunkCount = Mathf.CeilToInt((float)totalPixels / pixelsPerChunk);
+        
+        if (Application.isEditor)
+        {
+            Debug.Log($"NetworkPaintCanvas: 差分を分割送信 - {totalPixels}ピクセル、{chunkCount}チャンクに分割");
+        }
+        
+        // 各チャンクを送信
+        for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
+        {
+            int startIndex = chunkIndex * pixelsPerChunk;
+            int endIndex = Mathf.Min(startIndex + pixelsPerChunk, totalPixels);
+            int chunkPixelCount = endIndex - startIndex;
+            
+            // チャンクデータを作成
+            List<PaintDiffManager.PixelChange> chunkChanges = new List<PaintDiffManager.PixelChange>();
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                chunkChanges.Add(changes[i]);
+            }
+            
+            // データをパック
+            PaintDiffData diffData = PackDiffData(chunkChanges);
+            
+            // チャンクを送信
+            ApplyPaintDiffClientRpc(diffData);
         }
     }
     
@@ -159,6 +209,28 @@ public class NetworkPaintCanvas : NetworkBehaviour
                 serializer.SerializeValue(ref playerIds[i]);
                 serializer.SerializeValue(ref timestamps[i]);
             }
+        }
+    }
+    
+    /// <summary>
+    /// クライアント側の塗りをサーバーに送信（ServerRpc）
+    /// </summary>
+    [ServerRpc(RequireOwnership = false)]
+    public void SendClientPaintServerRpc(Vector2 position, int playerId, float intensity, Color color, float radius, ServerRpcParams rpcParams = default)
+    {
+        if (paintCanvas == null)
+        {
+            Debug.LogWarning("NetworkPaintCanvas: PaintCanvasが設定されていません");
+            return;
+        }
+        
+        // サーバー側のPaintCanvasに塗りを適用
+        // これにより、サーバー側の差分検出が変更を検出できる
+        paintCanvas.PaintAtWithRadius(position, playerId, intensity, color, radius);
+        
+        if (Application.isEditor)
+        {
+            Debug.Log($"NetworkPaintCanvas: クライアント塗りをサーバー側に適用 - Position: {position}, PlayerId: {playerId}, Intensity: {intensity}, Radius: {radius}");
         }
     }
     
@@ -265,136 +337,130 @@ public class NetworkPaintCanvas : NetworkBehaviour
     
     /// <summary>
     /// 初回同期（フルスナップショット）を送信
+    /// メッセージサイズ制限を回避するため、分割送信を使用
     /// </summary>
     private void SendInitialSnapshot()
     {
         if (paintCanvas == null) return;
         
-        // フルテクスチャデータを圧縮
-        byte[] textureData = paintCanvas.GetTexture().EncodeToPNG();
+        var settings = paintCanvas.GetSettings();
+        if (settings == null) return;
         
-        // タイムスタンプ配列をシリアライズ
-        byte[] timestampData = SerializeTimestamps(paintCanvas.GetPaintTimestamps());
+        int width = settings.textureWidth;
+        int height = settings.textureHeight;
         
-        // プレイヤーID配列をシリアライズ
-        byte[] playerIdData = SerializePlayerIds(paintCanvas.GetPaintData());
+        // 色データとタイムスタンプ、プレイヤーIDを直接送信（テクスチャ圧縮は使わない）
+        Color[,] colorData = paintCanvas.GetColorData();
+        float[,] timestamps = paintCanvas.GetPaintTimestamps();
+        int[,] playerIds = paintCanvas.GetPaintData();
         
-        // 全クライアントに送信
-        SendFullSnapshotClientRpc(textureData, timestampData, playerIdData);
+        // ピクセルごとのデータをリストに変換
+        List<SnapshotPixelData> pixelDataList = new List<SnapshotPixelData>();
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                if (timestamps[x, y] > 0f) // 塗られたピクセルのみ
+                {
+                    pixelDataList.Add(new SnapshotPixelData
+                    {
+                        x = x,
+                        y = y,
+                        color = colorData[x, y],
+                        playerId = playerIds[x, y],
+                        timestamp = timestamps[x, y]
+                    });
+                }
+            }
+        }
+        
+        // 分割送信
+        int totalPixels = pixelDataList.Count;
+        int pixelsPerChunk = maxPixelsPerMessage;
+        int chunkCount = Mathf.CeilToInt((float)totalPixels / pixelsPerChunk);
         
         if (Application.isEditor)
         {
-            Debug.Log($"NetworkPaintCanvas: 初回同期を送信 - Texture: {textureData.Length} bytes, Timestamps: {timestampData.Length} bytes, PlayerIds: {playerIdData.Length} bytes");
+            Debug.Log($"NetworkPaintCanvas: 初回同期を送信 - {totalPixels}ピクセル、{chunkCount}チャンクに分割");
         }
-    }
-    
-    /// <summary>
-    /// プレイヤーID配列をシリアライズ
-    /// </summary>
-    private byte[] SerializePlayerIds(int[,] playerIds)
-    {
-        if (playerIds == null) return new byte[0];
         
-        int width = playerIds.GetLength(0);
-        int height = playerIds.GetLength(1);
-        
-        // int配列に変換
-        int[] flatPlayerIds = new int[width * height];
-        for (int x = 0; x < width; x++)
+        // 各チャンクを送信
+        for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
         {
-            for (int y = 0; y < height; y++)
+            int startIndex = chunkIndex * pixelsPerChunk;
+            int endIndex = Mathf.Min(startIndex + pixelsPerChunk, totalPixels);
+            int chunkPixelCount = endIndex - startIndex;
+            
+            // チャンクデータを作成
+            int[] xCoords = new int[chunkPixelCount];
+            int[] yCoords = new int[chunkPixelCount];
+            Color[] colors = new Color[chunkPixelCount];
+            int[] playerIdArray = new int[chunkPixelCount];
+            float[] timestampArray = new float[chunkPixelCount];
+            
+            for (int i = 0; i < chunkPixelCount; i++)
             {
-                flatPlayerIds[y * width + x] = playerIds[x, y];
+                var pixel = pixelDataList[startIndex + i];
+                xCoords[i] = pixel.x;
+                yCoords[i] = pixel.y;
+                colors[i] = pixel.color;
+                playerIdArray[i] = pixel.playerId;
+                timestampArray[i] = pixel.timestamp;
             }
+            
+            // チャンクを送信
+            SendSnapshotChunkClientRpc(width, height, chunkIndex, chunkCount, xCoords, yCoords, colors, playerIdArray, timestampArray);
         }
-        
-        // byte配列に変換
-        byte[] result = new byte[flatPlayerIds.Length * sizeof(int)];
-        System.Buffer.BlockCopy(flatPlayerIds, 0, result, 0, result.Length);
-        
-        return result;
     }
     
     /// <summary>
-    /// プレイヤーID配列をデシリアライズ
+    /// スナップショットのピクセルデータ
     /// </summary>
-    private int[,] DeserializePlayerIds(byte[] data, int width, int height)
+    private struct SnapshotPixelData
     {
-        if (data == null || data.Length == 0) return new int[width, height];
-        
-        // byte配列からint配列に変換
-        int[] flatPlayerIds = new int[data.Length / sizeof(int)];
-        System.Buffer.BlockCopy(data, 0, flatPlayerIds, 0, data.Length);
-        
-        // 2D配列に変換
-        int[,] result = new int[width, height];
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < height; y++)
-            {
-                result[x, y] = flatPlayerIds[y * width + x];
-            }
-        }
-        
-        return result;
+        public int x;
+        public int y;
+        public Color color;
+        public int playerId;
+        public float timestamp;
     }
     
+    // 初回同期用のバッファ
+    private Dictionary<int, SnapshotChunkBuffer> snapshotBuffers = new Dictionary<int, SnapshotChunkBuffer>();
+    
     /// <summary>
-    /// タイムスタンプ配列をシリアライズ
+    /// スナップショットチャンクのバッファ
     /// </summary>
-    private byte[] SerializeTimestamps(float[,] timestamps)
+    private class SnapshotChunkBuffer
     {
-        if (timestamps == null) return new byte[0];
+        public int width;
+        public int height;
+        public int totalChunks;
+        public Dictionary<int, SnapshotChunkData> chunks = new Dictionary<int, SnapshotChunkData>();
         
-        int width = timestamps.GetLength(0);
-        int height = timestamps.GetLength(1);
-        
-        // float配列に変換
-        float[] flatTimestamps = new float[width * height];
-        for (int x = 0; x < width; x++)
+        public bool IsComplete()
         {
-            for (int y = 0; y < height; y++)
-            {
-                flatTimestamps[y * width + x] = timestamps[x, y];
-            }
+            return chunks.Count == totalChunks;
         }
-        
-        // byte配列に変換
-        byte[] result = new byte[flatTimestamps.Length * sizeof(float)];
-        System.Buffer.BlockCopy(flatTimestamps, 0, result, 0, result.Length);
-        
-        return result;
     }
     
     /// <summary>
-    /// タイムスタンプ配列をデシリアライズ
+    /// スナップショットチャンクデータ
     /// </summary>
-    private float[,] DeserializeTimestamps(byte[] data, int width, int height)
+    private struct SnapshotChunkData
     {
-        if (data == null || data.Length == 0) return new float[width, height];
-        
-        // byte配列からfloat配列に変換
-        float[] flatTimestamps = new float[data.Length / sizeof(float)];
-        System.Buffer.BlockCopy(data, 0, flatTimestamps, 0, data.Length);
-        
-        // 2D配列に変換
-        float[,] result = new float[width, height];
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < height; y++)
-            {
-                result[x, y] = flatTimestamps[y * width + x];
-            }
-        }
-        
-        return result;
+        public int[] xCoords;
+        public int[] yCoords;
+        public Color[] colors;
+        public int[] playerIds;
+        public float[] timestamps;
     }
     
     /// <summary>
-    /// フルスナップショットを受信して適用（ClientRpc）
+    /// スナップショットチャンクを受信（ClientRpc）
     /// </summary>
     [ClientRpc]
-    private void SendFullSnapshotClientRpc(byte[] textureData, byte[] timestampData, byte[] playerIdData, ClientRpcParams rpcParams = default)
+    private void SendSnapshotChunkClientRpc(int width, int height, int chunkIndex, int totalChunks, int[] xCoords, int[] yCoords, Color[] colors, int[] playerIds, float[] timestamps, ClientRpcParams rpcParams = default)
     {
         if (IsServer) return; // サーバー側では実行しない
         
@@ -404,63 +470,86 @@ public class NetworkPaintCanvas : NetworkBehaviour
             return;
         }
         
-        // テクスチャデータを復元
-        Texture2D snapshotTexture = new Texture2D(2, 2);
-        if (snapshotTexture.LoadImage(textureData))
+        // バッファキー（クライアントIDを使用）
+        int bufferKey = (int)NetworkManager.Singleton.LocalClientId;
+        
+        // バッファを取得または作成
+        if (!snapshotBuffers.ContainsKey(bufferKey))
         {
-            // テクスチャのサイズを確認
-            int width = snapshotTexture.width;
-            int height = snapshotTexture.height;
-            
-            // タイムスタンプ配列をデシリアライズ
-            float[,] timestamps = DeserializeTimestamps(timestampData, width, height);
-            
-            // プレイヤーID配列をデシリアライズ
-            int[,] playerIds = DeserializePlayerIds(playerIdData, width, height);
-            
-            // テクスチャから色データを取得
-            Color[] pixels = snapshotTexture.GetPixels();
-            Color[,] colorData = new Color[width, height];
-            
-            for (int x = 0; x < width; x++)
+            snapshotBuffers[bufferKey] = new SnapshotChunkBuffer
             {
-                for (int y = 0; y < height; y++)
-                {
-                    int index = y * width + x;
-                    colorData[x, y] = pixels[index];
-                }
-            }
+                width = width,
+                height = height,
+                totalChunks = totalChunks
+            };
+        }
+        
+        var buffer = snapshotBuffers[bufferKey];
+        
+        // チャンクを保存
+        buffer.chunks[chunkIndex] = new SnapshotChunkData
+        {
+            xCoords = xCoords,
+            yCoords = yCoords,
+            colors = colors,
+            playerIds = playerIds,
+            timestamps = timestamps
+        };
+        
+        // 全てのチャンクが揃ったら適用
+        if (buffer.IsComplete())
+        {
+            ApplySnapshot(buffer);
             
-            // 各ピクセルをタイムスタンプ付きで適用
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < height; y++)
-                {
-                    if (timestamps[x, y] > 0f) // タイムスタンプが0より大きい場合のみ適用
-                    {
-                        paintCanvas.PaintAtWithTimestamp(x, y, playerIds[x, y], colorData[x, y], timestamps[x, y]);
-                    }
-                }
-            }
-            
-            // 差分検出マネージャーの状態をリセット
-            if (diffManager != null)
-            {
-                diffManager.ResetAfterSnapshot(colorData, timestamps);
-            }
+            // バッファをクリア
+            snapshotBuffers.Remove(bufferKey);
             
             if (Application.isEditor)
             {
-                Debug.Log($"NetworkPaintCanvas: 初回同期を受信して適用 - {width}x{height}");
+                Debug.Log($"NetworkPaintCanvas: 初回同期を受信して適用 - {width}x{height}, {totalChunks}チャンク");
             }
         }
         else
         {
-            Debug.LogError("NetworkPaintCanvas: テクスチャデータの復元に失敗しました");
+            if (Application.isEditor)
+            {
+                Debug.Log($"NetworkPaintCanvas: スナップショットチャンク受信 - {chunkIndex + 1}/{totalChunks}");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// スナップショットを適用
+    /// </summary>
+    private void ApplySnapshot(SnapshotChunkBuffer buffer)
+    {
+        if (paintCanvas == null || diffManager == null) return;
+        
+        int width = buffer.width;
+        int height = buffer.height;
+        
+        // 色データとタイムスタンプ配列を作成
+        Color[,] colorData = new Color[width, height];
+        float[,] timestamps = new float[width, height];
+        
+        // 全てのチャンクからデータを復元
+        foreach (var chunk in buffer.chunks.Values)
+        {
+            for (int i = 0; i < chunk.xCoords.Length; i++)
+            {
+                int x = chunk.xCoords[i];
+                int y = chunk.yCoords[i];
+                
+                colorData[x, y] = chunk.colors[i];
+                timestamps[x, y] = chunk.timestamps[i];
+                
+                // ピクセルを適用
+                paintCanvas.PaintAtWithTimestamp(x, y, chunk.playerIds[i], chunk.colors[i], chunk.timestamps[i]);
+            }
         }
         
-        // テクスチャを破棄
-        Destroy(snapshotTexture);
+        // 差分検出マネージャーの状態をリセット
+        diffManager.ResetAfterSnapshot(colorData, timestamps);
     }
     
     /// <summary>

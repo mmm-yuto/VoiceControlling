@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using System.Reflection;
 
 /// <summary>
 /// ネットワーク対応PaintBattleGameManager
@@ -11,9 +12,15 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     [Tooltip("ローカルのPaintBattleGameManager（Inspectorで接続）")]
     [SerializeField] private PaintBattleGameManager localPaintManager;
     
+    [Tooltip("ネットワーク対応PaintCanvas（Inspectorで接続）")]
+    [SerializeField] private NetworkPaintCanvas networkPaintCanvas;
+    
     [Header("Settings")]
     [Tooltip("オンラインモード時のみ動作するか")]
     [SerializeField] private bool onlyWorkInOnlineMode = true;
+    
+    // イベント購読フラグ
+    private bool isSubscribed = false;
     
     void Awake()
     {
@@ -26,6 +33,33 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
                 Debug.LogWarning("NetworkPaintBattleGameManager: PaintBattleGameManagerが見つかりません。Inspectorで設定してください。");
             }
         }
+        
+        if (networkPaintCanvas == null)
+        {
+            networkPaintCanvas = FindObjectOfType<NetworkPaintCanvas>();
+            if (networkPaintCanvas == null)
+            {
+                Debug.LogWarning("NetworkPaintBattleGameManager: NetworkPaintCanvasが見つかりません。Inspectorで設定してください。");
+            }
+        }
+    }
+    
+    void OnEnable()
+    {
+        // オンラインモードチェック
+        if (onlyWorkInOnlineMode && !IsOnlineMode())
+        {
+            return;
+        }
+        
+        // PaintCanvasのOnPaintCompletedイベントを購読
+        SubscribeToPaintEvents();
+    }
+    
+    void OnDisable()
+    {
+        // イベント購読を解除
+        UnsubscribeFromPaintEvents();
     }
     
     /// <summary>
@@ -63,6 +97,128 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     }
     
     /// <summary>
+    /// PaintCanvasのイベントを購読
+    /// </summary>
+    private void SubscribeToPaintEvents()
+    {
+        if (isSubscribed) return;
+        
+        // PaintCanvasを取得
+        PaintCanvas paintCanvas = null;
+        if (localPaintManager != null && localPaintManager.paintCanvas != null)
+        {
+            paintCanvas = localPaintManager.paintCanvas;
+        }
+        else
+        {
+            paintCanvas = FindObjectOfType<PaintCanvas>();
+        }
+        
+        if (paintCanvas != null)
+        {
+            paintCanvas.OnPaintCompleted += OnLocalPaintCompleted;
+            isSubscribed = true;
+            Debug.Log("NetworkPaintBattleGameManager: PaintCanvasのイベントを購読しました");
+        }
+        else
+        {
+            Debug.LogWarning("NetworkPaintBattleGameManager: PaintCanvasが見つかりません");
+        }
+    }
+    
+    /// <summary>
+    /// PaintCanvasのイベント購読を解除
+    /// </summary>
+    private void UnsubscribeFromPaintEvents()
+    {
+        if (!isSubscribed) return;
+        
+        PaintCanvas paintCanvas = null;
+        if (localPaintManager != null && localPaintManager.paintCanvas != null)
+        {
+            paintCanvas = localPaintManager.paintCanvas;
+        }
+        else
+        {
+            paintCanvas = FindObjectOfType<PaintCanvas>();
+        }
+        
+        if (paintCanvas != null)
+        {
+            paintCanvas.OnPaintCompleted -= OnLocalPaintCompleted;
+            isSubscribed = false;
+            Debug.Log("NetworkPaintBattleGameManager: PaintCanvasのイベント購読を解除しました");
+        }
+    }
+    
+    /// <summary>
+    /// ローカルプレイヤーの塗りイベントを処理
+    /// </summary>
+    private void OnLocalPaintCompleted(Vector2 position, int playerId, float intensity)
+    {
+        // オーナーのみ実行（自分の塗りのみ送信）
+        if (!IsOwner)
+        {
+            return;
+        }
+        
+        // プレイヤーの塗りのみ送信（playerId > 0）
+        // playerId == -1 は敵（CPU）の塗りなので送信しない
+        if (playerId <= 0)
+        {
+            return; // 敵の塗りは送信しない
+        }
+        
+        // オンラインモードチェック
+        if (onlyWorkInOnlineMode && !IsOnlineMode())
+        {
+            return;
+        }
+        
+        // NetworkPaintCanvasが設定されているか確認
+        if (networkPaintCanvas == null)
+        {
+            Debug.LogWarning("NetworkPaintBattleGameManager: NetworkPaintCanvasが設定されていません");
+            return;
+        }
+        
+        // プレイヤー色を取得
+        Color playerColor = GetPlayerColor();
+        
+        // ブラシの半径を取得
+        float brushRadius = GetBrushRadius();
+        
+        // サーバーに塗りデータを送信
+        networkPaintCanvas.SendClientPaintServerRpc(position, playerId, intensity, playerColor, brushRadius);
+        
+        if (Application.isEditor)
+        {
+            Debug.Log($"NetworkPaintBattleGameManager: クライアント塗りをサーバーに送信 - Position: {position}, PlayerId: {playerId}, Intensity: {intensity}, Radius: {brushRadius}");
+        }
+    }
+    
+    /// <summary>
+    /// ブラシの半径を取得
+    /// </summary>
+    private float GetBrushRadius()
+    {
+        if (localPaintManager != null)
+        {
+            // リフレクションでブラシを取得
+            var brushField = typeof(PaintBattleGameManager).GetField("brush", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var brush = brushField?.GetValue(localPaintManager) as BrushStrategyBase;
+            
+            if (brush != null)
+            {
+                return brush.GetRadius();
+            }
+        }
+        
+        return 10f; // デフォルト半径
+    }
+    
+    /// <summary>
     /// ネットワーク接続時の初期化
     /// </summary>
     public override void OnNetworkSpawn()
@@ -92,6 +248,11 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
             }
         }
         
+        // ネットワーク接続時にイベントを購読
+        if (IsClient)
+        {
+            SubscribeToPaintEvents();
+        }
     }
     
     /// <summary>
@@ -100,6 +261,10 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         base.OnNetworkDespawn();
+        
+        // イベント購読を解除
+        UnsubscribeFromPaintEvents();
+        
         Debug.Log("NetworkPaintBattleGameManager: ネットワーク切断");
     }
 }
