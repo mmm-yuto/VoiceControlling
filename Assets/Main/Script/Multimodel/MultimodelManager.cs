@@ -319,6 +319,10 @@ public class MultimodelManager : MonoBehaviour
             // カテゴリに応じたテキストを選択
             string emotionString = GetEmotionText(category);
             emotionText.text = emotionString;
+            
+            // ピッチ比率のみに基づいた基本色を取得（ボリューム比率による彩度調整なし）
+            Color emotionColor = colorCalculator.GetBaseColor(ratios.x);
+            emotionText.color = emotionColor;
         }
     }
     

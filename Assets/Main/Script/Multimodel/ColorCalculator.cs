@@ -210,5 +210,35 @@ public class ColorCalculator : MonoBehaviour
                 return "Unknown";
         }
     }
+    
+    /// <summary>
+    /// ピッチ比率のみに基づいた基本色を取得（ボリューム比率による彩度調整なし）
+    /// </summary>
+    /// <param name="pitchRatio">ピッチ比率（現在のピッチ / Neutral Soundのピッチ）</param>
+    /// <returns>基本色</returns>
+    public Color GetBaseColor(float pitchRatio)
+    {
+        // 区分を判定
+        PitchCategory category = GetPitchCategory(pitchRatio);
+        
+        // 区分に応じた基本色を取得
+        switch (category)
+        {
+            case PitchCategory.NeutralSound:
+                return neutralSoundColor;
+            
+            case PitchCategory.LowPitch:
+                return lowPitchColor;
+            
+            case PitchCategory.MediumPitch:
+                return mediumPitchColor;
+            
+            case PitchCategory.HighPitch:
+                return highPitchColor;
+            
+            default:
+                return neutralSoundColor;
+        }
+    }
 }
 
