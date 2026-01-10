@@ -15,6 +15,12 @@ public class MultimodelManager : MonoBehaviour
     [Tooltip("ColorCalculatorコンポーネント（自動検索可能）")]
     [SerializeField] private ColorCalculator colorCalculator;
     
+    [Tooltip("音量分析コンポーネント（自動検索可能）")]
+    [SerializeField] private VolumeAnalyzer volumeAnalyzer;
+    
+    [Tooltip("ピッチ分析コンポーネント（自動検索可能）")]
+    [SerializeField] private ImprovedPitchAnalyzer pitchAnalyzer;
+    
     [Header("UI References")]
     [Tooltip("Neutral Sound検出開始ボタン")]
     [SerializeField] private Button detectNeutralSoundButton;
@@ -27,6 +33,22 @@ public class MultimodelManager : MonoBehaviour
     
     [Tooltip("状態表示テキスト")]
     [SerializeField] private TextMeshProUGUI statusText;
+    
+    [Header("Emotion Text Display")]
+    [Tooltip("感情状態を表示するテキスト（常時更新、オプション）")]
+    [SerializeField] private TextMeshProUGUI emotionText;
+    
+    [Tooltip("ピッチがNeutral以下（比率 < 1.0）の時に表示するテキスト")]
+    [SerializeField] private string sadText = "sad";
+    
+    [Tooltip("Neutral（比率 ≈ 1.0）の時に表示するテキスト")]
+    [SerializeField] private string neutralText = "Neutral";
+    
+    [Tooltip("1.0 <= 比率 < 1.5 の時に表示するテキスト")]
+    [SerializeField] private string disgustText = "disgust";
+    
+    [Tooltip("比率 >= 1.5 の時に表示するテキスト")]
+    [SerializeField] private string happyText = "Happy";
     
     [Header("Settings")]
     [Tooltip("自動検出モード（シーン開始時に自動でNeutral Sound検出を開始）")]
@@ -43,6 +65,12 @@ public class MultimodelManager : MonoBehaviour
         Initialize();
     }
     
+    void Update()
+    {
+        // 感情テキストを常時更新
+        UpdateEmotionText();
+    }
+    
     /// <summary>
     /// 初期化
     /// </summary>
@@ -57,6 +85,16 @@ public class MultimodelManager : MonoBehaviour
         if (colorCalculator == null)
         {
             colorCalculator = FindObjectOfType<ColorCalculator>();
+        }
+        
+        if (volumeAnalyzer == null)
+        {
+            volumeAnalyzer = FindObjectOfType<VolumeAnalyzer>();
+        }
+        
+        if (pitchAnalyzer == null)
+        {
+            pitchAnalyzer = FindObjectOfType<ImprovedPitchAnalyzer>();
         }
         
         // UIボタンの設定
@@ -237,6 +275,99 @@ public class MultimodelManager : MonoBehaviour
         {
             return "Neutral Sound not detected";
         }
+    }
+    
+    /// <summary>
+    /// 感情テキストを更新
+    /// </summary>
+    private void UpdateEmotionText()
+    {
+        if (emotionText == null)
+        {
+            return;
+        }
+        
+        // NeutralSoundが検出されているか確認
+        if (neutralSoundDetector == null || !neutralSoundDetector.IsDetected)
+        {
+            return;
+        }
+        
+        // 現在の音声データを取得
+        float currentPitch = GetCurrentPitch();
+        float currentVolume = GetCurrentVolume();
+        
+        // 有効な音声データか確認
+        if (currentPitch <= 0f || currentVolume <= 0f)
+        {
+            return;
+        }
+        
+        // 比率を計算
+        if (colorCalculator != null)
+        {
+            Vector2 ratios = colorCalculator.CalculateRatios(
+                currentPitch,
+                currentVolume,
+                neutralSoundDetector.NeutralPitch,
+                neutralSoundDetector.NeutralVolume
+            );
+            
+            // カテゴリを判定
+            ColorCalculator.PitchCategory category = colorCalculator.GetCategory(ratios.x);
+            
+            // カテゴリに応じたテキストを選択
+            string emotionString = GetEmotionText(category);
+            emotionText.text = emotionString;
+        }
+    }
+    
+    /// <summary>
+    /// カテゴリに応じた感情テキストを取得
+    /// </summary>
+    private string GetEmotionText(ColorCalculator.PitchCategory category)
+    {
+        switch (category)
+        {
+            case ColorCalculator.PitchCategory.LowPitch:
+                return sadText;
+            
+            case ColorCalculator.PitchCategory.NeutralSound:
+                return neutralText;
+            
+            case ColorCalculator.PitchCategory.MediumPitch:
+                return disgustText;
+            
+            case ColorCalculator.PitchCategory.HighPitch:
+                return happyText;
+            
+            default:
+                return neutralText;
+        }
+    }
+    
+    /// <summary>
+    /// 現在のピッチを取得
+    /// </summary>
+    private float GetCurrentPitch()
+    {
+        if (pitchAnalyzer != null)
+        {
+            return pitchAnalyzer.lastDetectedPitch;
+        }
+        return 0f;
+    }
+    
+    /// <summary>
+    /// 現在のボリュームを取得
+    /// </summary>
+    private float GetCurrentVolume()
+    {
+        if (volumeAnalyzer != null)
+        {
+            return volumeAnalyzer.CurrentVolume;
+        }
+        return 0f;
     }
     
     void OnDestroy()
