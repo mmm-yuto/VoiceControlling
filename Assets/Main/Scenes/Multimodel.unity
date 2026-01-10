@@ -1518,7 +1518,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58d1c67be29477e42bc96bec3f2a900b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ImprovedPitchAnalyzer
-  pitchSensitivity: 1
   minFrequency: 80
   maxFrequency: 500
   volumeDetectionRatio: 0.75
@@ -1526,14 +1525,11 @@ MonoBehaviour:
   autocorrelationThreshold: 0.5
   frameHistorySize: 5
   useAdvancedFiltering: 1
-  minConfidence: 0.3
-  intentionalVoiceMinDuration: 0.1
+  minConfidence: 0.4
+  intentionalVoiceMinDuration: 0.01
   intentionalVoiceStabilityThreshold: 30
   intentionalVoiceVolumeStability: 0.8
   adaptiveSmoothingEnabled: 1
-  leftPitch: 200
-  centerPitch: 400
-  rightPitch: 600
   useTestMode: 0
   testPitch: 400
   enableDebugLog: 1

@@ -56,6 +56,7 @@ public class NeutralSoundDetector : MonoBehaviour
     private List<float> pitchSamples = new List<float>();
     private List<float> volumeSamples = new List<float>();
     private int currentSampleCount = 0;
+    private int warmupFrames = 0; // 検出開始後のウォームアップフレーム数
     
     // イベント
     public System.Action<float, float> OnNeutralSoundDetected; // (pitch, volume)
@@ -111,6 +112,7 @@ public class NeutralSoundDetector : MonoBehaviour
         pitchSamples.Clear();
         volumeSamples.Clear();
         currentSampleCount = 0;
+        warmupFrames = 3; // 3フレーム待機してから記録開始（ImprovedPitchAnalyzerの状態を安定化）
         
         OnDetectionStarted?.Invoke();
         UpdateStatusTextWithProgress();
@@ -161,7 +163,7 @@ public class NeutralSoundDetector : MonoBehaviour
     
     void Update()
     {
-        // 現在の音声データを常時更新表示
+        // 現在の音声データを常時更新表示（表示用の値）
         UpdateCurrentAudioDisplay();
         
         if (!IsDetecting)
@@ -172,11 +174,18 @@ public class NeutralSoundDetector : MonoBehaviour
         // 検知中は進行状況を更新
         UpdateStatusTextWithProgress();
         
-        // 音声データを取得
+        // ウォームアップ期間中は記録しない（ImprovedPitchAnalyzerの状態を安定化）
+        if (warmupFrames > 0)
+        {
+            warmupFrames--;
+            return;
+        }
+        
+        // 表示と同じ方法で現在の値を取得（表示用の値と同じ）
         float currentVolume = GetCurrentVolume();
         float currentPitch = GetCurrentPitch();
         
-        // 有効なサンプルのみを記録
+        // 有効なサンプルのみを記録（現在のフレームの値のみ）
         if (IsValidSample(currentVolume, currentPitch))
         {
             pitchSamples.Add(currentPitch);
@@ -248,9 +257,9 @@ public class NeutralSoundDetector : MonoBehaviour
             return;
         }
         
-        // 平均値を計算
-        float averagePitch = CalculateAverage(pitchSamples);
-        float averageVolume = CalculateAverage(volumeSamples);
+        // 外れ値を除去してから平均値を計算（表示される値に近づけるため）
+        float averagePitch = CalculateAverageWithOutlierRemoval(pitchSamples);
+        float averageVolume = CalculateAverageWithOutlierRemoval(volumeSamples);
         
         // 基準値を設定
         NeutralPitch = averagePitch;
@@ -267,7 +276,7 @@ public class NeutralSoundDetector : MonoBehaviour
         HideStatusText();
         UpdateNeutralSoundDisplay();
         
-        Debug.Log($"NeutralSoundDetector: Neutral Sound detected - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3}");
+        Debug.Log($"NeutralSoundDetector: Neutral Sound detected - Pitch: {NeutralPitch:F1}Hz, Volume: {NeutralVolume:F3} (from {pitchSamples.Count} samples)");
     }
     
     /// <summary>
@@ -287,6 +296,54 @@ public class NeutralSoundDetector : MonoBehaviour
         }
         
         return sum / values.Count;
+    }
+    
+    /// <summary>
+    /// 外れ値を除去してから平均値を計算
+    /// </summary>
+    private float CalculateAverageWithOutlierRemoval(List<float> values)
+    {
+        if (values.Count == 0)
+        {
+            return 0f;
+        }
+        
+        if (values.Count == 1)
+        {
+            return values[0];
+        }
+        
+        // まず平均値を計算
+        float average = CalculateAverage(values);
+        
+        // 標準偏差を計算
+        float variance = 0f;
+        foreach (float value in values)
+        {
+            variance += Mathf.Pow(value - average, 2);
+        }
+        variance /= values.Count;
+        float standardDeviation = Mathf.Sqrt(variance);
+        
+        // 標準偏差の2倍以内の値のみを使用して平均を再計算
+        float sum = 0f;
+        int count = 0;
+        foreach (float value in values)
+        {
+            if (Mathf.Abs(value - average) <= 2f * standardDeviation)
+            {
+                sum += value;
+                count++;
+            }
+        }
+        
+        if (count > 0)
+        {
+            return sum / count;
+        }
+        
+        // すべてが外れ値の場合は元の平均を返す
+        return average;
     }
     
     /// <summary>

@@ -6231,7 +6231,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &702903789
 Transform:
   m_ObjectHideFlags: 0
@@ -9192,7 +9192,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58d1c67be29477e42bc96bec3f2a900b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ImprovedPitchAnalyzer
-  pitchSensitivity: 1
   minFrequency: 80
   maxFrequency: 500
   volumeDetectionRatio: 0.75
@@ -9200,14 +9199,11 @@ MonoBehaviour:
   autocorrelationThreshold: 0.5
   frameHistorySize: 5
   useAdvancedFiltering: 1
-  minConfidence: 0.3
-  intentionalVoiceMinDuration: 0.1
+  minConfidence: 0.4
+  intentionalVoiceMinDuration: 0.01
   intentionalVoiceStabilityThreshold: 30
   intentionalVoiceVolumeStability: 0.8
   adaptiveSmoothingEnabled: 1
-  leftPitch: 200
-  centerPitch: 400
-  rightPitch: 600
   useTestMode: 0
   testPitch: 400
   enableDebugLog: 1
@@ -16813,7 +16809,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1712080659
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20586,6 +20582,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TitlePanel
   titlePanel: {fileID: 2052836253}
   nextPanel: {fileID: 1323142837}
+  onlineOfflineSelectionPanel: {fileID: 0}
   gameModeSelectionPanel: {fileID: 1823121604}
   objectsToHideDuringTitle:
   - {fileID: 1787177001}
@@ -21348,6 +21345,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 1245001717}
     m_Modifications:
     - target: {fileID: 2844999716471293174, guid: f33463ff9eacc0f499db3e67c7638d40, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2844999716471293174, guid: f33463ff9eacc0f499db3e67c7638d40, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 2642993963
       objectReference: {fileID: 0}
@@ -21367,6 +21368,10 @@ PrefabInstance:
       propertyPath: singlePlayerModeManager
       value: 
       objectReference: {fileID: 704633318}
+    - target: {fileID: 5908072618881495534, guid: f33463ff9eacc0f499db3e67c7638d40, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5908072618881495534, guid: f33463ff9eacc0f499db3e67c7638d40, type: 3}
       propertyPath: networkPaintCanvas
       value: 
@@ -21429,12 +21434,20 @@ PrefabInstance:
     m_TransformParent: {fileID: 574533158}
     m_Modifications:
     - target: {fileID: 640789524918002891, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 640789524918002891, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 325207396
       objectReference: {fileID: 0}
     - target: {fileID: 3110323764605217206, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
       propertyPath: m_Name
       value: PaintCanvasManager
+      objectReference: {fileID: 0}
+    - target: {fileID: 4654199875277285462, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7201252645300911222, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
       propertyPath: m_LocalPosition.x

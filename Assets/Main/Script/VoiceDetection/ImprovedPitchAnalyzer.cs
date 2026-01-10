@@ -4,7 +4,6 @@ using System.Collections.Generic;
 public class ImprovedPitchAnalyzer : MonoBehaviour
 {
     [Header("Pitch Settings")]
-    public float pitchSensitivity = 1.0f;
     public float minFrequency = 80f;  // 最低周波数
     public float maxFrequency = 1000f; // 最高周波数
     [Tooltip("検知閾値の比率（MinVolumeに対するパーセンテージ、0.0-1.0）")]
@@ -33,11 +32,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     [Tooltip("適応的スムージングを有効にする")]
     public bool adaptiveSmoothingEnabled = true; // 適応的スムージングを有効にする
     
-    [Header("Movement Pitch Settings")]
-    public float leftPitch = 200f;    // 左移動用のピッチ
-    public float centerPitch = 400f;  // 中央（停止）用のピッチ
-    public float rightPitch = 600f;   // 右移動用のピッチ
-    
     [Header("Test Settings")]
     public bool useTestMode = false;  // テストモードを使用
     public float testPitch = 400f;   // テスト用の固定音程
@@ -47,15 +41,12 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
     
     private VoiceDetector voiceDetector;
     private VolumeAnalyzer volumeAnalyzer;
-    private float[] fftBuffer;
     public float lastDetectedPitch = 0f;
     private float smoothedPitch = 0f;
     private bool hasValidPitch = false;
-    private float lastFrameRms = 0f;
     
     // フレーム履歴
     private Queue<float> pitchHistory = new Queue<float>();
-    private Queue<float> volumeHistory = new Queue<float>();
     
     // 意図的な音声の検出用の履歴
     private Queue<PitchDetectionResult> recentDetections = new Queue<PitchDetectionResult>();
@@ -82,9 +73,7 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         }
         else
         {
-            int bufferSize = voiceDetector.bufferSize;
-            fftBuffer = new float[bufferSize];
-            Debug.Log($"ImprovedPitchAnalyzer: 初期化完了 - BufferSize: {bufferSize}, SampleRate: {voiceDetector.sampleRate}");
+            Debug.Log($"ImprovedPitchAnalyzer: 初期化完了 - BufferSize: {voiceDetector.bufferSize}, SampleRate: {voiceDetector.sampleRate}");
         }
         
         if (volumeAnalyzer == null)
@@ -141,7 +130,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             
             // 音量をチェックしてピッチ検知の信頼性を判断
             float currentVolume = CalculateVolume(samples);
-            lastFrameRms = currentVolume;
             
             // 動的閾値を計算（MinVolume * volumeDetectionRatio）
             float dynamicThreshold = VoiceCalibrator.MinVolume > 0f 
@@ -640,61 +628,5 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         return true;
     }
     
-    // インスペクター用のテストボタン
-    [ContextMenu("Test Left Movement")]
-    void TestLeftMovement()
-    {
-        // テスト用の動的閾値を計算
-        float testThreshold = VoiceCalibrator.MinVolume > 0f 
-            ? VoiceCalibrator.MinVolume * volumeDetectionRatio * 2f 
-            : 0.02f;
-        ProcessPitch(leftPitch, 1.0f, testThreshold); // 高い信頼度と音量でテスト
-    }
-    
-    [ContextMenu("Test Center Movement")]
-    void TestCenterMovement()
-    {
-        // テスト用の動的閾値を計算
-        float testThreshold = VoiceCalibrator.MinVolume > 0f 
-            ? VoiceCalibrator.MinVolume * volumeDetectionRatio * 2f 
-            : 0.02f;
-        ProcessPitch(centerPitch, 1.0f, testThreshold); // 高い信頼度と音量でテスト
-    }
-    
-    [ContextMenu("Test Right Movement")]
-    void TestRightMovement()
-    {
-        // テスト用の動的閾値を計算
-        float testThreshold = VoiceCalibrator.MinVolume > 0f 
-            ? VoiceCalibrator.MinVolume * volumeDetectionRatio * 2f 
-            : 0.02f;
-        ProcessPitch(rightPitch, 1.0f, testThreshold); // 高い信頼度と音量でテスト
-    }
-    
     public System.Action<float> OnPitchDetected;
-    
-    // UI初期化用のメソッド
-    public void InitializeUIComponents()
-    {
-        // VoiceDisplayとGameManagerのUIコンポーネントを更新
-        VoiceDisplay voiceDisplay = FindObjectOfType<VoiceDisplay>();
-        if (voiceDisplay != null)
-        {
-            voiceDisplay.SetPitchRange(minFrequency, maxFrequency);
-            Debug.Log($"ImprovedPitchAnalyzer: Updated VoiceDisplay pitch range to {minFrequency}-{maxFrequency} Hz");
-        }
-        
-        GameManager gameManager = FindObjectOfType<GameManager>();
-        if (gameManager != null)
-        {
-            // GameManagerの設定を直接更新（publicフィールドがある場合）
-            Debug.Log($"ImprovedPitchAnalyzer: Pitch range set to {minFrequency}-{maxFrequency} Hz");
-        }
-    }
-    
-    // 設定値変更時にUIを更新するメソッド
-    public void UpdateUISettings()
-    {
-        InitializeUIComponents();
-    }
 }
