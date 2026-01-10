@@ -968,7 +968,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Happy
+  m_text: Neutral
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
   m_sharedMaterial: {fileID: 2094046441526094077, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
@@ -3343,11 +3343,11 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'Pitch
 
-    100 Hz
+    0 Hz
 
     volume
 
-    30'
+    0 dB'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
   m_sharedMaterial: {fileID: 2094046441526094077, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
@@ -3870,11 +3870,11 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'Pitch
 
-    100 Hz
+    0 Hz
 
     volume
 
-    30'
+    0 dB'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
   m_sharedMaterial: {fileID: 2094046441526094077, guid: 47b034b5f95ee2840b475c151a9eaf10, type: 2}
