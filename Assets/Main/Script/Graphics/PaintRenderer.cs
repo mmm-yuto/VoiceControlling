@@ -152,7 +152,6 @@ public class PaintRenderer : MonoBehaviour
         );
         displayImage.sprite = canvasSprite;
         
-        Debug.Log("[DEBUG] PaintRenderer: テクスチャ更新イベントを受信し、Spriteを再生成しました");
     }
     
     void OnDestroy()

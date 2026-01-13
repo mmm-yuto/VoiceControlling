@@ -115,24 +115,18 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     {
         if (isSubscribed) 
         {
-            Debug.Log("[DEBUG] SubscribeToPaintEvents: 既に購読済み");
             return;
         }
-        
-        Debug.Log($"[DEBUG] SubscribeToPaintEvents: 開始 - IsClient: {IsClient}, IsServer: {IsServer}");
-        Debug.Log($"[DEBUG] SubscribeToPaintEvents: localPaintManager = {(localPaintManager != null ? "存在" : "null")}");
         
         // PaintCanvasを取得
         PaintCanvas paintCanvas = null;
         if (localPaintManager != null && localPaintManager.paintCanvas != null)
         {
             paintCanvas = localPaintManager.paintCanvas;
-            Debug.Log("[DEBUG] SubscribeToPaintEvents: localPaintManagerからPaintCanvasを取得");
         }
         else
         {
             paintCanvas = FindObjectOfType<PaintCanvas>();
-            Debug.Log($"[DEBUG] SubscribeToPaintEvents: FindObjectOfTypeでPaintCanvasを取得 - {(paintCanvas != null ? "成功" : "失敗")}");
         }
         
         if (paintCanvas != null)
@@ -160,7 +154,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         yield return new WaitForSeconds(0.5f);
         if (!isSubscribed)
         {
-            Debug.Log("[DEBUG] RetrySubscribeToPaintEvents: 再試行します");
             SubscribeToPaintEvents();
         }
     }
@@ -195,20 +188,16 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     /// </summary>
     private void OnLocalPaintCompleted(Vector2 position, int playerId, float intensity)
     {
-        Debug.Log($"[DEBUG] OnLocalPaintCompleted呼び出し - Position: {position}, PlayerId: {playerId}, Intensity: {intensity}, IsClient: {IsClient}, IsServer: {IsServer}, IsOwner: {IsOwner}");
-        
         // ホスト側（IsServer && IsClient）の場合は、直接PaintCanvasに描画されるため送信不要
         // ホスト側では、サーバー側のPaintCanvasに直接描画されるため、ここで送信すると重複する
         if (IsServer)
         {
-            Debug.Log("[DEBUG] ホスト側（サーバー）のため早期リターン - 直接PaintCanvasに描画されるため送信不要");
             return;
         }
         
         // クライアント側のみ実行
         if (!IsClient)
         {
-            Debug.Log("[DEBUG] IsClientチェックで早期リターン");
             return;
         }
         
@@ -216,14 +205,12 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         // playerId == -1 は敵（CPU）の塗りなので送信しない
         if (playerId <= 0)
         {
-            Debug.Log($"[DEBUG] playerIdチェックで早期リターン - playerId: {playerId}");
             return; // 敵の塗りは送信しない
         }
         
         // オンラインモードチェック
         if (onlyWorkInOnlineMode && !IsOnlineMode())
         {
-            Debug.Log("[DEBUG] オンラインモードチェックで早期リターン");
             return;
         }
         
@@ -258,8 +245,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
                 }
             }
         }
-        
-        Debug.Log($"[DEBUG] すべてのチェック通過 - 送信準備完了 - PlayerId: {playerId}");
         
         // プレイヤー色を取得
         Color playerColor = GetPlayerColor();
@@ -305,7 +290,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         base.OnNetworkSpawn();
         
         Debug.Log($"NetworkPaintBattleGameManager: ネットワーク接続 - IsServer: {IsServer}, IsClient: {IsClient}, IsOwner: {IsOwner}");
-        Debug.Log($"[DEBUG] OnNetworkSpawn: localPaintManager = {(localPaintManager != null ? "存在" : "null")}");
         
         // ローカルのPaintBattleGameManagerのplayerIdを設定
         // IsOwnerチェックを削除し、IsClientチェックに変更（クライアント側でもplayerIdを設定するため）
@@ -325,13 +309,7 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
                 ulong localClientId = NetworkManager.Singleton.LocalClientId;
                 // クライアントID + 1 でプレイヤーIDを生成（ホストは0なので1、最初のクライアントは1なので2）
                 localPaintManager.playerId = (int)localClientId + 1;
-                Debug.Log($"[DEBUG] OnNetworkSpawn: クライアントとしてPlayerId = {localPaintManager.playerId}を設定しました (LocalClientId: {localClientId})");
-                Debug.Log($"[DEBUG] OnNetworkSpawn: 設定後のlocalPaintManager.playerId = {localPaintManager.playerId}");
             }
-        }
-        else
-        {
-            Debug.LogWarning($"[DEBUG] OnNetworkSpawn: localPaintManagerがnullまたはIsClientがfalse - localPaintManager: {(localPaintManager != null ? "存在" : "null")}, IsClient: {IsClient}");
         }
         
         // ネットワーク接続時にイベントを購読（クライアント側のみ）
