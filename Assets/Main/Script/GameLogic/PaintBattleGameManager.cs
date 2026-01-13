@@ -255,6 +255,7 @@ public class PaintBattleGameManager : MonoBehaviour
 
     /// <summary>
     /// 2点間を補間して連続線を描く
+    /// 補間処理中はイベント発火を抑制し、最終位置のみでイベントを発火（ネットワーク送信最適化）
     /// </summary>
     private void PaintLineBetween(Vector2 startPos, Vector2 endPos, float intensity)
     {
@@ -278,6 +279,9 @@ public class PaintBattleGameManager : MonoBehaviour
             return;
         }
 
+        // 補間処理の開始（イベント発火を抑制）
+        paintCanvas.BeginInterpolation();
+
         // 補間ステップ数を計算（半径の半分ごとに点を打つ）
         int steps = Mathf.Max(1, Mathf.CeilToInt(distance / (radius * 0.5f)));
 
@@ -285,13 +289,16 @@ public class PaintBattleGameManager : MonoBehaviour
         const int maxSteps = 50;
         steps = Mathf.Min(steps, maxSteps);
 
-        // 各ステップで塗る
+        // 各ステップで塗る（イベントは発火しない）
         for (int i = 0; i <= steps; i++)
         {
             float t = (float)i / steps;
             Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
             brush.Paint(paintCanvas, interpolatedPos, playerId, playerColor, intensity);
         }
+
+        // 補間処理の終了（最終位置でイベントを発火）
+        paintCanvas.EndInterpolation();
     }
     
     /// <summary>

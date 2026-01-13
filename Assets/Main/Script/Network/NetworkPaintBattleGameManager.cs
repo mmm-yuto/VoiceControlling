@@ -22,6 +22,9 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     // イベント購読フラグ
     private bool isSubscribed = false;
     
+    // updateFrequencyによる間引き用のフレームカウンター
+    private int frameCount = 0;
+    
     void Awake()
     {
         // 参照の自動検索（未設定の場合）
@@ -229,6 +232,31 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         {
             Debug.LogWarning("NetworkPaintBattleGameManager: NetworkPaintCanvasが設定されていません");
             return;
+        }
+        
+        // PaintCanvasのupdateFrequencyを取得して間引き
+        PaintCanvas paintCanvas = null;
+        if (localPaintManager != null && localPaintManager.paintCanvas != null)
+        {
+            paintCanvas = localPaintManager.paintCanvas;
+        }
+        else
+        {
+            paintCanvas = FindObjectOfType<PaintCanvas>();
+        }
+        
+        if (paintCanvas != null)
+        {
+            var settings = paintCanvas.GetSettings();
+            if (settings != null)
+            {
+                frameCount++;
+                if (frameCount % settings.updateFrequency != 0)
+                {
+                    // PaintCanvasと同じ頻度で間引き
+                    return;
+                }
+            }
         }
         
         Debug.Log($"[DEBUG] すべてのチェック通過 - 送信準備完了 - PlayerId: {playerId}");

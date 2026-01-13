@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Netcode;
 
 /// <summary>
 /// 塗りキャンバスの実装
@@ -7,7 +8,21 @@ using UnityEngine;
 public class PaintCanvas : MonoBehaviour, IPaintCanvas
 {
     [Header("Settings")]
+    [Tooltip("オフラインモード用の設定（優先度: 高）")]
+    [SerializeField] private PaintSettings offlineSettings;
+    
+    [Tooltip("オンラインモード用の設定（優先度: 高）")]
+    [SerializeField] private PaintSettings onlineSettings;
+    
+    [Tooltip("デフォルト設定（後方互換性用、offlineSettings/onlineSettingsが未設定の場合に使用）")]
     [SerializeField] private PaintSettings settings;
+    
+    [Header("Current Status (Read Only)")]
+    [Tooltip("現在使用中の設定モード（自動判定）")]
+    [SerializeField] private string currentModeStatus = "未判定";
+    
+    [Tooltip("現在使用中の設定（自動選択）")]
+    [SerializeField] private PaintSettings currentActiveSettings;
     
     [Header("Debug")]
     [Tooltip("塗り位置をデバッグ表示するか")]
@@ -46,8 +61,17 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     private int cachedEnemyPixelCount = 0;
     private bool pixelCountCacheValid = false; // キャッシュが有効かどうか
     
+    // 補間処理中のイベント発火抑制フラグ（ネットワーク送信最適化用）
+    private bool suppressEventFiring = false;
+    private Vector2 lastInterpolationEndPosition = Vector2.zero;
+    private int lastInterpolationPlayerId = 0;
+    private float lastInterpolationIntensity = 0f;
+    
     void Awake()
     {
+        // オンライン/オフライン判定に基づいて適切な設定を選択
+        SelectSettings();
+        
         if (settings == null)
         {
             Debug.LogError("PaintCanvas: PaintSettingsが設定されていません");
@@ -55,6 +79,80 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         }
         
         InitializeCanvas();
+    }
+    
+    /// <summary>
+    /// オンライン/オフライン判定に基づいて適切な設定を選択
+    /// </summary>
+    private void SelectSettings()
+    {
+        bool isOnline = IsOnlineMode();
+        
+        if (isOnline)
+        {
+            // オンラインモード: onlineSettingsを優先、未設定の場合はsettingsを使用
+            if (onlineSettings != null)
+            {
+                settings = onlineSettings;
+                currentModeStatus = "オンライン";
+                currentActiveSettings = onlineSettings;
+                Debug.Log("PaintCanvas: オンラインモード用の設定を適用しました");
+            }
+            else if (settings != null)
+            {
+                currentModeStatus = "オンライン（デフォルト設定使用）";
+                currentActiveSettings = settings;
+                Debug.LogWarning("PaintCanvas: onlineSettingsが未設定のため、デフォルト設定を使用します");
+            }
+            else
+            {
+                currentModeStatus = "オンライン（設定未設定）";
+                currentActiveSettings = null;
+            }
+        }
+        else
+        {
+            // オフラインモード: offlineSettingsを優先、未設定の場合はsettingsを使用
+            if (offlineSettings != null)
+            {
+                settings = offlineSettings;
+                currentModeStatus = "オフライン";
+                currentActiveSettings = offlineSettings;
+                Debug.Log("PaintCanvas: オフラインモード用の設定を適用しました");
+            }
+            else if (settings != null)
+            {
+                currentModeStatus = "オフライン（デフォルト設定使用）";
+                currentActiveSettings = settings;
+                Debug.LogWarning("PaintCanvas: offlineSettingsが未設定のため、デフォルト設定を使用します");
+            }
+            else
+            {
+                currentModeStatus = "オフライン（設定未設定）";
+                currentActiveSettings = null;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// オンラインモードかどうかを判定
+    /// </summary>
+    private bool IsOnlineMode()
+    {
+        // Unity NetcodeのNetworkManagerが接続されているかどうかで判定
+        if (NetworkManager.Singleton != null)
+        {
+            return NetworkManager.Singleton.IsClient || 
+                   NetworkManager.Singleton.IsServer;
+        }
+        
+        // フォールバック: GameModeManagerを使用
+        if (GameModeManager.Instance != null)
+        {
+            return GameModeManager.Instance.IsOnlineMode;
+        }
+        
+        return false;
     }
     
     void InitializeCanvas()
@@ -265,8 +363,17 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         // テクスチャの更新をフラッシュ
         FlushTextureUpdates();
         
-        // イベント発火
-        OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
+        // イベント発火（補間処理中は抑制）
+        if (suppressEventFiring)
+        {
+            lastInterpolationEndPosition = screenPosition;
+            lastInterpolationPlayerId = playerId;
+            lastInterpolationIntensity = effectiveIntensity;
+        }
+        else
+        {
+            OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
+        }
         
         if (showDebugGizmos)
         {
@@ -404,7 +511,18 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         {
             FlushTextureUpdates();
             lastPaintFrame = Time.frameCount; // 塗りが実行されたフレームを記録
-            OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
+            
+            // 補間処理中はイベント発火を抑制（最終位置を記録）
+            if (suppressEventFiring)
+            {
+                lastInterpolationEndPosition = screenPosition;
+                lastInterpolationPlayerId = playerId;
+                lastInterpolationIntensity = effectiveIntensity;
+            }
+            else
+            {
+                OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
+            }
             Debug.Log($"[DEBUG] 塗り処理完了 - テクスチャを更新しました");
         }
         else
@@ -756,6 +874,34 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     public PaintSettings GetSettings()
     {
         return settings;
+    }
+    
+    /// <summary>
+    /// 補間処理の開始（イベント発火を抑制）
+    /// 補間処理中はイベントを発火せず、最終位置のみを記録
+    /// </summary>
+    public void BeginInterpolation()
+    {
+        suppressEventFiring = true;
+    }
+    
+    /// <summary>
+    /// 補間処理の終了（最終位置でイベントを発火）
+    /// </summary>
+    public void EndInterpolation()
+    {
+        suppressEventFiring = false;
+        
+        // 補間処理中に記録された最終位置でイベントを発火
+        if (lastInterpolationPlayerId > 0)
+        {
+            OnPaintCompleted?.Invoke(lastInterpolationEndPosition, lastInterpolationPlayerId, lastInterpolationIntensity);
+            
+            // リセット
+            lastInterpolationEndPosition = Vector2.zero;
+            lastInterpolationPlayerId = 0;
+            lastInterpolationIntensity = 0f;
+        }
     }
     
     /// <summary>

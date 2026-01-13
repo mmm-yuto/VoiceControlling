@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 250f60648d817374d98968d1f724cc0b, type: 3}
-  m_Name: PaintSettings
+  m_Name: PaintSettings_online
   m_EditorClassIdentifier: Assembly-CSharp::PaintSettings
   paintIntensityMultiplier: 1
-  updateFrequency: 1
+  updateFrequency: 10
   textureWidth: 960
   textureHeight: 540
   stopPaintingOnSilence: 1
   minVolumeThreshold: 0.01
-  textureUpdateFrequency: 1
+  textureUpdateFrequency: 10
