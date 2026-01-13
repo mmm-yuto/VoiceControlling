@@ -31,19 +31,11 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         if (localPaintManager == null)
         {
             localPaintManager = FindObjectOfType<PaintBattleGameManager>();
-            if (localPaintManager == null)
-            {
-                Debug.LogWarning("NetworkPaintBattleGameManager: PaintBattleGameManagerが見つかりません。Inspectorで設定してください。");
-            }
         }
         
         if (networkPaintCanvas == null)
         {
             networkPaintCanvas = FindObjectOfType<NetworkPaintCanvas>();
-            if (networkPaintCanvas == null)
-            {
-                Debug.LogWarning("NetworkPaintBattleGameManager: NetworkPaintCanvasが見つかりません。Inspectorで設定してください。");
-            }
         }
     }
     
@@ -133,11 +125,9 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         {
             paintCanvas.OnPaintCompleted += OnLocalPaintCompleted;
             isSubscribed = true;
-            Debug.Log($"NetworkPaintBattleGameManager: PaintCanvasのイベントを購読しました - PaintCanvas: {paintCanvas.name}");
         }
         else
         {
-            Debug.LogWarning("NetworkPaintBattleGameManager: PaintCanvasが見つかりません");
             // クライアント側でPaintCanvasが見つからない場合、少し遅延して再試行
             if (IsClient)
             {
@@ -179,7 +169,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         {
             paintCanvas.OnPaintCompleted -= OnLocalPaintCompleted;
             isSubscribed = false;
-            Debug.Log("NetworkPaintBattleGameManager: PaintCanvasのイベント購読を解除しました");
         }
     }
     
@@ -217,7 +206,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         // NetworkPaintCanvasが設定されているか確認
         if (networkPaintCanvas == null)
         {
-            Debug.LogWarning("NetworkPaintBattleGameManager: NetworkPaintCanvasが設定されていません");
             return;
         }
         
@@ -254,11 +242,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         
         // サーバーに塗りデータを送信
         networkPaintCanvas.SendClientPaintServerRpc(position, playerId, intensity, playerColor, brushRadius);
-        
-        if (Application.isEditor)
-        {
-            Debug.Log($"NetworkPaintBattleGameManager: クライアント塗りをサーバーに送信 - Position: {position}, PlayerId: {playerId}, Intensity: {intensity}, Radius: {brushRadius}");
-        }
     }
     
     /// <summary>
@@ -289,8 +272,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     {
         base.OnNetworkSpawn();
         
-        Debug.Log($"NetworkPaintBattleGameManager: ネットワーク接続 - IsServer: {IsServer}, IsClient: {IsClient}, IsOwner: {IsOwner}");
-        
         // ローカルのPaintBattleGameManagerのplayerIdを設定
         // IsOwnerチェックを削除し、IsClientチェックに変更（クライアント側でもplayerIdを設定するため）
         if (localPaintManager != null && IsClient)
@@ -299,7 +280,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
             if (IsServer)
             {
                 localPaintManager.playerId = 1;
-                Debug.Log($"NetworkPaintBattleGameManager: ホストとしてPlayerId = 1を設定しました");
             }
             else
             {
@@ -328,8 +308,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         
         // イベント購読を解除
         UnsubscribeFromPaintEvents();
-        
-        Debug.Log("NetworkPaintBattleGameManager: ネットワーク切断");
     }
 }
 

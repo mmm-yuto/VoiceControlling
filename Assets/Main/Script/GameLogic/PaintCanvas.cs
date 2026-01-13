@@ -74,7 +74,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         
         if (settings == null)
         {
-            Debug.LogError("PaintCanvas: PaintSettingsが設定されていません");
             return;
         }
         
@@ -96,13 +95,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 settings = onlineSettings;
                 currentModeStatus = "オンライン";
                 currentActiveSettings = onlineSettings;
-                Debug.Log("PaintCanvas: オンラインモード用の設定を適用しました");
             }
             else if (settings != null)
             {
                 currentModeStatus = "オンライン（デフォルト設定使用）";
                 currentActiveSettings = settings;
-                Debug.LogWarning("PaintCanvas: onlineSettingsが未設定のため、デフォルト設定を使用します");
             }
             else
             {
@@ -118,13 +115,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
                 settings = offlineSettings;
                 currentModeStatus = "オフライン";
                 currentActiveSettings = offlineSettings;
-                Debug.Log("PaintCanvas: オフラインモード用の設定を適用しました");
             }
             else if (settings != null)
             {
                 currentModeStatus = "オフライン（デフォルト設定使用）";
                 currentActiveSettings = settings;
-                Debug.LogWarning("PaintCanvas: offlineSettingsが未設定のため、デフォルト設定を使用します");
             }
             else
             {
@@ -171,7 +166,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         ResetCanvas();
         
         isInitialized = true;
-        Debug.Log($"PaintCanvas: 初期化完了 ({settings.textureWidth}x{settings.textureHeight})");
     }
     
     /// <summary>
@@ -351,10 +345,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
         }
         
-        if (showDebugGizmos)
-        {
-            Debug.Log($"PaintCanvas: 塗り完了 ({canvasX}, {canvasY}), Player: {playerId}, Intensity: {effectiveIntensity:F3}, Color: {color}");
-        }
     }
     
     /// <summary>
@@ -769,8 +759,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         cachedPlayerPixelCount = 0;
         cachedEnemyPixelCount = 0;
         pixelCountCacheValid = true;
-        
-        Debug.Log("PaintCanvas: キャンバスをリセットしました");
     }
     
     /// <summary>
@@ -985,7 +973,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         if (!isInitialized || settings == null || state == null) return;
         if (state.width != settings.textureWidth || state.height != settings.textureHeight)
         {
-            Debug.LogError("PaintCanvas: RestoreState failed - size mismatch");
             return;
         }
         
@@ -1075,7 +1062,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     {
         if (!isInitialized || settings == null)
         {
-            Debug.LogWarning("PaintCanvas: 初期化されていません");
             return;
         }
         

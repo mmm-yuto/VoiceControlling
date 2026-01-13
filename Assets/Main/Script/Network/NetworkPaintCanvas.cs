@@ -23,10 +23,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
         if (paintCanvas == null)
         {
             paintCanvas = FindObjectOfType<PaintCanvas>();
-            if (paintCanvas == null)
-            {
-                Debug.LogWarning("NetworkPaintCanvas: PaintCanvasが見つかりません。Inspectorで設定してください。");
-            }
         }
     }
     
@@ -38,7 +34,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
     {
         // キャンバスの初期状態を全クライアントに送信
         // 実装は必要に応じて追加
-        Debug.Log("NetworkPaintCanvas: SyncInitialState - 実装は将来の拡張用");
     }
     
     
@@ -50,7 +45,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
     {
         if (paintCanvas == null)
         {
-            Debug.LogWarning("NetworkPaintCanvas: PaintCanvasが設定されていません");
             return;
         }
         
@@ -59,11 +53,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
         
         // 全クライアントに同じ塗りコマンドを転送（オフラインと同じ軽量な方法）
         ApplyPaintCommandClientRpc(position, playerId, intensity, color, radius);
-        
-        if (Application.isEditor)
-        {
-            Debug.Log($"NetworkPaintCanvas: クライアント塗りをサーバー側に適用し、全クライアントに転送 - Position: {position}, PlayerId: {playerId}, Intensity: {intensity}, Radius: {radius}");
-        }
     }
     
     /// <summary>
@@ -81,17 +70,11 @@ public class NetworkPaintCanvas : NetworkBehaviour
         
         if (paintCanvas == null)
         {
-            Debug.LogWarning("NetworkPaintCanvas: PaintCanvasが設定されていません");
             return;
         }
         
         // オフラインと同じように直接塗り処理を実行（軽量）
         paintCanvas.PaintAtWithRadius(position, playerId, intensity, color, radius);
-        
-        if (Application.isEditor)
-        {
-            Debug.Log($"NetworkPaintCanvas: 塗りコマンドを受信して適用 - Position: {position}, PlayerId: {playerId}, Intensity: {intensity}, Radius: {radius}");
-        }
     }
     
     /// <summary>
@@ -119,14 +102,11 @@ public class NetworkPaintCanvas : NetworkBehaviour
         
         if (paintCanvas == null)
         {
-            Debug.LogError("NetworkPaintCanvas: PaintCanvasが設定されていません");
             return;
         }
         
         // PaintCanvasにタイムスタンプ取得コールバックを設定
         paintCanvas.SetTimestampCallback(GetServerTime);
-        
-        Debug.Log($"NetworkPaintCanvas: ネットワーク接続 - IsServer: {IsServer}, IsClient: {IsClient}, IsOwner: {IsOwner}");
         
         // サーバー側でクライアント接続時に初回同期を送信
         if (IsServer)
@@ -188,11 +168,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
         int totalPixels = pixelDataList.Count;
         int pixelsPerChunk = maxPixelsPerMessage;
         int chunkCount = Mathf.CeilToInt((float)totalPixels / pixelsPerChunk);
-        
-        if (Application.isEditor)
-        {
-            Debug.Log($"NetworkPaintCanvas: 初回同期を送信 - {totalPixels}ピクセル、{chunkCount}チャンクに分割");
-        }
         
         // 各チャンクを送信
         for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
@@ -276,7 +251,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
         
         if (paintCanvas == null)
         {
-            Debug.LogWarning("NetworkPaintCanvas: PaintCanvasが設定されていません");
             return;
         }
         
@@ -313,18 +287,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
             
             // バッファをクリア
             snapshotBuffers.Remove(bufferKey);
-            
-            if (Application.isEditor)
-            {
-                Debug.Log($"NetworkPaintCanvas: 初回同期を受信して適用 - {width}x{height}, {totalChunks}チャンク");
-            }
-        }
-        else
-        {
-            if (Application.isEditor)
-            {
-                Debug.Log($"NetworkPaintCanvas: スナップショットチャンク受信 - {chunkIndex + 1}/{totalChunks}");
-            }
         }
     }
     
@@ -358,7 +320,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         base.OnNetworkDespawn();
-        Debug.Log("NetworkPaintCanvas: ネットワーク切断");
     }
 }
 

@@ -46,19 +46,11 @@ public class PaintBattleGameManager : MonoBehaviour
         if (voiceInputHandler == null)
         {
             voiceInputHandler = FindObjectOfType<VoiceInputHandler>();
-            if (voiceInputHandler == null)
-            {
-                Debug.LogError("PaintBattleGameManager: VoiceInputHandlerが見つかりません");
-            }
         }
         
         if (paintCanvas == null)
         {
             paintCanvas = FindObjectOfType<PaintCanvas>();
-            if (paintCanvas == null)
-            {
-                Debug.LogError("PaintBattleGameManager: PaintCanvasが見つかりません");
-            }
         }
         
         if (singlePlayerModeManager == null)
@@ -81,14 +73,12 @@ public class PaintBattleGameManager : MonoBehaviour
                 if (NetworkManager.Singleton.IsHost)
                 {
                     playerId = 1; // ホストは常に1
-                    Debug.Log($"PaintBattleGameManager: オンラインモード（ホスト） - PlayerId: {playerId}");
                 }
                 else if (NetworkManager.Singleton.IsClient)
                 {
                     // クライアントIDをプレイヤーIDに変換
                     ulong localClientId = NetworkManager.Singleton.LocalClientId;
                     playerId = (int)localClientId + 1;
-                    Debug.Log($"PaintBattleGameManager: オンラインモード（クライアント） - PlayerId: {playerId}, LocalClientId: {localClientId}");
                 }
             }
         }
@@ -106,11 +96,6 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             resolvedBrush = BattleSettings.Instance.Current.brush;
             
-            // BattleSettingsにBrushが設定されていない場合は警告のみ出す
-            if (resolvedBrush == null && !string.IsNullOrEmpty(BattleSettings.Instance.Current.brushKey))
-            {
-                Debug.LogWarning("PaintBattleGameManager: BattleSettingsからBrushが取得できませんでした。brushKey: " + BattleSettings.Instance.Current.brushKey);
-            }
         }
 
         // BattleSettingsから取得できなかった場合は、defaultBrushを使用
