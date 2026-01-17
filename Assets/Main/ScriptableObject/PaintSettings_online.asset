@@ -14,8 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PaintSettings
   paintIntensityMultiplier: 1
   updateFrequency: 5
-  textureWidth: 960
-  textureHeight: 540
+  textureWidth: 480
+  textureHeight: 270
+  displayWidth: 1920
+  displayHeight: 1080
   stopPaintingOnSilence: 1
   minVolumeThreshold: 0.01
   textureUpdateFrequency: 5

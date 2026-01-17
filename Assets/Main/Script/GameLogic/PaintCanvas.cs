@@ -17,6 +17,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     [Tooltip("デフォルト設定（後方互換性用、offlineSettings/onlineSettingsが未設定の場合に使用）")]
     [SerializeField] private PaintSettings settings;
     
+    [Header("Display Reference")]
+    [Tooltip("表示サイズの基準となるUIオブジェクト（PaintSpaceImageなど）")]
+    [SerializeField] private RectTransform paintSpaceImage;
+    
     [Header("Current Status (Read Only)")]
     [Tooltip("現在使用中の設定モード（自動判定）")]
     [SerializeField] private string currentModeStatus = "未判定";
@@ -823,6 +827,14 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     public PaintSettings GetSettings()
     {
         return settings;
+    }
+    
+    /// <summary>
+    /// PaintSpaceImageのRectTransformを取得（表示サイズの基準として使用）
+    /// </summary>
+    public RectTransform GetPaintSpaceImage()
+    {
+        return paintSpaceImage;
     }
     
     /// <summary>

@@ -35,7 +35,20 @@ public class PaintCanvasEditor : Editor
             // 設定の詳細を表示
             EditorGUI.indentLevel++;
             EditorGUILayout.LabelField("Update Frequency:", activeSettings.updateFrequency.ToString());
-            EditorGUILayout.LabelField("解像度:", $"{activeSettings.textureWidth} x {activeSettings.textureHeight}");
+            EditorGUILayout.LabelField("テクスチャ解像度:", $"{activeSettings.textureWidth} x {activeSettings.textureHeight}");
+            
+            // 表示サイズを表示（PaintSpaceImageのサイズ）
+            RectTransform paintSpaceImage = paintCanvas.GetPaintSpaceImage();
+            if (paintSpaceImage != null)
+            {
+                Vector2 displaySize = paintSpaceImage.rect.size;
+                EditorGUILayout.LabelField("表示サイズ:", $"{displaySize.x:F0} x {displaySize.y:F0} (PaintSpaceImageから取得)");
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("PaintSpaceImageが設定されていません。", MessageType.Warning);
+            }
+            
             EditorGUILayout.LabelField("Texture Update Frequency:", activeSettings.textureUpdateFrequency.ToString());
             EditorGUI.indentLevel--;
         }
