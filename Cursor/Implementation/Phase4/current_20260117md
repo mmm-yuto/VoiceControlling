@@ -1,0 +1,454 @@
+# 塗りデータの送信方法
+
+## 概要
+
+現在の実装では、**塗りコマンド方式**を使用して軽量なネットワーク同期を実現しています。これはオフラインと同じ軽量な処理方法です。
+
+## 送信フロー
+
+### 1. ローカルでの塗り処理
+
+1. **PaintBattleGameManager** が塗りを実行
+   - ブラシを使用して `PaintCanvas.PaintAtWithRadius()` を呼び出す
+   - 塗りが完了すると `PaintCanvas.OnPaintCompleted` イベントが発火
+
+2. **NetworkPaintBattleGameManager** がイベントを監視
+   - `PaintCanvas.OnPaintCompleted` イベントを購読
+   - イベントが発火すると `OnLocalPaintCompleted()` が呼ばれる
+
+### 2. クライアント側での送信処理
+
+**NetworkPaintBattleGameManager.OnLocalPaintCompleted()** (284行目):
+- 条件チェック:
+  - クライアント側のみ実行 (`IsClient` チェック)
+  - プレイヤーの塗りのみ送信 (`playerId > 0`)
+  - オンラインモードかどうかを確認
+  - `PaintCanvas` の `updateFrequency` に基づいて間引き処理
+
+- 送信データの準備:
+  - `position`: 塗り位置 (Vector2) - **正規化座標（0-1）に変換**
+  - `playerId`: プレイヤーID (int)
+  - `intensity`: 塗り強度 (float)
+  - `playerColor`: プレイヤー色 (Color) - `BattleSettings` から取得
+  - `brushRadius`: ブラシの半径 (float) - **正規化（画面幅基準）**
+
+- サーバーへの送信:
+  ```csharp
+  networkPaintCanvas.SendClientPaintServerRpc(normalizedPosition, playerId, intensity, playerColor, normalizedRadius);
+  ```
+
+### 3. サーバー側での処理
+
+**NetworkPaintCanvas.SendClientPaintServerRpc()** (48行目):
+- 正規化座標を画面座標に変換（サーバー側の画面サイズを使用）
+- サーバー側の `PaintCanvas` に塗りを適用:
+  ```csharp
+  paintCanvas.PaintAtWithRadius(screenPosition, playerId, intensity, color, screenRadius);
+  ```
+
+- 全クライアントに転送（正規化座標のまま送信）:
+  ```csharp
+  ApplyPaintCommandClientRpc(normalizedPosition, playerId, intensity, color, normalizedRadius);
+  ```
+
+### 4. クライアント側での受信処理
+
+**NetworkPaintCanvas.ApplyPaintCommandClientRpc()** (81行目):
+- 正規化座標を画面座標に変換（各クライアントの画面サイズを使用）
+- サーバー側（ホスト）は既に塗り済みなのでスキップ
+- クライアント側の `PaintCanvas` に塗りを適用:
+  ```csharp
+  paintCanvas.PaintAtWithRadius(screenPosition, playerId, intensity, color, screenRadius);
+  ```
+
+## データ送信の詳細
+
+### 送信されるデータ構造（修正後）
+
+```
+SendClientPaintServerRpc(
+    Vector2 normalizedPosition,  // 正規化座標（0-1の範囲、2つのfloat = 8バイト）
+    int playerId,                // プレイヤーID（4バイト）
+    float intensity,             // 塗り強度（4バイト）
+    Color color,                 // 色（4つのfloat = 16バイト）
+    float normalizedRadius       // 正規化された半径（画面幅基準、4バイト）
+)
+```
+
+**合計: 約36バイト/塗りコマンド**
+
+**修正内容**:
+- 画面座標を正規化座標（0-1）に変換して送信
+- 受信時に各クライアントの画面サイズで画面座標に変換
+- これにより、画面サイズが異なる環境でも正しく動作
+
+### 座標変換の詳細
+
+**送信時**（NetworkPaintBattleGameManager）:
+```csharp
+Vector2 normalizedPosition = new Vector2(
+    position.x / Screen.width,   // 0-1の範囲に正規化
+    position.y / Screen.height
+);
+float normalizedRadius = brushRadius / Screen.width;  // 画面幅を基準に正規化
+```
+
+**受信時**（NetworkPaintCanvas）:
+```csharp
+Vector2 screenPosition = new Vector2(
+    normalizedPosition.x * Screen.width,   // 各クライアントの画面サイズで変換
+    normalizedPosition.y * Screen.height
+);
+float screenRadius = normalizedRadius * Screen.width;  // 画面幅を基準に復元
+```
+
+## 初回同期（接続時）
+
+クライアントが接続した際、既存の塗りデータを同期するために初回スナップショットを送信:
+
+1. **SendInitialSnapshot()** (168行目):
+   - `PaintCanvas` から塗られたピクセルデータを取得
+   - 各ピクセルの情報（座標、色、プレイヤーID、タイムスタンプ）を収集
+   - メッセージサイズ制限を回避するため、**分割送信**を使用
+
+2. **分割送信**:
+   - `maxPixelsPerMessage` (デフォルト: 5000ピクセル) ごとにチャンクに分割
+   - `SendSnapshotChunkClientRpc()` で各チャンクを送信
+   - クライアント側で全チャンクを受信したら `ApplySnapshot()` で適用
+
+## 関連ファイル
+
+- **NetworkPaintCanvas.cs**: ネットワーク経由での塗りデータの送受信を管理（座標変換処理含む）
+- **NetworkPaintBattleGameManager.cs**: ローカルの塗りイベントを検知してネットワークに送信（座標変換処理含む）
+- **PaintCanvas.cs**: 実際の塗り処理を実行（オフライン・オンライン共通）
+
+## まとめ
+
+現在の実装では、塗りコマンド（位置、色、半径など）を正規化座標で送信する軽量な方式を使用しています。これにより、画面サイズが異なる環境でも正しく動作しながら、オフラインと同じ軽量な処理を保ち、ネットワーク経由で塗りデータを同期できます。
+
+---
+
+## ✅ 修正内容（座標変換の問題を解決）
+
+### 修正前の問題
+
+- 画面座標をそのまま送信していたため、各クライアントで画面サイズが異なる場合、座標が正しく変換されない
+- 結果として、相手の塗りが正しい位置に表示されない
+
+### 修正後
+
+- **送信時**: 画面座標を正規化座標（0-1）に変換して送信
+- **受信時**: 正規化座標を各クライアントの画面サイズで画面座標に変換して適用
+- これにより、画面サイズが異なる環境でも正しく動作
+
+---
+
+## 📋 確認すべきログ一覧（修正後）
+
+### デバッグログの有効化方法
+
+1. **Unity Editor** で以下を Inspector から設定:
+   - `NetworkPaintCanvas.enableDebugLog = true`
+   - `NetworkPaintBattleGameManager.enableDebugLog = true`
+
+2. **Console ウィンドウ**を開いてログを確認
+
+### 確認すべきログ（時系列順）
+
+#### 1. 自分の塗りを実行した時（送信側）
+
+**最初に確認すべきログ**:
+
+```
+[NetworkPaintBattleGameManager] OnLocalPaintCompleted - position: (x, y), playerId: 1, intensity: 1.0, IsServer: true/false, IsClient: true
+```
+
+**このログが出ない場合**:
+- `PaintCanvas.OnPaintCompleted` イベントが発火していない
+- `NetworkPaintBattleGameManager` のイベント購読が失敗している
+
+**このログが出た後、以下のいずれかのログが出るはず**:
+
+**正常な場合**:
+```
+[NetworkPaintBattleGameManager] 塗りデータを送信 - position: (x, y) (normalized: (0.x, 0.y)), playerId: 1, color: RGBA(...), radius: 10.0 (normalized: 0.00x)
+```
+
+**スキップされる場合（条件チェックで除外）**:
+- `IsClientがfalseのため送信をスキップ` - IsClientチェックでスキップ
+- `playerIdが0以下のため送信をスキップ` - 敵の塗り（正常な動作）
+- `オンラインモードではないため送信をスキップ` - オフラインモードで動作
+- `NetworkPaintCanvasが設定されていません` - Inspectorで参照を設定する必要がある
+- `updateFrequencyによる間引き` - 間引き処理でスキップ（頻繁に出る場合は設定を確認）
+
+**確認ポイント**:
+- `normalizedPosition` の値が 0～1 の範囲か（例: (0.5, 0.3)）
+- `normalizedRadius` が 0～1 の範囲か（例: 0.005）
+
+#### 2. サーバー側で受信した時
+
+**正常な場合**、以下のログが出力されるはず:
+
+```
+[NetworkPaintCanvas] SendClientPaintServerRpc受信 - normalizedPosition: (0.x, 0.y), playerId: 1, color: RGBA(...), normalizedRadius: 0.00x
+[NetworkPaintCanvas] サーバー側に塗りを適用し、全クライアントに転送します - screenPosition: (x, y), screenRadius: 10.0
+```
+
+**確認ポイント**:
+- `normalizedPosition` が送信時の値と同じか
+- `screenPosition` がサーバーの画面サイズで正しく変換されているか
+  - 例: 1920x1080 の場合、normalizedPosition (0.5, 0.5) → screenPosition (960, 540)
+
+#### 3. 相手の塗りを受信した時（クライアント側）**重要**
+
+**正常な場合**、以下のログが出力されるはず:
+
+```
+[NetworkPaintCanvas] ApplyPaintCommandClientRpc受信 - normalizedPosition: (0.x, 0.y), playerId: 2, normalizedRadius: 0.00x, IsServer: false
+[NetworkPaintCanvas] クライアント側のPaintCanvasに塗りを適用します - screenPosition: (x, y), screenRadius: 10.0
+```
+
+**確認ポイント**:
+- `normalizedPosition` がサーバー側と一致しているか
+- `screenPosition` がクライアントの画面サイズで正しく変換されているか
+  - 例: 1366x768 の場合、normalizedPosition (0.5, 0.5) → screenPosition (683, 384)
+- 画面サイズが異なる場合、`screenPosition` も異なる値を取る（正しい動作）
+
+#### 4. 座標変換の検証
+
+**画面サイズが異なる環境での確認例**:
+
+**サーバー側（1920x1080）のログ**:
+```
+normalizedPosition: (0.5, 0.5)  // 画面中央
+screenPosition: (960, 540)      // サーバー側の画面中央
+```
+
+**クライアント側（1366x768）のログ**:
+```
+normalizedPosition: (0.5, 0.5)  // 同じ正規化座標
+screenPosition: (683, 384)      // クライアント側の画面中央（正しい！）
+```
+
+### 問題を特定するためのログチェック
+
+#### ❌ パターン1: `OnLocalPaintCompleted` が出力されない
+
+**症状**: 自分の塗りが送信されない
+
+**原因**:
+- `PaintCanvas.OnPaintCompleted` イベントが発火していない
+- `NetworkPaintBattleGameManager` のイベント購読が失敗している
+
+**確認方法**:
+- Inspectorで `NetworkPaintBattleGameManager` の `Enable Debug Log` を `true` に設定
+- `イベント購読完了` のログが出力されているか確認
+- `PaintCanvas` が正しく設定されているか確認
+
+#### ❌ パターン2: `IsClientがfalseのため送信をスキップ` が出力される
+
+**症状**: クライアントとして動作していない
+
+**確認方法**:
+- `OnLocalPaintCompleted` のログで `IsClient: true` になっているか確認
+- ネットワーク接続が正しく確立されているか確認
+
+#### ❌ パターン3: `playerIdが0以下のため送信をスキップ` が出力される
+
+**症状**: 敵の塗りも送信されようとしている（正常な動作の場合）
+
+**確認方法**:
+- プレイヤーの塗り（`playerId > 0`）のみが送信されているか確認
+- 敵の塗り（`playerId <= 0`）は送信されないはず
+
+#### ❌ パターン4: `updateFrequencyによる間引き` が頻繁に出力される
+
+**症状**: 塗りが一部しか送信されない
+
+**原因**:
+- `updateFrequency` の値が大きすぎる
+- 間引きにより多くの塗りコマンドがスキップされている
+
+**確認方法**:
+- `updateFrequencyによる間引き` のログが頻繁に出力されていないか確認
+- `PaintSettings.updateFrequency` の値を確認（推奨: 1）
+
+#### ❌ パターン5: `NetworkPaintCanvasが設定されていません` が出力される
+
+**症状**: 塗りが適用されない
+
+**原因**:
+- `NetworkPaintBattleGameManager.networkPaintCanvas` が正しく設定されていない
+
+**確認方法**:
+- Inspectorで `NetworkPaintBattleGameManager` の `Network Paint Canvas` フィールドが設定されているか確認
+
+### ログの確認手順
+
+1. **デバッグログを有効化**
+   - `NetworkPaintCanvas.enableDebugLog = true`
+   - `NetworkPaintBattleGameManager.enableDebugLog = true`
+
+2. **ゲームを開始**
+   - ホストとクライアントの両方でゲームを開始
+
+3. **自分の塗りを実行**
+   - 自分の塗りを行い、**最初に `OnLocalPaintCompleted` のログが出るか確認**
+   - 出ない場合 → イベント購読に問題がある可能性
+   - 出た場合 → その後の条件チェックを確認
+
+4. **相手の塗りを観察**
+   - 相手が塗った時に、クライアント側のログを確認
+   - **`ApplyPaintCommandClientRpc受信` が出力されているか最重要**
+   - 座標変換が正しく行われているか確認
+
+5. **問題があれば特定**
+   - 上記のパターンに該当するか確認
+   - 該当するパターンの原因を調査
+
+### 推奨される確認順序
+
+1. ✅ **まず確認**: `OnLocalPaintCompleted` が出力されているか
+   - 出力されていない → `PaintCanvas.OnPaintCompleted` イベントが発火していない、またはイベント購読に問題がある可能性
+
+2. ✅ **次に確認**: `塗りデータを送信` が出力されているか
+   - 出力されていない → 条件チェックでスキップされている可能性（上記のスキップログを確認）
+
+3. ✅ **最後に確認**: `ApplyPaintCommandClientRpc受信` がクライアント側で出力されているか
+   - 出力されていない → `ClientRpc` の送信に問題がある可能性が高い
+   - 出力されている → 座標変換が正しく行われているか確認
+
+---
+
+## ⚠️ NetworkPrefab エラーについて
+
+### エラーメッセージ
+
+```
+[Netcode] NetworkPrefab hash was not found! In-Scene placed NetworkObject soft synchronization failure for Hash: 2642993963!
+[Netcode] Failed to spawn NetworkObject for Hash 2642993963.
+```
+
+### 原因
+
+シーン内に配置されている `NetworkObject` が、`NetworkManager` の `NetworkPrefabs` リストに登録されていない場合に発生します。
+
+### 解決方法
+
+1. **NetworkPaintCanvas を Prefab 化する**（推奨）:
+   - `NetworkPaintCanvas` を持つ GameObject を Prefab に変換
+   - その Prefab を `NetworkManager` の `NetworkPrefabs` リストに追加
+
+2. **NetworkPaintBattleGameManager を Prefab 化する**:
+   - `NetworkPaintBattleGameManager` を持つ GameObject を Prefab に変換
+   - その Prefab を `NetworkManager` の `NetworkPrefabs` リストに追加
+
+3. **確認方法**:
+   - `NetworkManager` オブジェクトを選択
+   - Inspector で `Network Prefabs List` を確認
+   - `NetworkPaintCanvas` と `NetworkPaintBattleGameManager` が含まれているか確認
+
+### 注意点
+
+このエラーは「たまに出る」とのことなので、実際の動作には影響していない可能性があります。しかし、このエラーが原因で `NetworkObject` が正しく同期されない場合、`ClientRpc` が正しく動作しない可能性があります。
+
+### 次のステップ
+
+1. **まず確認**: `[NetworkPaintCanvas] クライアント側のPaintCanvasに塗りを適用します` のログが出ているか
+   - 出ていない → `ApplyPaintCommandClientRpc()` が呼ばれていない可能性
+   - 出ている → `[PaintCanvas] PaintAtWithRadius呼び出し` のログを確認
+
+2. **次に確認**: `[PaintCanvas] PaintAtWithRadius呼び出し` のログが出ているか
+   - 出ていない → `paintCanvas` が `null` か、`PaintAtWithRadius()` が呼ばれていない
+   - 出ている → `isInitialized` と `settings` の値を確認
+
+3. **最後に確認**: NetworkPrefab エラーが原因でないか確認
+   - `NetworkManager` の `NetworkPrefabs` リストに `NetworkPaintCanvas` を追加してみる
+
+---
+
+## ⚠️ ClientRpc がクライアント側に到達しない問題
+
+### 症状
+
+- **ホスト側**: `[NetworkPaintCanvas] ApplyPaintCommandClientRpc受信` は出力されるが、`[NetworkPaintCanvas] クライアント側のPaintCanvasに塗りを適用します` は出力されない（正常：`IsServer` でスキップ）
+- **クライアント側**: `[NetworkPaintCanvas] ApplyPaintCommandClientRpc受信` すら出力されない（`ClientRpc` が到達していない）
+
+### 原因
+
+`ClientRpc` がクライアント側に到達していない原因として以下が考えられます：
+
+1. **`NetworkObject` が正しく同期されていない**
+   - `NetworkPaintCanvas` を持つ GameObject に `NetworkObject` コンポーネントがない
+   - `NetworkObject` が `NetworkManager` に登録されていない
+   - `NetworkPrefab` として登録されていない
+
+2. **`NetworkObject` のスパウン状態が正しくない**
+   - クライアント側で `NetworkObject` が正しくスパウンされていない
+   - `NetworkObject.IsSpawned` が `false` の可能性
+
+3. **`ClientRpc` の呼び出しタイミングの問題**
+   - `ClientRpc` が呼ばれた時点で、クライアント側の `NetworkObject` がまだスパウンされていない
+
+### 確認すべきログ（サーバー側）
+
+まず、サーバー側で以下のログが全て出力されているか確認してください：
+
+1. `[NetworkPaintCanvas] SendClientPaintServerRpc受信` - サーバー側で `ServerRpc` が受信されているか
+2. `[NetworkPaintCanvas] サーバー側に塗りを適用し、全クライアントに転送します` - サーバー側で塗りが適用されているか
+3. `[NetworkPaintCanvas] ApplyPaintCommandClientRpcを呼び出します` - `ClientRpc` の呼び出し前に出力（追加したログ）
+4. `[NetworkPaintCanvas] ApplyPaintCommandClientRpc呼び出し完了` - `ClientRpc` の呼び出し後に出力（追加したログ）
+
+**これら全てが出力されている場合** → `ClientRpc` の呼び出しは成功していますが、クライアント側に到達していない可能性が高いです。
+
+### 解決方法
+
+#### 1. `NetworkObject` コンポーネントの確認（最重要）
+
+`NetworkPaintCanvas` を持つ GameObject に `NetworkObject` コンポーネントがアタッチされているか確認：
+
+1. Unity Editor で `NetworkPaintCanvas` を持つ GameObject を選択
+2. Inspector で `NetworkObject` コンポーネントが存在するか確認
+3. 存在しない場合、`Add Component` → `Network Object` を追加
+
+#### 2. `NetworkPrefab` として登録
+
+`NetworkPaintCanvas` を Prefab 化して `NetworkManager` に登録：
+
+1. `NetworkPaintCanvas` を持つ GameObject を Prefab に変換（または Prefab として作成）
+2. `NetworkManager` オブジェクトを選択
+3. Inspector で `Network Prefabs List` を開く
+4. `NetworkPaintCanvas` の Prefab をリストに追加
+
+#### 3. `NetworkObject.IsSpawned` の確認
+
+`ClientRpc` を呼ぶ前に `IsSpawned` を確認するログを追加（デバッグ用）：
+
+```csharp
+if (enableDebugLog)
+{
+    Debug.Log($"[NetworkPaintCanvas] NetworkObject.IsSpawned: {IsSpawned}, NetworkObjectId: {NetworkObjectId}");
+}
+```
+
+#### 4. `OnNetworkSpawn()` の確認
+
+クライアント側で `NetworkObject` が正しくスパウンされたか確認するため、`OnNetworkSpawn()` にログを追加：
+
+```csharp
+public override void OnNetworkSpawn()
+{
+    base.OnNetworkSpawn();
+    if (enableDebugLog)
+    {
+        Debug.Log($"[NetworkPaintCanvas] OnNetworkSpawn - IsServer: {IsServer}, IsClient: {IsClient}, NetworkObjectId: {NetworkObjectId}");
+    }
+    // ... (既存のコード) ...
+}
+```
+
+### 次のステップ
+
+1. **サーバー側のログを確認**: `[NetworkPaintCanvas] ApplyPaintCommandClientRpcを呼び出します` と `[NetworkPaintCanvas] ApplyPaintCommandClientRpc呼び出し完了` が出力されているか確認
+2. **`NetworkObject` コンポーネントを確認**: `NetworkPaintCanvas` を持つ GameObject に `NetworkObject` がアタッチされているか確認
+3. **`NetworkPrefab` として登録**: `NetworkManager` の `NetworkPrefabs` リストに追加

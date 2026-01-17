@@ -32,6 +32,9 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     [Tooltip("塗り位置をデバッグ表示するか")]
     public bool showDebugGizmos = false;
     
+    [Tooltip("ネットワーク経由の塗り処理のデバッグログを出力するか")]
+    [SerializeField] private bool enableNetworkPaintDebugLog = false;
+    
     // 塗り状態を管理する2D配列（playerIdを記録）
     private int[,] paintData;
     
@@ -373,6 +376,9 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     /// </summary>
     public void PaintAtWithRadius(Vector2 screenPosition, int playerId, float intensity, Color color, float radius)
     {
+        // デバッグログ（常に出力して、メソッドが呼ばれているか確認）
+        Debug.Log($"[PaintCanvas] PaintAtWithRadius呼び出し - screenPosition: {screenPosition}, playerId: {playerId}, intensity: {intensity}, color: {color}, radius: {radius}, isInitialized: {isInitialized}, settings: {(settings != null ? "設定あり" : "null")}");
+        
         PaintAtWithRadiusInternal(screenPosition, playerId, intensity, color, radius, checkUpdateFrequency: true);
     }
 
@@ -391,6 +397,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     {
         if (!isInitialized || settings == null)
         {
+            if (enableNetworkPaintDebugLog)
+            {
+                Debug.LogWarning($"[PaintCanvas] PaintAtWithRadiusInternal - 初期化されていません (isInitialized: {isInitialized}, settings: {settings})");
+            }
             return;
         }
         
@@ -400,6 +410,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             frameCount++;
             if (frameCount % settings.updateFrequency != 0)
             {
+                if (enableNetworkPaintDebugLog)
+                {
+                    Debug.Log($"[PaintCanvas] PaintAtWithRadiusInternal - updateFrequencyによる間引き (frameCount: {frameCount}, updateFrequency: {settings.updateFrequency})");
+                }
                 return;
             }
         }
@@ -416,7 +430,16 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
         if (effectiveIntensity < settings.minVolumeThreshold)
         {
+            if (enableNetworkPaintDebugLog)
+            {
+                Debug.LogWarning($"[PaintCanvas] PaintAtWithRadiusInternal - minVolumeThreshold未満でスキップ (effectiveIntensity: {effectiveIntensity}, minVolumeThreshold: {settings.minVolumeThreshold})");
+            }
             return;
+        }
+        
+        if (enableNetworkPaintDebugLog)
+        {
+            Debug.Log($"[PaintCanvas] PaintAtWithRadiusInternal開始 - screenPosition: {screenPosition}, centerX: {centerX}, centerY: {centerY}, radiusPixels: {radiusPixels}, playerId: {playerId}, effectiveIntensity: {effectiveIntensity}");
         }
         
         // 円形のブラシで塗る（常に後から塗った色が優先される）
@@ -472,6 +495,11 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             FlushTextureUpdates();
             lastPaintFrame = Time.frameCount; // 塗りが実行されたフレームを記録
             
+            if (enableNetworkPaintDebugLog)
+            {
+                Debug.Log($"[PaintCanvas] PaintAtWithRadiusInternal完了 - hasPainted: true, centerX: {centerX}, centerY: {centerY}, playerId: {playerId}");
+            }
+            
             // 補間処理中はイベント発火を抑制（最終位置を記録）
             if (suppressEventFiring)
             {
@@ -482,6 +510,13 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             else
             {
                 OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
+            }
+        }
+        else
+        {
+            if (enableNetworkPaintDebugLog)
+            {
+                Debug.LogWarning($"[PaintCanvas] PaintAtWithRadiusInternal完了 - hasPainted: false (ピクセルが更新されませんでした), centerX: {centerX}, centerY: {centerY}, playerId: {playerId}, radiusPixels: {radiusPixels}");
             }
         }
     }

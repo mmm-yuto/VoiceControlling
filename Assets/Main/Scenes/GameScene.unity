@@ -21459,6 +21459,10 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5908072618881495534, guid: f33463ff9eacc0f499db3e67c7638d40, type: 3}
+      propertyPath: enableDebugLog
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5908072618881495534, guid: f33463ff9eacc0f499db3e67c7638d40, type: 3}
       propertyPath: networkPaintCanvas
       value: 
       objectReference: {fileID: 1098085715}
@@ -21533,6 +21537,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4654199875277285462, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
       propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4654199875277285462, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
+      propertyPath: enableDebugLog
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7201252645300911222, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}

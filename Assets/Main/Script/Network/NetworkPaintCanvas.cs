@@ -17,6 +17,10 @@ public class NetworkPaintCanvas : NetworkBehaviour
     [Tooltip("初回同期時の最大ピクセル数（これを超える場合は分割送信）")]
     [SerializeField] private int maxPixelsPerMessage = 5000; // 約160KB（5000ピクセル × 32バイト、安全マージンを考慮）
     
+    [Header("Debug")]
+    [Tooltip("デバッグログを出力するか")]
+    [SerializeField] private bool enableDebugLog = false;
+    
     void Awake()
     {
         // PaintCanvasの自動検索（未設定の場合）
@@ -39,42 +43,107 @@ public class NetworkPaintCanvas : NetworkBehaviour
     
     /// <summary>
     /// クライアント側の塗りをサーバーに送信（ServerRpc）
+    /// position: 正規化座標（0-1の範囲）
+    /// radius: 正規化された半径（画面幅を基準とした0-1の範囲）
     /// </summary>
     [ServerRpc(RequireOwnership = false)]
-    public void SendClientPaintServerRpc(Vector2 position, int playerId, float intensity, Color color, float radius, ServerRpcParams rpcParams = default)
+    public void SendClientPaintServerRpc(Vector2 normalizedPosition, int playerId, float intensity, Color color, float normalizedRadius, ServerRpcParams rpcParams = default)
     {
+        if (enableDebugLog)
+        {
+            Debug.Log($"[NetworkPaintCanvas] SendClientPaintServerRpc受信 - normalizedPosition: {normalizedPosition}, playerId: {playerId}, color: {color}, normalizedRadius: {normalizedRadius}");
+        }
+        
         if (paintCanvas == null)
         {
+            if (enableDebugLog)
+            {
+                Debug.LogError($"[NetworkPaintCanvas] paintCanvasがnullです");
+            }
             return;
         }
         
-        // サーバー側のPaintCanvasに塗りを適用
-        paintCanvas.PaintAtWithRadius(position, playerId, intensity, color, radius);
+        // 正規化座標を画面座標に変換（サーバー側の画面サイズを使用）
+        Vector2 screenPosition = new Vector2(
+            normalizedPosition.x * Screen.width,
+            normalizedPosition.y * Screen.height
+        );
+        float screenRadius = normalizedRadius * Screen.width;
         
-        // 全クライアントに同じ塗りコマンドを転送（オフラインと同じ軽量な方法）
-        ApplyPaintCommandClientRpc(position, playerId, intensity, color, radius);
+        // サーバー側のPaintCanvasに塗りを適用
+        paintCanvas.PaintAtWithRadius(screenPosition, playerId, intensity, color, screenRadius);
+        
+        if (enableDebugLog)
+        {
+            Debug.Log($"[NetworkPaintCanvas] サーバー側に塗りを適用し、全クライアントに転送します - screenPosition: {screenPosition}, screenRadius: {screenRadius}");
+        }
+        
+        // 全クライアントに同じ塗りコマンドを転送（正規化座標を送信）
+        if (enableDebugLog)
+        {
+            Debug.Log($"[NetworkPaintCanvas] ApplyPaintCommandClientRpcを呼び出します - normalizedPosition: {normalizedPosition}, playerId: {playerId}, normalizedRadius: {normalizedRadius}, IsServer: {IsServer}, IsClient: {IsClient}, IsSpawned: {IsSpawned}, NetworkObjectId: {NetworkObjectId}");
+        }
+        
+        ApplyPaintCommandClientRpc(normalizedPosition, playerId, intensity, color, normalizedRadius);
+        
+        if (enableDebugLog)
+        {
+            Debug.Log($"[NetworkPaintCanvas] ApplyPaintCommandClientRpc呼び出し完了");
+        }
     }
     
     /// <summary>
     /// 塗りコマンドを受信して適用（ClientRpc）
+    /// normalizedPosition: 正規化座標（0-1の範囲）
+    /// normalizedRadius: 正規化された半径（画面幅を基準とした0-1の範囲）
     /// オフラインと同じように直接塗り処理を実行する軽量な方法
     /// </summary>
     [ClientRpc]
-    private void ApplyPaintCommandClientRpc(Vector2 position, int playerId, float intensity, Color color, float radius, ClientRpcParams rpcParams = default)
+    private void ApplyPaintCommandClientRpc(Vector2 normalizedPosition, int playerId, float intensity, Color color, float normalizedRadius, ClientRpcParams rpcParams = default)
     {
+        if (enableDebugLog)
+        {
+            Debug.Log($"[NetworkPaintCanvas] ApplyPaintCommandClientRpc受信 - normalizedPosition: {normalizedPosition}, playerId: {playerId}, normalizedRadius: {normalizedRadius}, IsServer: {IsServer}");
+        }
+        
         // サーバー側（ホスト）は既に塗り済みなのでスキップ
         if (IsServer)
         {
+            if (enableDebugLog)
+            {
+                Debug.Log($"[NetworkPaintCanvas] ホスト側のため、クライアント側のPaintCanvasへの描画をスキップ");
+            }
             return;
         }
         
         if (paintCanvas == null)
         {
+            if (enableDebugLog)
+            {
+                Debug.LogError($"[NetworkPaintCanvas] paintCanvasがnullです");
+            }
             return;
         }
         
+        // 正規化座標を画面座標に変換（各クライアントの画面サイズを使用）
+        Vector2 screenPosition = new Vector2(
+            normalizedPosition.x * Screen.width,
+            normalizedPosition.y * Screen.height
+        );
+        float screenRadius = normalizedRadius * Screen.width;
+        
+        if (enableDebugLog)
+        {
+            Debug.Log($"[NetworkPaintCanvas] クライアント側のPaintCanvasに塗りを適用します - screenPosition: {screenPosition}, screenRadius: {screenRadius}, Screen.width: {Screen.width}, Screen.height: {Screen.height}");
+        }
+        
         // オフラインと同じように直接塗り処理を実行（軽量）
-        paintCanvas.PaintAtWithRadius(position, playerId, intensity, color, radius);
+        paintCanvas.PaintAtWithRadius(screenPosition, playerId, intensity, color, screenRadius);
+        
+        if (enableDebugLog)
+        {
+            Debug.Log($"[NetworkPaintCanvas] PaintAtWithRadius呼び出し完了 - screenPosition: {screenPosition}, playerId: {playerId}, intensity: {intensity}, color: {color}, radius: {screenRadius}");
+        }
     }
     
     /// <summary>
@@ -100,8 +169,17 @@ public class NetworkPaintCanvas : NetworkBehaviour
     {
         base.OnNetworkSpawn();
         
+        if (enableDebugLog)
+        {
+            Debug.Log($"[NetworkPaintCanvas] OnNetworkSpawn - IsServer: {IsServer}, IsClient: {IsClient}, IsSpawned: {IsSpawned}, NetworkObjectId: {NetworkObjectId}");
+        }
+        
         if (paintCanvas == null)
         {
+            if (enableDebugLog)
+            {
+                Debug.LogWarning($"[NetworkPaintCanvas] OnNetworkSpawn - paintCanvasがnullです");
+            }
             return;
         }
         
