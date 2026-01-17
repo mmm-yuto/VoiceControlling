@@ -223,26 +223,14 @@ public class NetworkTestHelper : MonoBehaviour
         // エディタモードまたはPlayモードで実行
         if (Input.GetKeyDown(KeyCode.H))
         {
-            if (enableDebugLog)
-            {
-                Debug.Log("NetworkTestHelper: Hキーが押されました - ホスト開始");
-            }
             StartHost();
         }
         else if (Input.GetKeyDown(KeyCode.C))
         {
-            if (enableDebugLog)
-            {
-                Debug.Log("NetworkTestHelper: Cキーが押されました - クライアント接続開始");
-            }
             StartClient();
         }
         else if (Input.GetKeyDown(KeyCode.D))
         {
-            if (enableDebugLog)
-            {
-                Debug.Log("NetworkTestHelper: Dキーが押されました - 切断");
-            }
             Disconnect();
         }
     }

@@ -107,8 +107,6 @@ public class PitchAnalyzer : MonoBehaviour
         // 方法3: 簡易的な周波数推定
         float frequency3 = EstimateFrequencySimple(samples);
         
-        Debug.Log($"Freq1 (ZeroCross): {frequency1:F1} Hz, Freq2 (Amplitude): {frequency2:F1} Hz, Freq3 (Simple): {frequency3:F1} Hz");
-        
         // 最も信頼性の高い値を選択
         float finalFrequency = frequency1;
         
@@ -185,7 +183,6 @@ public class PitchAnalyzer : MonoBehaviour
             }
             
             lastDetectedPitch = smoothedPitch;  // スムージングされた音程を保存
-            Debug.Log($"Pitch: {smoothedPitch:F1} Hz (Raw: {pitch:F1} Hz)");
             
             // イベント発火
             OnPitchDetected?.Invoke(smoothedPitch);
@@ -206,8 +203,6 @@ public class PitchAnalyzer : MonoBehaviour
                     lastDetectedPitch = 0f;
                 }
             }
-            
-            Debug.Log("Pitch: No pitch detected (volume too low)");
         }
     }
     

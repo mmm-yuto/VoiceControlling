@@ -21,7 +21,6 @@ public class VoiceDetector : MonoBehaviour
         string[] devices = Microphone.devices;
         if (devices.Length == 0)
         {
-            Debug.LogError("VoiceDetector: No microphone device found");
             return;
         }
         
@@ -33,7 +32,6 @@ public class VoiceDetector : MonoBehaviour
             // Check if microphone started successfully
             if (microphoneClip == null)
             {
-                Debug.LogError("VoiceDetector: Failed to start microphone");
                 return;
             }
             
@@ -41,17 +39,13 @@ public class VoiceDetector : MonoBehaviour
             if (bufferSize > microphoneClip.samples)
             {
                 bufferSize = microphoneClip.samples;
-                Debug.LogWarning($"VoiceDetector: Buffer size adjusted to {microphoneClip.samples}");
             }
             
             samples = new float[bufferSize];
             isRecording = true;
-            
-            Debug.Log($"VoiceDetector: Microphone started - Device: {devices[0]}, Samples: {microphoneClip.samples}, Buffer Size: {bufferSize}");
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"VoiceDetector: Microphone initialization error: {e.Message}");
             isRecording = false;
         }
     }
@@ -82,7 +76,6 @@ public class VoiceDetector : MonoBehaviour
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"GetData failed: {e.Message}");
             return null;
         }
     }
@@ -99,12 +92,10 @@ public class VoiceDetector : MonoBehaviour
     {
         if (isRecording)
         {
-            Debug.Log("VoiceDetector: Voice detection is already enabled");
             return;
         }
         
         isRecording = true;
-        Debug.Log("VoiceDetector: Voice detection enabled");
     }
     
     /// <summary>
@@ -114,12 +105,10 @@ public class VoiceDetector : MonoBehaviour
     {
         if (!isRecording)
         {
-            Debug.Log("VoiceDetector: Voice detection is already disabled");
             return;
         }
         
         isRecording = false;
-        Debug.Log("VoiceDetector: Voice detection disabled");
     }
     
     void OnDestroy()

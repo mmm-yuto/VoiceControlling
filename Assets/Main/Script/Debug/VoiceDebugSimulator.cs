@@ -98,14 +98,6 @@ public class VoiceDebugSimulator : MonoBehaviour
             float volume = ConvertPlotPositionToVolume(plotAreaPos);
             float pitch = ConvertPlotPositionToPitch(plotAreaPos);
             
-            // デバッグログ（開発時のみ）
-            #if UNITY_EDITOR
-            if (Time.frameCount % 30 == 0) // 30フレームごとにログ出力（パフォーマンス考慮）
-            {
-                Debug.Log($"VoiceDebugSimulator: Volume={volume:F3}, Pitch={pitch:F1}, MousePos=({normalizedX:F2}, {normalizedY:F2})");
-            }
-            #endif
-            
             // イベントを発火（既存のシステムと同じ）
             if (OnVolumeDetected != null)
             {

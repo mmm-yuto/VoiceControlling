@@ -37,20 +37,10 @@ public class DebugPitchAnalyzer : MonoBehaviour
         
         if (voiceDetector == null)
         {
-            Debug.LogError("VoiceDetector not found!");
-        }
-        else
-        {
-            Debug.Log($"VoiceDetector found: {voiceDetector.name}");
         }
         
         if (volumeAnalyzer == null)
         {
-            Debug.LogError("VolumeAnalyzer not found!");
-        }
-        else
-        {
-            Debug.Log($"VolumeAnalyzer found: {volumeAnalyzer.name}");
         }
     }
     
@@ -66,47 +56,28 @@ public class DebugPitchAnalyzer : MonoBehaviour
             // 通常モード：実際の音声を解析
             if (voiceDetector == null)
             {
-                Debug.LogError("VoiceDetector is null!");
                 return;
             }
             
             float[] samples = voiceDetector.GetAudioSamples();
             if (samples == null)
             {
-                if (enableDetailedLogging)
-                {
-                    Debug.Log("Audio samples are null");
-                }
                 return;
             }
             
             // 音量をチェック
             float currentVolume = CalculateVolume(samples);
             
-            if (showVolumeInfo && enableDetailedLogging)
-            {
-                Debug.Log($"Current Volume: {currentVolume:F6}, Threshold: {volumeThreshold:F6}");
-            }
-            
             if (currentVolume > volumeThreshold)
             {
                 // 音量が閾値以上の場合のみピッチを検知
                 float pitch = CalculatePitchSimple(samples);
-                
-                if (showPitchInfo && enableDetailedLogging)
-                {
-                    Debug.Log($"Raw Pitch: {pitch:F1} Hz");
-                }
                 
                 ProcessPitch(pitch);
             }
             else
             {
                 // 音量が低い場合はピッチ検知を停止
-                if (enableDetailedLogging)
-                {
-                    Debug.Log($"Volume too low: {currentVolume:F6} <= {volumeThreshold:F6}");
-                }
                 ProcessPitch(0f);
             }
         }
@@ -138,21 +109,10 @@ public class DebugPitchAnalyzer : MonoBehaviour
         int zeroCrossings = CountZeroCrossings(samples);
         float frequency = (zeroCrossings * voiceDetector.sampleRate) / (2f * samples.Length);
         
-        if (enableDetailedLogging)
-        {
-            Debug.Log($"Zero Crossings: {zeroCrossings}, Sample Rate: {voiceDetector.sampleRate}, Buffer Size: {samples.Length}");
-            Debug.Log($"Calculated Frequency: {frequency:F1} Hz");
-        }
-        
         // 範囲内の周波数のみ返す
         if (frequency >= minFrequency && frequency <= maxFrequency)
         {
             return frequency;
-        }
-        
-        if (enableDetailedLogging)
-        {
-            Debug.Log($"Frequency out of range: {frequency:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz)");
         }
         
         return 0f;
@@ -192,7 +152,6 @@ public class DebugPitchAnalyzer : MonoBehaviour
             }
             
             lastDetectedPitch = smoothedPitch;
-            Debug.Log($"Pitch: {smoothedPitch:F1} Hz (Raw: {pitch:F1} Hz)");
             
             // イベント発火
             OnPitchDetected?.Invoke(smoothedPitch);
@@ -211,11 +170,6 @@ public class DebugPitchAnalyzer : MonoBehaviour
                     smoothedPitch = 0f;
                     lastDetectedPitch = 0f;
                 }
-            }
-            
-            if (enableDetailedLogging)
-            {
-                Debug.Log("Pitch: No pitch detected");
             }
         }
     }
@@ -243,28 +197,24 @@ public class DebugPitchAnalyzer : MonoBehaviour
     void EnableTestMode()
     {
         useTestMode = true;
-        Debug.Log("Test mode enabled");
     }
     
     [ContextMenu("Disable Test Mode")]
     void DisableTestMode()
     {
         useTestMode = false;
-        Debug.Log("Test mode disabled");
     }
     
     [ContextMenu("Lower Volume Threshold")]
     void LowerVolumeThreshold()
     {
         volumeThreshold *= 0.5f;
-        Debug.Log($"Volume threshold lowered to: {volumeThreshold:F6}");
     }
     
     [ContextMenu("Raise Volume Threshold")]
     void RaiseVolumeThreshold()
     {
         volumeThreshold *= 2f;
-        Debug.Log($"Volume threshold raised to: {volumeThreshold:F6}");
     }
     
     public System.Action<float> OnPitchDetected;

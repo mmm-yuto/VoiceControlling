@@ -58,17 +58,14 @@ public class ExternalPitchAnalyzer : MonoBehaviour
             bool success = InitializePitchAnalyzer(voiceDetector.sampleRate, minFrequency, maxFrequency);
             if (success)
             {
-                Debug.Log("External pitch analyzer initialized successfully");
             }
             else
             {
-                Debug.LogError("Failed to initialize external pitch analyzer");
                 useExternalLibrary = false;
             }
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"External library error: {e.Message}");
             useExternalLibrary = false;
         }
     }
@@ -126,12 +123,10 @@ public class ExternalPitchAnalyzer : MonoBehaviour
         try
         {
             float pitch = AnalyzePitch(samples, samples.Length, voiceDetector.sampleRate);
-            Debug.Log($"External pitch: {pitch:F1} Hz");
             return pitch;
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"External pitch analysis error: {e.Message}");
             return CalculatePitchInternal(samples);
         }
     }
@@ -310,7 +305,6 @@ public class ExternalPitchAnalyzer : MonoBehaviour
             }
             
             lastDetectedPitch = smoothedPitch;
-            Debug.Log($"Pitch: {smoothedPitch:F1} Hz (Raw: {pitch:F1} Hz)");
             
             OnPitchDetected?.Invoke(smoothedPitch);
         }
@@ -328,8 +322,6 @@ public class ExternalPitchAnalyzer : MonoBehaviour
                     lastDetectedPitch = 0f;
                 }
             }
-            
-            Debug.Log("Pitch: No pitch detected (volume too low)");
         }
     }
     
@@ -343,7 +335,6 @@ public class ExternalPitchAnalyzer : MonoBehaviour
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"External library cleanup error: {e.Message}");
             }
         }
     }
