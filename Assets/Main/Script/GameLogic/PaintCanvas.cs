@@ -287,6 +287,9 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     /// </summary>
     private void PaintAtWithRadiusInternal(Vector2 screenPosition, int playerId, float intensity, Color color, float radius, bool checkUpdateFrequency)
     {
+        // [DEBUG] 塗り処理の開始を確認
+        Debug.LogWarning($"[DEBUG] PaintCanvas.PaintAtWithRadiusInternal - Position: {screenPosition}, PlayerId: {playerId}, checkUpdateFrequency: {checkUpdateFrequency}");
+        
         if (!isInitialized || settings == null)
         {
             Debug.LogWarning("[DEBUG] PaintCanvas: 初期化されていません");
@@ -368,9 +371,16 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         // テクスチャの更新をフラッシュ
         if (hasPainted)
         {
+            // [DEBUG] 塗り処理完了の確認
+            Debug.LogWarning($"[DEBUG] PaintCanvas.PaintAtWithRadiusInternal - 塗り処理完了 - PlayerId: {playerId}, hasPainted: {hasPainted}");
             FlushTextureUpdates();
             lastPaintFrame = Time.frameCount; // 塗りが実行されたフレームを記録
             OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
+        }
+        else
+        {
+            // [DEBUG] 塗り処理がスキップされた場合の確認
+            Debug.LogWarning($"[DEBUG] PaintCanvas.PaintAtWithRadiusInternal - 塗り処理スキップ - PlayerId: {playerId}, hasPainted: {hasPainted}");
         }
     }
     

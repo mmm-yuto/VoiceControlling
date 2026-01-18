@@ -29,6 +29,12 @@ public class PaintRenderer : MonoBehaviour
             }
         }
         
+        // [DEBUG] インスタンス参照の確認用ログ
+        if (paintCanvas != null)
+        {
+            Debug.LogWarning($"[DEBUG] PaintRenderer.Start - PaintCanvas InstanceID: {paintCanvas.GetInstanceID()}");
+        }
+        
         if (displayImage == null)
         {
             displayImage = GetComponent<Image>();
