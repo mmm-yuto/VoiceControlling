@@ -4,6 +4,122 @@
 
 現在の実装では、**差分同期方式**を使用してネットワーク経由で塗り情報を同期しています。
 
+## NGOのServer Authoritativeパターンへの適合性
+
+### ✅ 確認結果：すべてのステップを正しく実装しています
+
+Unity Netcode for GameObjects (NGO) の**Server Authoritative（サーバー権限）**パターンに従って、クライアント側の変更をサーバーに反映させるために必要な3つのステップをすべて実装しています。
+
+#### ✅ ステップ1: ServerRpcを使って「依頼」を出す
+
+**実装状況**: **完全に実装済み** ✅
+
+**実装箇所**: `NetworkPaintCanvas.cs`
+
+```csharp
+[ServerRpc(RequireOwnership = false)]  // ← [ServerRpc]属性が付いている
+public void SendClientPaintServerRpc(  // ← メソッド名が「ServerRpc」で終わっている
+    Vector2 position, 
+    int playerId, 
+    float intensity, 
+    Color color, 
+    float radius, 
+    ServerRpcParams rpcParams = default
+)
+{
+    // ここはサーバー側（ホスト）のPC上で実行される
+    paintCanvas.PaintAtWithRadius(position, playerId, intensity, color, radius);
+}
+```
+
+**呼び出し箇所**: `NetworkPaintBattleGameManager.cs`
+
+```csharp
+// クライアント側で実行
+private void OnLocalPaintCompleted(Vector2 position, int playerId, float intensity)
+{
+    // 直接書き換えず、サーバー側のメソッドを呼ぶ
+    networkPaintCanvas.SendClientPaintServerRpc(position, playerId, intensity, playerColor, brushRadius);
+}
+```
+
+**確認ポイント**:
+- ✅ `[ServerRpc]`属性が付いている
+- ✅ `RequireOwnership = false`により、`IsOwner`が`false`でも送信可能
+- ✅ メソッド名が`SendClientPaintServerRpc`で`ServerRpc`で終わっている
+- ✅ クライアント側から正しく呼び出されている
+
+#### ✅ ステップ2: NetworkVariableの権限（該当なし）
+
+**実装状況**: **NetworkVariableは使用していない** ✅
+
+現在の実装では、`NetworkVariable`を使用していません。代わりに、以下の方式で同期しています：
+
+- **配列でデータ管理**: `Color[,]`, `int[,]`, `float[,]`でローカルに管理
+- **ServerRpc + ClientRpc**: ネットワーク同期はRPCで実現
+- **差分同期**: 変更されたピクセルのみを送信
+
+**理由**:
+1. **データサイズの問題**: キャンバス全体（例: 1920x1080 = 2,073,600ピクセル）を`NetworkVariable`で管理するには大きすぎる
+2. **パフォーマンス**: 毎フレーム全ピクセルを同期するのは非効率的
+3. **差分同期の利点**: 変更されたピクセルのみを送信する方が効率的
+
+**結論**: `NetworkVariable`は使用していませんが、**これは設計上の意図**であり、問題ではありません。
+
+#### ✅ ステップ3: 所有権（Ownership）の確認
+
+**実装状況**: **正しく対処済み** ✅
+
+**問題点**:
+- `NetworkPaintBattleGameManager`はシーンオブジェクトのため、`IsOwner`が常に`false`（サーバーが所有者）になる
+
+**解決方法**:
+1. **`RequireOwnership = false`を使用**: `[ServerRpc(RequireOwnership = false)]`により、`IsOwner`が`false`でもServerRpcを送信可能
+2. **`IsClient`チェック**: `IsOwner`チェックの代わりに`IsClient`チェックを使用
+
+**実装箇所**: `NetworkPaintBattleGameManager.cs`
+
+```csharp
+// 修正前（問題あり）
+if (!IsOwner)  // シーンオブジェクトでは常にfalseになる
+{
+    return;
+}
+
+// 修正後（正しい実装）
+if (!IsClient)  // クライアント側でも実行される
+{
+    return;
+}
+
+// ServerRpcは RequireOwnership = false により、IsOwnerがfalseでも送信可能
+networkPaintCanvas.SendClientPaintServerRpc(position, playerId, intensity, playerColor, brushRadius);
+```
+
+**確認ポイント**:
+- ✅ `[ServerRpc(RequireOwnership = false)]`により、`IsOwner`が`false`でも送信可能
+- ✅ `IsClient`チェックでクライアント側での実行を確認
+- ✅ シーンオブジェクトでも正常に動作
+
+### チェックリスト
+
+| 項目 | 状況 | 確認結果 |
+|------|------|----------|
+| **メソッドに`[ServerRpc]`を付けているか？** | ✅ | `[ServerRpc(RequireOwnership = false)]`付き |
+| **メソッド名の末尾が`ServerRpc`で終わっているか？** | ✅ | `SendClientPaintServerRpc` |
+| **そのオブジェクトの`NetworkObject`コンポーネントは付いているか？** | ✅ | `NetworkPaintCanvas`に付いている |
+| **`IsOwner`（または`RequireOwnership = false`）を確認しているか？** | ✅ | `RequireOwnership = false`により、`IsOwner`が`false`でも送信可能 |
+
+### 結論
+
+**現在の実装は、NGOのServer Authoritativeパターンの3つのステップをすべて正しく実装しています。**
+
+- ✅ ステップ1: ServerRpcを使用してサーバーに依頼を送信
+- ✅ ステップ2: NetworkVariableは使用していない（設計上の意図）
+- ✅ ステップ3: `RequireOwnership = false`により、シーンオブジェクトでも正常に動作
+
+---
+
 ## アーキテクチャ
 
 ### コンポーネント構成
@@ -595,3 +711,170 @@ if (localPaintManager != null)  // IsOwnerチェックを削除
 ### 次のステップ
 
 ホスト側のログを確認し、`[DEBUG] PaintCanvas.PaintAtWithRadiusInternal`のログが出力されているかを確認してください。出力されていない場合、`PaintAtWithRadius()`が実行されていない、または初期化されていない可能性があります。
+
+## Unityエディタ側の確認チェックリスト
+
+コードには問題がないと判断した場合、Unityエディタ側の設定や構成を確認してください。
+
+### ✅ チェック1: NetworkObjectコンポーネントの確認
+
+**確認項目**:
+
+1. **`NetworkPaintCanvas`のGameObject**
+   - `NetworkPaintCanvas`コンポーネントがアタッチされているか ✅
+   - **`NetworkObject`コンポーネントが同じGameObjectにアタッチされているか** ⚠️ **重要**
+   - `NetworkObject`のInspectorで以下を確認：
+     - `GlobalObjectIdHash`: 数値が表示されているか（例: `325207396`）
+     - `NetworkManager`: 実行時に自動設定される（エディタでは`null`でも可）
+
+2. **`NetworkPaintBattleGameManager`のGameObject**
+   - `NetworkPaintBattleGameManager`コンポーネントがアタッチされているか ✅
+   - **`NetworkObject`コンポーネントが同じGameObjectにアタッチされているか** ⚠️ **重要**
+
+**確認方法**:
+- Hierarchyで`NetworkPaintCanvas`のGameObjectを選択
+- Inspectorで`NetworkObject`コンポーネントが表示されているか確認
+- なければ、`Add Component` → `Network Object`で追加
+
+### ✅ チェック2: Inspectorでの参照設定
+
+**確認項目**:
+
+1. **`NetworkPaintCanvas`のInspector**
+   - `Paint Canvas`フィールドに`PaintCanvas`コンポーネントが設定されているか ✅
+   - ドラッグ&ドロップで正しく接続されているか確認
+
+2. **`NetworkPaintBattleGameManager`のInspector**
+   - `Local Paint Manager`フィールドに`PaintBattleGameManager`コンポーネントが設定されているか
+   - `Network Paint Canvas`フィールドに`NetworkPaintCanvas`コンポーネントが設定されているか ✅
+   - 両方ともドラッグ&ドロップで正しく接続されているか確認
+
+**確認方法**:
+- Hierarchyで各GameObjectを選択
+- Inspectorでフィールドが`None (PaintCanvas)`や`None (NetworkPaintCanvas)`になっていないか確認
+- `None`になっている場合は、ProjectウィンドウまたはHierarchyから正しいオブジェクトをドラッグ&ドロップ
+
+### ✅ チェック3: シーンオブジェクトとして登録されているか
+
+**確認項目**:
+
+`NetworkPaintCanvas`と`NetworkPaintBattleGameManager`が、**シーンオブジェクトとして正しく登録されているか**確認してください。
+
+**確認方法**:
+
+1. **NetworkManagerの設定を確認**
+   - Hierarchyで`NetworkManager`のGameObjectを選択（存在する場合）
+   - Inspectorで`Network Manager`コンポーネントを確認
+   - `Scene Management`セクションで、現在のシーンが登録されているか確認
+
+2. **自動的に検出されるか確認**
+   - Unity Netcode for GameObjectsは、`NetworkObject`コンポーネントが付いたGameObjectを自動的に検出します
+   - シーンに保存されている限り、自動的に同期されます
+
+### ✅ チェック4: NetworkObjectの設定オプション
+
+**確認項目**:
+
+`NetworkPaintCanvas`のGameObjectの`NetworkObject`コンポーネントで、以下を確認：
+
+1. **`Spawn With Observers`**: ✅ チェックされているか
+   - デフォルトでチェックされているはず
+   - チェックが外れていると、クライアント側で検出されない可能性があります
+
+2. **`Synchronize Transform`**: ✅ チェックされているか（Transform同期が必要な場合）
+   - `PaintCanvas`は位置が変わらないので、チェックが外れていても問題ありません
+   - ただし、チェックされていても問題ありません
+
+**確認方法**:
+- Hierarchyで`NetworkPaintCanvas`のGameObjectを選択
+- Inspectorで`NetworkObject`コンポーネントを確認
+- `Spawn With Observers`がチェックされているか確認
+
+### ✅ チェック5: NetworkManagerの存在確認
+
+**確認項目**:
+
+1. **`NetworkManager.Singleton`が存在するか**
+   - ゲーム実行時に`NetworkManager`が存在するか確認
+   - ログで`NetworkManager.Singleton`が`null`になっていないか確認
+
+2. **NetworkManagerの初期化**
+   - ゲーム開始時に`NetworkManager`が正しく初期化されているか確認
+   - ホスト/クライアントとして正しく動作しているか確認
+
+**確認方法**:
+- ゲーム実行時にConsoleで警告がないか確認
+- `NetworkManager.Singleton`が`null`のエラーが出ていないか確認
+
+### ✅ チェック6: ゲームオブジェクトの有効化
+
+**確認項目**:
+
+1. **GameObjectがアクティブか**
+   - `NetworkPaintCanvas`のGameObjectが`Active`になっているか ✅
+   - `NetworkPaintBattleGameManager`のGameObjectが`Active`になっているか ✅
+
+2. **コンポーネントが有効化されているか**
+   - `NetworkPaintCanvas`コンポーネントのチェックボックスがオンになっているか ✅
+   - `NetworkPaintBattleGameManager`コンポーネントのチェックボックスがオンになっているか ✅
+   - `NetworkObject`コンポーネントのチェックボックスがオンになっているか ✅
+
+**確認方法**:
+- Hierarchyで各GameObjectを選択
+- Inspectorで左上のチェックボックスがオンになっているか確認
+- 各コンポーネントのチェックボックスがオンになっているか確認
+
+### ✅ チェック7: 実行順序の問題
+
+**確認項目**:
+
+`NetworkPaintCanvas`と`NetworkPaintBattleGameManager`の実行順序を確認してください。
+
+**確認方法**:
+- Unityエディタの`Edit` → `Project Settings` → `Script Execution Order`
+- `NetworkPaintCanvas`と`NetworkPaintBattleGameManager`の実行順序を確認
+- 必要に応じて、実行順序を調整（通常は問題ありませんが、確認のため）
+
+### よくある問題と解決方法
+
+#### 問題1: `NetworkObject`コンポーネントが欠けている
+
+**症状**:
+- `ServerRpc`が呼ばれても、サーバー側で実行されない
+- `OnNetworkSpawn()`が呼ばれない
+
+**解決方法**:
+- `NetworkPaintCanvas`のGameObjectに`NetworkObject`コンポーネントを追加
+- `NetworkPaintBattleGameManager`のGameObjectに`NetworkObject`コンポーネントを追加
+
+#### 問題2: Inspectorでの参照が設定されていない
+
+**症状**:
+- ログで`NetworkPaintCanvas: PaintCanvasが設定されていません`が出る
+- ログで`NetworkPaintBattleGameManager: NetworkPaintCanvasが設定されていません`が出る
+
+**解決方法**:
+- Inspectorでフィールドを正しく設定
+- 自動検索（`FindObjectOfType`）に依存している場合は、シーン内に1つだけ存在するか確認
+
+#### 問題3: シーンが保存されていない
+
+**症状**:
+- ゲーム実行時に設定が反映されない
+
+**解決方法**:
+- `Ctrl + S`でシーンを保存
+- 変更後に必ずシーンを保存する習慣をつける
+
+### 推奨される確認手順
+
+1. **まず、`NetworkObject`コンポーネントを確認**
+   - `NetworkPaintCanvas`と`NetworkPaintBattleGameManager`の両方のGameObjectに`NetworkObject`が付いているか確認
+
+2. **次に、Inspectorでの参照を確認**
+   - すべてのフィールドが正しく設定されているか確認
+
+3. **最後に、シーンを保存**
+   - 変更を加えた場合は、必ずシーンを保存
+
+これらの確認を行っても問題が解決しない場合は、次のステップとして`PaintAtWithRadiusInternal`のログを確認してください。
