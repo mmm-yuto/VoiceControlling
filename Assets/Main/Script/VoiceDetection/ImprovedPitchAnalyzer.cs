@@ -84,7 +84,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         {
             int bufferSize = voiceDetector.bufferSize;
             fftBuffer = new float[bufferSize];
-            Debug.Log($"ImprovedPitchAnalyzer: 初期化完了 - BufferSize: {bufferSize}, SampleRate: {voiceDetector.sampleRate}");
         }
         
         if (volumeAnalyzer == null)
@@ -98,10 +97,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         if (useTestMode)
         {
             // テストモード：固定の音程を使用
-            if (enableDebugLog)
-            {
-                Debug.Log($"Test Mode: Using fixed pitch {testPitch} Hz");
-            }
             // テスト用の動的閾値を計算
             float testThreshold = VoiceCalibrator.MinVolume > 0f 
                 ? VoiceCalibrator.MinVolume * volumeDetectionRatio * 2f 
@@ -148,36 +143,17 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
                 ? VoiceCalibrator.MinVolume * volumeDetectionRatio 
                 : 0.01f; // MinVolumeが0の場合はデフォルト値を使用
             
-            if (enableDebugLog)
-            {
-                Debug.Log($"ImprovedPitchAnalyzer - Volume: {currentVolume:F6}, Dynamic Threshold: {dynamicThreshold:F6} (MinVolume: {VoiceCalibrator.MinVolume:F6}, Ratio: {volumeDetectionRatio:F3}), Samples Length: {samples.Length}");
-            }
-            
             if (currentVolume > dynamicThreshold)
             {
                 // 音量が閾値以上の場合のみピッチを検知
-                if (enableDebugLog)
-                {
-                    Debug.Log($"ImprovedPitchAnalyzer - Volume threshold passed, calculating pitch...");
-                }
-                
                 float confidence;
                 float pitch = CalculatePitchAdvanced(samples, out confidence);
-                
-                if (enableDebugLog)
-                {
-                    Debug.Log($"ImprovedPitchAnalyzer - Pitch detected: {pitch:F1} Hz (Volume: {currentVolume:F6}, Confidence: {confidence:F3})");
-                }
                 
                 ProcessPitch(pitch, confidence, currentVolume);
             }
             else
             {
                 // 音量が低い場合はピッチ検知を停止
-                if (enableDebugLog)
-                {
-                    Debug.Log($"ImprovedPitchAnalyzer - Volume too low: {currentVolume:F6} <= {dynamicThreshold:F6}");
-                }
                 ProcessPitch(0f, 0f, currentVolume);
             }
         }
@@ -217,19 +193,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         if (autocorrelationPitch > 0f)
         {
             finalPitch = autocorrelationPitch;
-            
-            if (enableDebugLog)
-            {
-                bool inRange = (autocorrelationPitch >= minFrequency && autocorrelationPitch <= maxFrequency);
-                if (inRange)
-                {
-                    Debug.Log($"Pitch detected: {finalPitch:F1} Hz (Range: {minFrequency}-{maxFrequency} Hz, Confidence: {confidence:F3})");
-                }
-                else
-                {
-                    Debug.Log($"Pitch detected (out of calibration range): {finalPitch:F1} Hz (Calibration Range: {minFrequency}-{maxFrequency} Hz, Confidence: {confidence:F3})");
-                }
-            }
         }
         else
         {
@@ -338,11 +301,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         // 正規化された相関値（0-1の範囲、FromGeneの0.9に相当）
         float normalizedMaxCorrelation = maxPossibleCorrelation > 0f ? maxCorrelation / maxPossibleCorrelation : 0f;
         
-        if (enableDebugLog)
-        {
-            Debug.Log($"Autocorrelation - BestPeriod: {bestPeriod}, RawCorrelation: {maxCorrelation:F6}, NormalizedCorrelation: {normalizedMaxCorrelation:F6}, Threshold: {autocorrelationThreshold:F6}, ExpectedFreq: {(bestPeriod > 0 ? (float)sampleRate / bestPeriod : 0f):F1} Hz");
-        }
-        
         // FromGeneの閾値0.9に相当（正規化後）
         // autocorrelationThresholdを0.9に設定すると、FromGeneと同じ動作になる
         float threshold = autocorrelationThreshold; // デフォルト0.1だが、0.9に近い値に調整可能
@@ -351,11 +309,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         {
             // 周波数計算：sampleRate / period（FromGeneと同じ）
             float frequency = (float)sampleRate / bestPeriod;
-            
-            if (enableDebugLog)
-            {
-                Debug.Log($"Autocorrelation success - Period: {bestPeriod}, Frequency: {frequency:F1} Hz, Correlation: {maxCorrelation:F6}");
-            }
             
             return frequency;
         }
@@ -438,10 +391,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         // 信頼度ベースのフィルタリング
         if (pitch > 0f && confidence < minConfidence)
         {
-            if (enableDebugLog)
-            {
-                Debug.Log($"Pitch rejected - Low confidence: {confidence:F3} < {minConfidence:F3}");
-            }
             pitch = 0f; // 信頼度が低い場合は無視
         }
         
@@ -499,10 +448,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             else if (pitch > 0f && !isIntentionalVoice)
             {
                 // 意図的でない場合は、前回の値を維持（スムージングしない）
-                if (enableDebugLog)
-                {
-                    Debug.Log($"Pitch ignored - Not intentional: {pitch:F1} Hz");
-                }
             }
             else
             {
@@ -527,12 +472,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         
         lastDetectedPitch = smoothedPitch;
         
-        if (enableDebugLog)
-        {
-            string intentionalStatus = isIntentionalVoice ? "INTENTIONAL" : "NOT_INTENTIONAL";
-            Debug.Log($"ImprovedPitchAnalyzer - ProcessPitch: Raw={pitch:F1} Hz, Confidence={confidence:F3}, Smoothed={smoothedPitch:F1} Hz, LastDetected={lastDetectedPitch:F1} Hz, Status={intentionalStatus}");
-        }
-        
         OnPitchDetected?.Invoke(smoothedPitch);
     }
     
@@ -550,10 +489,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         float stabilityThreshold = dynamicThreshold * intentionalVoiceVolumeStability;
         if (volume < stabilityThreshold)
         {
-            if (enableDebugLog)
-            {
-                Debug.Log($"Not intentional - Volume too low: {volume:F6} < {stabilityThreshold:F6}");
-            }
             return false;
         }
         
@@ -569,10 +504,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         
         if (duration < intentionalVoiceMinDuration)
         {
-            if (enableDebugLog)
-            {
-                Debug.Log($"Not intentional - Duration too short: {duration:F3}s < {intentionalVoiceMinDuration:F3}s");
-            }
             return false;
         }
         
@@ -593,20 +524,12 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         
         if (validCount < 2)
         {
-            if (enableDebugLog)
-            {
-                Debug.Log($"Not intentional - Not enough valid detections: {validCount}");
-            }
             return false;
         }
         
         float pitchRange = maxPitch - minPitch;
         if (pitchRange > intentionalVoiceStabilityThreshold)
         {
-            if (enableDebugLog)
-            {
-                Debug.Log($"Not intentional - Pitch too unstable: Range={pitchRange:F1} Hz > {intentionalVoiceStabilityThreshold:F1} Hz");
-            }
             return false;
         }
         
@@ -629,10 +552,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             
             if (pitchDifference > intentionalVoiceStabilityThreshold)
             {
-                if (enableDebugLog)
-                {
-                    Debug.Log($"Not intentional - Current pitch differs too much: {pitchDifference:F1} Hz > {intentionalVoiceStabilityThreshold:F1} Hz");
-                }
                 return false;
             }
         }
@@ -681,14 +600,12 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         if (voiceDisplay != null)
         {
             voiceDisplay.SetPitchRange(minFrequency, maxFrequency);
-            Debug.Log($"ImprovedPitchAnalyzer: Updated VoiceDisplay pitch range to {minFrequency}-{maxFrequency} Hz");
         }
         
         GameManager gameManager = FindObjectOfType<GameManager>();
         if (gameManager != null)
         {
             // GameManagerの設定を直接更新（publicフィールドがある場合）
-            Debug.Log($"ImprovedPitchAnalyzer: Pitch range set to {minFrequency}-{maxFrequency} Hz");
         }
     }
     

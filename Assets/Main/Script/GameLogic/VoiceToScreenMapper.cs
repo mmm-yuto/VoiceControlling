@@ -108,9 +108,6 @@ public class VoiceToScreenMapper : MonoBehaviour
         
         // ラベルを更新
         UpdateRangeLabels();
-        
-        Debug.Log($"VoiceToScreenMapper: Ranges updated - Volume: {minVolume:F3} - {maxVolume:F3}, Pitch: {minPitch:F1} - {maxPitch:F1} Hz");
-        Debug.Log($"VoiceToScreenMapper: Center - Volume: {centerVolume:F3}, Pitch: {centerPitch:F1} Hz");
     }
     
     /// <summary>

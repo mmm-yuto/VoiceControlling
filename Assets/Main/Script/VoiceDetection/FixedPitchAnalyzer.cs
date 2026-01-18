@@ -42,10 +42,6 @@ public class FixedPitchAnalyzer : MonoBehaviour
         {
             Debug.LogError("VoiceDetector not found!");
         }
-        else
-        {
-            Debug.Log($"VoiceDetector found: {voiceDetector.name}");
-        }
     }
     
     void Update()
@@ -108,18 +104,7 @@ public class FixedPitchAnalyzer : MonoBehaviour
         
         // 6. 検出されたピッチをそのまま返す（範囲チェックは削除）
         // グラフ表示時に範囲外の値はクランプされるため、ここでは実際のピッチを返す
-        if (finalPitch > 0f)
-        {
-            bool inRange = (finalPitch >= minFrequency && finalPitch <= maxFrequency);
-            if (inRange)
-            {
-                Debug.Log($"AutoCorr: {autocorrelationPitch:F1} Hz, Harmonic: {harmonicPitch:F1} Hz, Final: {finalPitch:F1} Hz");
-            }
-            else
-            {
-                Debug.Log($"AutoCorr: {autocorrelationPitch:F1} Hz, Harmonic: {harmonicPitch:F1} Hz, Final: {finalPitch:F1} Hz (out of calibration range: {minFrequency}-{maxFrequency} Hz)");
-            }
-        }
+        // finalPitchをそのまま返す（範囲チェックは削除）
         
         return finalPitch;
     }
@@ -284,7 +269,6 @@ public class FixedPitchAnalyzer : MonoBehaviour
             }
             
             lastDetectedPitch = smoothedPitch;
-            Debug.Log($"Pitch: {smoothedPitch:F1} Hz (Raw: {pitch:F1} Hz)");
             
             // イベント発火
             OnPitchDetected?.Invoke(smoothedPitch);
@@ -304,8 +288,6 @@ public class FixedPitchAnalyzer : MonoBehaviour
                     lastDetectedPitch = 0f;
                 }
             }
-            
-            Debug.Log("Pitch: No pitch detected");
         }
     }
     
@@ -332,14 +314,12 @@ public class FixedPitchAnalyzer : MonoBehaviour
     void EnableTestMode()
     {
         useTestMode = true;
-        Debug.Log("Test mode enabled");
     }
     
     [ContextMenu("Disable Test Mode")]
     void DisableTestMode()
     {
         useTestMode = false;
-        Debug.Log("Test mode disabled");
     }
     
     public System.Action<float> OnPitchDetected;

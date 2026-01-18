@@ -56,8 +56,6 @@ public class VolumeAnalyzer : MonoBehaviour
         if (volume > volumeThreshold)
         {
             // 音量に基づく処理をここに実装
-            Debug.Log($"Volume: {volume:F3}");
-            
             // イベント発火
             OnVolumeDetected?.Invoke(volume);
         }

@@ -32,8 +32,6 @@ public class VoiceDisplay : MonoBehaviour
         {
             volumeSlider.maxValue = maxVolume;
         }
-        
-        Debug.Log($"Max volume updated: {maxVolume:F3}");
     }
     
     // 音量の範囲設定
@@ -62,8 +60,6 @@ public class VoiceDisplay : MonoBehaviour
             pitchSlider.minValue = minPitch;
             pitchSlider.maxValue = maxPitch;
         }
-        
-        Debug.Log($"Pitch range updated: {minPitch:F1} - {maxPitch:F1} Hz");
     }
     
     // カリブレーション結果を適用
@@ -138,8 +134,6 @@ public class VoiceDisplay : MonoBehaviour
             // ピッチの範囲をImprovedPitchAnalyzerの設定から取得
             minPitch = improvedPitchAnalyzer.minFrequency;
             maxPitch = improvedPitchAnalyzer.maxFrequency;
-            
-            Debug.Log($"Using ImprovedPitchAnalyzer settings - Pitch range: {minPitch}-{maxPitch} Hz");
         }
         
         // スライダーの初期化

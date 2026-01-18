@@ -46,8 +46,6 @@ public class VoiceDetector : MonoBehaviour
             
             samples = new float[bufferSize];
             isRecording = true;
-            
-            Debug.Log($"VoiceDetector: Microphone started - Device: {devices[0]}, Samples: {microphoneClip.samples}, Buffer Size: {bufferSize}");
         }
         catch (System.Exception e)
         {
@@ -99,12 +97,10 @@ public class VoiceDetector : MonoBehaviour
     {
         if (isRecording)
         {
-            Debug.Log("VoiceDetector: Voice detection is already enabled");
             return;
         }
         
         isRecording = true;
-        Debug.Log("VoiceDetector: Voice detection enabled");
     }
     
     /// <summary>
@@ -114,12 +110,10 @@ public class VoiceDetector : MonoBehaviour
     {
         if (!isRecording)
         {
-            Debug.Log("VoiceDetector: Voice detection is already disabled");
             return;
         }
         
         isRecording = false;
-        Debug.Log("VoiceDetector: Voice detection disabled");
     }
     
     void OnDestroy()

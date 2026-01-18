@@ -118,7 +118,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         {
             paintCanvas.OnPaintCompleted += OnLocalPaintCompleted;
             isSubscribed = true;
-            Debug.Log("NetworkPaintBattleGameManager: PaintCanvasのイベントを購読しました");
         }
         else
         {
@@ -147,7 +146,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         {
             paintCanvas.OnPaintCompleted -= OnLocalPaintCompleted;
             isSubscribed = false;
-            Debug.Log("NetworkPaintBattleGameManager: PaintCanvasのイベント購読を解除しました");
         }
     }
     
@@ -190,11 +188,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         
         // サーバーに塗りデータを送信
         networkPaintCanvas.SendClientPaintServerRpc(position, playerId, intensity, playerColor, brushRadius);
-        
-        if (Application.isEditor)
-        {
-            Debug.Log($"NetworkPaintBattleGameManager: クライアント塗りをサーバーに送信 - Position: {position}, PlayerId: {playerId}, Intensity: {intensity}, Radius: {brushRadius}");
-        }
     }
     
     /// <summary>
@@ -225,8 +218,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     {
         base.OnNetworkSpawn();
         
-        Debug.Log($"NetworkPaintBattleGameManager: ネットワーク接続 - IsServer: {IsServer}, IsClient: {IsClient}, IsOwner: {IsOwner}");
-        
         // ローカルのPaintBattleGameManagerのplayerIdを設定
         if (localPaintManager != null && IsOwner)
         {
@@ -234,7 +225,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
             if (IsServer)
             {
                 localPaintManager.playerId = 1;
-                Debug.Log($"NetworkPaintBattleGameManager: ホストとしてPlayerId = 1を設定しました");
             }
             else if (IsClient)
             {
@@ -244,7 +234,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
                 ulong localClientId = NetworkManager.Singleton.LocalClientId;
                 // クライアントID + 1 でプレイヤーIDを生成（ホストは0なので1、最初のクライアントは1なので2）
                 localPaintManager.playerId = (int)localClientId + 1;
-                Debug.Log($"NetworkPaintBattleGameManager: クライアントとしてPlayerId = {localPaintManager.playerId}を設定しました (LocalClientId: {localClientId})");
             }
         }
         
@@ -264,8 +253,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         
         // イベント購読を解除
         UnsubscribeFromPaintEvents();
-        
-        Debug.Log("NetworkPaintBattleGameManager: ネットワーク切断");
     }
 }
 

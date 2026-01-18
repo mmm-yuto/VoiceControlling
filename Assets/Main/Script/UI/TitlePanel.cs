@@ -55,7 +55,6 @@ public class TitlePanel : MonoBehaviour
         // セーブデータがある場合は、nextPanelをGameModeSelectionPanelに設定
         if (CalibrationSaveSystem.HasCalibrationData())
         {
-            Debug.Log("TitlePanel: セーブデータが見つかりました。ゲームモード選択画面に直接遷移します。");
             // nextPanelをGameModeSelectionPanelに変更（一時的に）
             if (gameModeSelectionPanel != null)
             {
@@ -63,10 +62,6 @@ public class TitlePanel : MonoBehaviour
                 // ただし、元のnextPanelは保持しておく（設定画面に戻る場合に備えて）
                 // ここでは直接GameModeSelectionPanelを表示するロジックを使用
             }
-        }
-        else
-        {
-            Debug.Log("TitlePanel: セーブデータが見つかりませんでした。設定画面に遷移します。");
         }
     }
     
@@ -196,7 +191,6 @@ public class TitlePanel : MonoBehaviour
         {
             // ゲームモード選択画面を表示
             gameModeSelectionPanel.Show();
-            Debug.Log("TitlePanel: ゲームモード選択画面に遷移しました（セーブデータあり）");
         }
         else if (nextPanel != null)
         {
@@ -210,7 +204,6 @@ public class TitlePanel : MonoBehaviour
             {
                 settingsPanel.Show();
             }
-            Debug.Log("TitlePanel: 設定画面に遷移しました（セーブデータなし）");
         }
         else
         {

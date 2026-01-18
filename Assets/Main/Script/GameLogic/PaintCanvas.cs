@@ -9,6 +9,10 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     [Header("Settings")]
     [SerializeField] private PaintSettings settings;
     
+    [Header("Display Reference")]
+    [Tooltip("表示サイズの基準となるUIオブジェクト（PaintSpaceImageなど）")]
+    [SerializeField] private RectTransform paintSpaceImage;
+    
     [Header("Debug")]
     [Tooltip("塗り位置をデバッグ表示するか")]
     public bool showDebugGizmos = false;
@@ -73,7 +77,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         ResetCanvas();
         
         isInitialized = true;
-        Debug.Log($"PaintCanvas: 初期化完了 ({settings.textureWidth}x{settings.textureHeight})");
     }
     
     /// <summary>
@@ -177,8 +180,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     /// </summary>
     public void PaintAt(Vector2 screenPosition, int playerId, float intensity, Color color)
     {
-        Debug.Log($"[DEBUG] PaintCanvas.PaintAt 呼ばれました - Position: {screenPosition}, PlayerId: {playerId}, Intensity: {intensity}, Color: {color}");
-        
         if (!isInitialized || settings == null)
         {
             Debug.LogWarning("[DEBUG] PaintCanvas: 初期化されていません");
@@ -189,37 +190,26 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         frameCount++;
         if (frameCount % settings.updateFrequency != 0)
         {
-            Debug.Log($"[DEBUG] 更新頻度チェックでスキップ - frameCount: {frameCount}, updateFrequency: {settings.updateFrequency}");
             return;
         }
-        
-        Debug.Log("[DEBUG] 更新頻度チェック通過");
         
         // 画面座標をキャンバス座標に変換
         int canvasX = Mathf.RoundToInt((screenPosition.x / Screen.width) * settings.textureWidth);
         int canvasY = Mathf.RoundToInt((screenPosition.y / Screen.height) * settings.textureHeight);
         
-        Debug.Log($"[DEBUG] キャンバス座標変換 - 画面座標: ({screenPosition.x:F1}, {screenPosition.y:F1}), キャンバス座標: ({canvasX}, {canvasY})");
-        
         // 範囲チェック
         if (canvasX < 0 || canvasX >= settings.textureWidth || 
             canvasY < 0 || canvasY >= settings.textureHeight)
         {
-            Debug.LogWarning($"[DEBUG] 範囲外でスキップ - canvasX: {canvasX}, canvasY: {canvasY}, textureWidth: {settings.textureWidth}, textureHeight: {settings.textureHeight}");
             return;
         }
-        
-        Debug.Log("[DEBUG] 範囲チェック通過");
         
         // 塗り強度が閾値以上の場合のみ塗る
         float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
         if (effectiveIntensity < settings.minVolumeThreshold)
         {
-            Debug.LogWarning($"[DEBUG] 強度が閾値以下でスキップ - effectiveIntensity: {effectiveIntensity:F4}, minVolumeThreshold: {settings.minVolumeThreshold:F4}, playerId: {playerId}");
             return;
         }
-        
-        Debug.Log("[DEBUG] 強度チェック通過");
         
         // 塗り処理（優先順位ロジックを追加）
         int existingPlayerId = paintData[canvasX, canvasY];
@@ -227,11 +217,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         // 敵の色を塗る場合、プレイヤーが既に塗っている領域は上塗りしない
         if (playerId == -1 && existingPlayerId > 0)
         {
-            // プレイヤーの色を上塗りしない（デバッグログ）
-            if (showDebugGizmos)
-            {
-                Debug.Log($"[PaintCanvas] PaintAt - 敵の色がプレイヤーの色でブロック: キャンバス座標({canvasX}, {canvasY}), 既存playerId={existingPlayerId}");
-            }
             return;
         }
         
@@ -254,11 +239,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             paintTimestamp[canvasX, canvasY] = getTimestampCallback();
         }
         
-        if (playerId == -1) // 敵の色の場合のみデバッグログ
-        {
-            Debug.Log($"[PaintCanvas] PaintAt - 敵の色を塗りました: キャンバス座標({canvasX}, {canvasY}), 画面座標({screenPosition.x:F1}, {screenPosition.y:F1}), 色: {color}, 強度: {effectiveIntensity:F4}");
-        }
-        
         // テクスチャを更新
         UpdateTexturePixel(canvasX, canvasY, color);
         
@@ -267,11 +247,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         
         // イベント発火
         OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
-        
-        if (showDebugGizmos)
-        {
-            Debug.Log($"PaintCanvas: 塗り完了 ({canvasX}, {canvasY}), Player: {playerId}, Intensity: {effectiveIntensity:F3}, Color: {color}");
-        }
     }
     
     /// <summary>
@@ -312,8 +287,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     /// </summary>
     private void PaintAtWithRadiusInternal(Vector2 screenPosition, int playerId, float intensity, Color color, float radius, bool checkUpdateFrequency)
     {
-        Debug.Log($"[DEBUG] PaintCanvas.PaintAtWithRadiusInternal 呼ばれました - Position: {screenPosition}, PlayerId: {playerId}, Intensity: {intensity}, Color: {color}, Radius: {radius}, checkUpdateFrequency: {checkUpdateFrequency}");
-        
         if (!isInitialized || settings == null)
         {
             Debug.LogWarning("[DEBUG] PaintCanvas: 初期化されていません");
@@ -326,10 +299,8 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             frameCount++;
             if (frameCount % settings.updateFrequency != 0)
             {
-                Debug.Log($"[DEBUG] 更新頻度チェックでスキップ - frameCount: {frameCount}, updateFrequency: {settings.updateFrequency}");
                 return;
             }
-            Debug.Log("[DEBUG] 更新頻度チェック通過");
         }
         
         // 画面座標をキャンバス座標に変換
@@ -340,17 +311,12 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         float radiusInCanvas = (radius / Screen.width) * settings.textureWidth;
         int radiusPixels = Mathf.RoundToInt(radiusInCanvas);
         
-        Debug.Log($"[DEBUG] キャンバス座標変換 - 画面座標: ({screenPosition.x:F1}, {screenPosition.y:F1}), キャンバス座標: ({centerX}, {centerY}), 半径: {radius} -> {radiusPixels}ピクセル");
-        
         // 塗り強度が閾値以上の場合のみ塗る
         float effectiveIntensity = intensity * settings.paintIntensityMultiplier;
         if (effectiveIntensity < settings.minVolumeThreshold)
         {
-            Debug.LogWarning($"[DEBUG] 強度が閾値以下でスキップ - effectiveIntensity: {effectiveIntensity:F4}, minVolumeThreshold: {settings.minVolumeThreshold:F4}, playerId: {playerId}");
             return;
         }
-        
-        Debug.Log("[DEBUG] 強度チェック通過 - 塗り処理を開始します");
         
         // 円形のブラシで塗る（常に後から塗った色が優先される）
         bool hasPainted = false;
@@ -405,11 +371,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             FlushTextureUpdates();
             lastPaintFrame = Time.frameCount; // 塗りが実行されたフレームを記録
             OnPaintCompleted?.Invoke(screenPosition, playerId, effectiveIntensity);
-            Debug.Log($"[DEBUG] 塗り処理完了 - テクスチャを更新しました");
-        }
-        else
-        {
-            Debug.LogWarning("[DEBUG] 塗り処理が実行されませんでした（hasPainted = false）");
         }
     }
     
@@ -690,8 +651,6 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
         cachedPlayerPixelCount = 0;
         cachedEnemyPixelCount = 0;
         pixelCountCacheValid = true;
-        
-        Debug.Log("PaintCanvas: キャンバスをリセットしました");
     }
     
     /// <summary>
@@ -756,6 +715,14 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     public PaintSettings GetSettings()
     {
         return settings;
+    }
+    
+    /// <summary>
+    /// PaintSpaceImageのRectTransformを取得（表示サイズの基準として使用）
+    /// </summary>
+    public RectTransform GetPaintSpaceImage()
+    {
+        return paintSpaceImage;
     }
     
     /// <summary>

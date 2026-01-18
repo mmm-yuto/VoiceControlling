@@ -15,6 +15,7 @@ public class PaintRenderer : MonoBehaviour
     
     // 内部状態
     private Sprite canvasSprite;
+    private Vector2 lastDisplaySize = Vector2.zero; // 表示サイズの変更を追跡
     
     void Start()
     {
@@ -37,6 +38,9 @@ public class PaintRenderer : MonoBehaviour
             }
         }
         
+        // 表示サイズを更新
+        UpdateDisplaySize();
+        
         // 初期Spriteを作成（1回だけ）
         CreateSpriteOnce();
         
@@ -49,9 +53,36 @@ public class PaintRenderer : MonoBehaviour
     
     void Update()
     {
+        // 表示サイズが変更された場合に更新
+        UpdateDisplaySize();
+        
         // テクスチャのサイズが変更された場合のみSpriteを再生成
         // 通常のテクスチャ更新（ピクセルデータの変更）は自動的に反映されるため、再生成不要
         UpdateSpriteIfNeeded();
+    }
+    
+    /// <summary>
+    /// 表示サイズを更新（PaintSpaceImageのサイズを使用）
+    /// </summary>
+    private void UpdateDisplaySize()
+    {
+        if (paintCanvas == null || displayImage == null) return;
+        
+        RectTransform paintSpaceImage = paintCanvas.GetPaintSpaceImage();
+        if (paintSpaceImage == null) return;
+        
+        RectTransform rectTransform = displayImage.rectTransform;
+        if (rectTransform == null) return;
+        
+        // PaintSpaceImageのサイズを取得
+        Vector2 paintSpaceSize = paintSpaceImage.rect.size;
+        
+        // サイズが変更された場合のみ更新
+        if (paintSpaceSize != lastDisplaySize)
+        {
+            rectTransform.sizeDelta = paintSpaceSize;
+            lastDisplaySize = paintSpaceSize;
+        }
     }
     
     /// <summary>
@@ -151,8 +182,6 @@ public class PaintRenderer : MonoBehaviour
             new Vector2(0.5f, 0.5f)
         );
         displayImage.sprite = canvasSprite;
-        
-        Debug.Log("[DEBUG] PaintRenderer: テクスチャ更新イベントを受信し、Spriteを再生成しました");
     }
     
     void OnDestroy()

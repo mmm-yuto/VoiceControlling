@@ -139,7 +139,6 @@ public class VoiceCalibrator : MonoBehaviour
         // セーブデータを読み込み
         if (LoadSavedCalibrationData())
         {
-            Debug.Log("VoiceCalibrator: セーブデータからカリブレーション値を読み込みました");
         }
         else
         {
@@ -208,10 +207,6 @@ public class VoiceCalibrator : MonoBehaviour
             // グラフの端のテキストを更新（ApplyCalibrationResults内でも呼ばれるが、念のため）
             UpdateGraphEdgeLabels();
             
-            // デバッグログ（デシベル値も表示）
-            float minVolDb = calibrationSettings.initialMinVolumeDb;
-            float maxVolDb = calibrationSettings.initialMaxVolumeDb;
-            Debug.Log($"VoiceCalibrator: Initial calibration values applied - Volume: {minVolDb:F0} - {maxVolDb:F0} dB ({initialMinVol:F3} - {initialMaxVol:F3}), Pitch: {initialMinPit:F1} - {initialMaxPit:F1} Hz");
         }
         else
         {
@@ -245,7 +240,6 @@ public class VoiceCalibrator : MonoBehaviour
         
         IsCalibrating = true;
         OnCalibrationRunningStateChanged?.Invoke(true);
-        Debug.Log("Calibration started - Step 1: Silence");
     }
     
     public void CancelCalibration()
@@ -265,8 +259,6 @@ public class VoiceCalibrator : MonoBehaviour
         
         if (calibrationProgressSlider != null)
             calibrationProgressSlider.value = 0f;
-        
-        Debug.Log("Calibration cancelled");
     }
     
     IEnumerator CalibrationCoroutine()
@@ -379,7 +371,6 @@ public class VoiceCalibrator : MonoBehaviour
                     minPitch = avgPitch;
                     if (calibrationSettings != null)
                         minPitch *= calibrationSettings.minPitchMargin;
-                    Debug.Log($"Step 3 Complete - Min Pitch: {minPitch:F1} Hz (Average: {avgPitch:F1} Hz)");
                 }
                 break;
                 
@@ -391,7 +382,6 @@ public class VoiceCalibrator : MonoBehaviour
                     maxPitch = avgPitch;
                     if (calibrationSettings != null)
                         maxPitch *= calibrationSettings.maxPitchMargin;
-                    Debug.Log($"Step 4 Complete - Max Pitch: {maxPitch:F1} Hz (Average: {avgPitch:F1} Hz)");
                 }
                 break;
         }
@@ -433,9 +423,6 @@ public class VoiceCalibrator : MonoBehaviour
                        $"Center: Volume={CenterVolume:F3}, Pitch={CenterPitch:F1} Hz";
         
         UpdateCalibrationStatus(result);
-        
-        Debug.Log($"Calibration complete - Volume: {minVolume:F3} - {maxVolume:F3}, Pitch: {minPitch:F1} - {maxPitch:F1} Hz");
-        Debug.Log($"Center - Volume: {CenterVolume:F3}, Pitch: {CenterPitch:F1} Hz");
     }
     
     void ApplyCalibrationResults()
@@ -542,7 +529,6 @@ public class VoiceCalibrator : MonoBehaviour
         // イベント通知（手動設定であることを示す）
         OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
         
-        Debug.Log($"Calibration values set manually - Volume: {minVolume:F3} - {maxVolume:F3}, Pitch: {minPitch:F1} - {maxPitch:F1} Hz");
     }
     
     void OnVolumeDetected(float volume)
@@ -723,7 +709,6 @@ public class VoiceCalibrator : MonoBehaviour
             OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
             
             UpdateCalibrationStatus($"Minimum volume calibrated: {minVolume:F3}");
-            Debug.Log($"Individual calibration complete - Min Volume: {minVolume:F3}");
         }
         else
         {
@@ -792,7 +777,6 @@ public class VoiceCalibrator : MonoBehaviour
             OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
             
             UpdateCalibrationStatus($"Maximum volume calibrated: {maxVolume:F3}");
-            Debug.Log($"Individual calibration complete - Max Volume: {maxVolume:F3}");
         }
         else
         {
@@ -930,7 +914,6 @@ public class VoiceCalibrator : MonoBehaviour
             OnCalibrationCompleted?.Invoke(minVolume, maxVolume, minPitch, maxPitch);
             
             UpdateCalibrationStatus($"Maximum pitch calibrated: {maxPitch:F1} Hz");
-            Debug.Log($"Individual calibration complete - Max Pitch: {maxPitch:F1} Hz");
         }
         else
         {
@@ -969,8 +952,6 @@ public class VoiceCalibrator : MonoBehaviour
     /// </summary>
     void SetupSettingsButtons()
     {
-        Debug.Log($"VoiceCalibrator: SetupSettingsButtons()を呼び出しました。");
-        
         if (settingsButtons == null)
         {
             Debug.LogWarning("VoiceCalibrator: settingsButtonsが設定されていません。");
@@ -982,8 +963,6 @@ public class VoiceCalibrator : MonoBehaviour
             Debug.LogWarning("VoiceCalibrator: settingsObjectsが設定されていません。");
             return;
         }
-        
-        Debug.Log($"VoiceCalibrator: settingsButtons.Length={settingsButtons.Length}, settingsObjects.Length={settingsObjects.Length}");
         
         // ボタンとオブジェクトの数が一致しているか確認
         if (settingsButtons.Length != settingsObjects.Length)
@@ -1008,10 +987,6 @@ public class VoiceCalibrator : MonoBehaviour
             settingsButtons[i].onClick.RemoveAllListeners();
             settingsButtons[i].onClick.AddListener(() => OnSettingsButtonClicked(index));
             
-            // イベントリスナーの数を確認
-            int listenerCount = settingsButtons[i].onClick.GetPersistentEventCount();
-            Debug.Log($"VoiceCalibrator: 設定ボタン[{i}]のイベントリスナー数: {listenerCount}");
-            
             if (i >= settingsObjects.Length)
             {
                 Debug.LogError($"VoiceCalibrator: 設定オブジェクト[{i}]が設定されていません。\n" +
@@ -1022,13 +997,7 @@ public class VoiceCalibrator : MonoBehaviour
             {
                 Debug.LogWarning($"VoiceCalibrator: 設定オブジェクト[{i}]がnullです。最初の遷移のみ機能します。");
             }
-            else
-            {
-                Debug.Log($"VoiceCalibrator: 設定オブジェクト[{i}] = {settingsObjects[i].name}");
-            }
         }
-        
-        Debug.Log($"VoiceCalibrator: SetupSettingsButtons()完了。{settingsButtons.Length}個のボタンにイベントを設定しました。");
     }
     
     /// <summary>
@@ -1039,17 +1008,12 @@ public class VoiceCalibrator : MonoBehaviour
     /// <param name="index">ボタンのインデックス</param>
     void OnSettingsButtonClicked(int index)
     {
-        Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。hasShownGameSelection={hasShownGameSelection}");
-        
         // 最初の遷移の場合：カリブレーションデータがない場合のみGameModeSelectionPanelを表示
         if (!hasShownGameSelection)
         {
-            Debug.Log($"VoiceCalibrator: 最初の遷移処理を実行します（ボタン{index}）");
-            
             // カリブレーションデータがある場合は、GameModeSelectionPanelに遷移しない
             if (CalibrationSaveSystem.HasCalibrationData())
             {
-                Debug.Log("VoiceCalibrator: カリブレーションデータが存在するため、GameModeSelectionPanelに遷移しません");
                 hasShownGameSelection = true; // フラグを立てて、次回からはトグル処理に移行
                 // 設定画面を表示する処理に移行（下のトグル処理を実行）
             }
@@ -1080,7 +1044,6 @@ public class VoiceCalibrator : MonoBehaviour
             {
                 gameModeSelectionPanel.Show();
                 hasShownGameSelection = true;
-                Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。ゲームセレクト画面を表示し、設定オブジェクトを非表示にしました。");
             }
             else
             {
@@ -1091,8 +1054,6 @@ public class VoiceCalibrator : MonoBehaviour
         }
         
         // その後：SettingsPanelをトグル
-        Debug.Log($"VoiceCalibrator: トグル処理を実行します（ボタン{index}）");
-        
         if (settingsObjects == null)
         {
             Debug.LogWarning("VoiceCalibrator: settingsObjectsが設定されていません");
@@ -1113,11 +1074,6 @@ public class VoiceCalibrator : MonoBehaviour
                           $"  2. Settings Objects 配列のサイズを {settingsButtons.Length} に変更\n" +
                           $"  3. Element {index} に2つ目の設定画面オブジェクトを設定\n" +
                           $"現在設定されているオブジェクト:");
-            for (int i = 0; i < settingsObjects.Length; i++)
-            {
-                Debug.Log($"  settingsObjects[{i}] = {(settingsObjects[i] != null ? settingsObjects[i].name : "null")}");
-            }
-            
             // ユーザーに分かりやすくするため、どのボタンがクリックされたかも表示
             if (settingsButtons != null && index < settingsButtons.Length && settingsButtons[index] != null)
             {
@@ -1131,15 +1087,8 @@ public class VoiceCalibrator : MonoBehaviour
         if (targetObject == null)
         {
             Debug.LogWarning($"VoiceCalibrator: インデックス{index}の設定オブジェクトが設定されていません。");
-            // 配列の内容を確認
-            for (int i = 0; i < settingsObjects.Length; i++)
-            {
-                Debug.Log($"VoiceCalibrator: settingsObjects[{i}] = {(settingsObjects[i] != null ? settingsObjects[i].name : "null")}");
-            }
             return;
         }
-        
-        Debug.Log($"VoiceCalibrator: ターゲットオブジェクト = {targetObject.name}, 現在の状態 = {(targetObject.activeSelf ? "表示" : "非表示")}");
         
         // 現在の表示状態を確認してトグル
         bool isCurrentlyActive = targetObject.activeSelf;
@@ -1147,7 +1096,6 @@ public class VoiceCalibrator : MonoBehaviour
         if (isCurrentlyActive)
         {
             // 表示されている場合は非表示にする
-            Debug.Log($"VoiceCalibrator: 設定オブジェクトを非表示にします。");
             targetObject.SetActive(false);
             
             // SettingsPanelコンポーネントがある場合はHide()メソッドを呼ぶ
@@ -1156,28 +1104,18 @@ public class VoiceCalibrator : MonoBehaviour
             {
                 settingsPanel.Hide();
             }
-            
-            Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを非表示にしました。");
         }
         else
         {
             // 非表示の場合は表示する
-            Debug.Log($"VoiceCalibrator: 設定オブジェクトを表示します。");
             targetObject.SetActive(true);
             
             // SettingsPanelコンポーネントがある場合はShow()メソッドを呼ぶ
             SettingsPanel settingsPanel = targetObject.GetComponent<SettingsPanel>();
             if (settingsPanel != null)
             {
-                Debug.Log($"VoiceCalibrator: SettingsPanel.Show()を呼び出します。");
                 settingsPanel.Show();
             }
-            else
-            {
-                Debug.Log($"VoiceCalibrator: SettingsPanelコンポーネントが見つかりませんでした。SetActive(true)のみ実行しました。");
-            }
-            
-            Debug.Log($"VoiceCalibrator: 設定ボタン{index}がクリックされました。設定オブジェクトを表示しました。現在の状態 = {targetObject.activeSelf}");
         }
     }
     
