@@ -21,7 +21,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
     [SerializeField] private int chunkSize = 500000; // 500KB（Unity Netcodeの制限は約1MB）
     
     [Tooltip("差分送信の最大ピクセル数（これを超える場合は分割送信）")]
-    [SerializeField] private int maxPixelsPerMessage = 30000; // 約480KB（30000ピクセル × 16バイト）
+    [SerializeField] private int maxPixelsPerMessage = 10000; // 約320KB（10000ピクセル × 32バイト/ピクセル + オーバーヘッド）
     
     // 差分検出マネージャー
     private PaintDiffManager diffManager;
