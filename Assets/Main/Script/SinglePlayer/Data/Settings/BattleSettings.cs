@@ -127,7 +127,8 @@ public class BattleSettings : MonoBehaviour
         }
 
         Instance = this;
-        DontDestroyOnLoad(gameObject);
+        // ルートGameObjectに対してDontDestroyOnLoadを適用（子オブジェクトの場合でも正常に動作）
+        DontDestroyOnLoad(transform.root.gameObject);
 
         // 起動時は色を更新しない - Inspectorで設定された色または後でSetFromUI()で設定される色を保持
         // RefreshColorsFromIndices(); // 削除 - ゲーム開始前に設定した色を保持するため
