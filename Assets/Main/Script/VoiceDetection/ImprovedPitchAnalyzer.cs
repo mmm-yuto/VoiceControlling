@@ -197,10 +197,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
         else
         {
             confidence = 0f;
-            if (enableDebugLog)
-            {
-                Debug.LogWarning("Autocorrelation returned 0 - no pitch detected");
-            }
         }
         
         // 5. フレーム履歴による安定化
@@ -311,20 +307,6 @@ public class ImprovedPitchAnalyzer : MonoBehaviour
             float frequency = (float)sampleRate / bestPeriod;
             
             return frequency;
-        }
-        else
-        {
-            if (enableDebugLog)
-            {
-                if (bestPeriod <= 1)
-                {
-                    Debug.LogWarning($"Autocorrelation failed - BestPeriod too small: {bestPeriod}");
-                }
-                else
-                {
-                    Debug.LogWarning($"Autocorrelation failed - Correlation too low: {maxCorrelation:F6} <= {autocorrelationThreshold:F6}");
-                }
-            }
         }
         
         return 0f;

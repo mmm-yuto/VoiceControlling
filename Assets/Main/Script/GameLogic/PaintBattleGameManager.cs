@@ -107,9 +107,11 @@ public class PaintBattleGameManager : MonoBehaviour
             resolvedBrush = BattleSettings.Instance.Current.brush;
             
             // BattleSettingsにBrushが設定されていない場合は警告のみ出す
-            if (resolvedBrush == null && !string.IsNullOrEmpty(BattleSettings.Instance.Current.brushKey))
+            // ただし、brushKeyが"Default"の場合は正常なので警告を出さない
+            string brushKey = BattleSettings.Instance.Current.brushKey;
+            if (resolvedBrush == null && !string.IsNullOrEmpty(brushKey) && brushKey != "Default")
             {
-                Debug.LogWarning("PaintBattleGameManager: BattleSettingsからBrushが取得できませんでした。brushKey: " + BattleSettings.Instance.Current.brushKey);
+                Debug.LogWarning("PaintBattleGameManager: BattleSettingsからBrushが取得できませんでした。brushKey: " + brushKey);
             }
         }
 
