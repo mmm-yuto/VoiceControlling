@@ -58,8 +58,8 @@ public class NetworkPaintCanvas : NetworkBehaviour
     
     void Update()
     {
-        // サーバー側で定期的に差分を送信
-        if (IsServer && paintCanvas != null && diffManager != null)
+        // 全プレイヤーで定期的に差分を送信
+        if (paintCanvas != null && diffManager != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsConnectedClient)
         {
             if (Time.time - lastSendTime >= sendInterval)
             {
@@ -93,10 +93,10 @@ public class NetworkPaintCanvas : NetworkBehaviour
             else
             {
                 // データをパック
-                PaintDiffData diffData = PackDiffData(changes);
+                PaintDiffMessage diffMessage = PackDiffMessage(changes);
                 
-                // 全クライアントに送信
-                ApplyPaintDiffClientRpc(diffData);
+                // Custom Messageで全プレイヤーに送信
+                SendPaintDiffMessage(diffMessage);
             }
         }
     }
@@ -125,17 +125,17 @@ public class NetworkPaintCanvas : NetworkBehaviour
             }
             
             // データをパック
-            PaintDiffData diffData = PackDiffData(chunkChanges);
+            PaintDiffMessage diffMessage = PackDiffMessage(chunkChanges);
             
-            // チャンクを送信
-            ApplyPaintDiffClientRpc(diffData);
+            // Custom Messageで全プレイヤーに送信
+            SendPaintDiffMessage(diffMessage);
         }
     }
     
     /// <summary>
-    /// 差分データをパック
+    /// 差分データをパック（Custom Message用）
     /// </summary>
-    private PaintDiffData PackDiffData(List<PaintDiffManager.PixelChange> changes)
+    private PaintDiffMessage PackDiffMessage(List<PaintDiffManager.PixelChange> changes)
     {
         int count = changes.Count;
         int[] xCoords = new int[count];
@@ -153,7 +153,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
             timestamps[i] = changes[i].timestamp;
         }
         
-        return new PaintDiffData
+        return new PaintDiffMessage
         {
             pixelCount = count,
             xCoords = xCoords,
@@ -165,70 +165,115 @@ public class NetworkPaintCanvas : NetworkBehaviour
     }
     
     /// <summary>
-    /// 差分データの構造体（Unity Netcodeで送信可能な形式）
+    /// 差分データメッセージを送信（Custom Message）
+    /// クライアントはサーバーに送信し、サーバーが全クライアントに転送
     /// </summary>
-    public struct PaintDiffData : INetworkSerializable
+    private void SendPaintDiffMessage(PaintDiffMessage message)
     {
-        public int pixelCount;
-        public int[] xCoords;
-        public int[] yCoords;
-        public Color[] colors;
-        public int[] playerIds;
-        public float[] timestamps;
-        
-        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
         {
-            serializer.SerializeValue(ref pixelCount);
-            
-            if (serializer.IsReader)
-            {
-                // 読み取り時：配列を初期化
-                xCoords = new int[pixelCount];
-                yCoords = new int[pixelCount];
-                colors = new Color[pixelCount];
-                playerIds = new int[pixelCount];
-                timestamps = new float[pixelCount];
-            }
-            
-            // 配列をシリアライズ
-            for (int i = 0; i < pixelCount; i++)
-            {
-                serializer.SerializeValue(ref xCoords[i]);
-                serializer.SerializeValue(ref yCoords[i]);
-                serializer.SerializeValue(ref colors[i]);
-                serializer.SerializeValue(ref playerIds[i]);
-                serializer.SerializeValue(ref timestamps[i]);
-            }
+            return;
         }
+        
+        // INetworkSerializableの場合はWriteValueSafeを使用
+        // 大きめのサイズを確保（最大ピクセル数 × 16バイト + オーバーヘッド）
+        int estimatedSize = message.pixelCount * 64 + 256; // 余裕を持たせたサイズ
+        FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
+        writer.WriteValueSafe(message);
+        
+        // サーバーに送信（サーバーが全クライアントに転送）
+        if (NetworkManager.Singleton.IsServer)
+        {
+            // サーバー（ホスト）の場合は直接全クライアントに送信
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessageToAll(
+                nameof(PaintMessageType.PaintDiff),
+                writer,
+                NetworkDelivery.ReliableSequenced
+            );
+        }
+        else
+        {
+            // クライアントの場合はサーバーに送信
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                "ClientToServer_" + nameof(PaintMessageType.PaintDiff),
+                NetworkManager.ServerClientId,
+                writer,
+                NetworkDelivery.ReliableSequenced
+            );
+        }
+        
+        writer.Dispose();
     }
     
     /// <summary>
-    /// クライアント側の塗りをサーバーに送信（ServerRpc）
+    /// 塗りデータを全プレイヤーに送信（Custom Message）
     /// </summary>
-    [ServerRpc(RequireOwnership = false)]
-    public void SendClientPaintServerRpc(Vector2 position, int playerId, float intensity, Color color, float radius, ServerRpcParams rpcParams = default)
+    public void SendPaintData(Vector2 position, int playerId, float intensity, Color color, float radius)
     {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
+        {
+            Debug.LogWarning("NetworkPaintCanvas: ネットワークに接続されていません");
+            return;
+        }
+        
         if (paintCanvas == null)
         {
             Debug.LogWarning("NetworkPaintCanvas: PaintCanvasが設定されていません");
             return;
         }
         
+        // タイムスタンプを取得
+        float timestamp = GetServerTime();
         
-        // サーバー側のPaintCanvasに塗りを適用
-        // これにより、サーバー側の差分検出が変更を検出できる
+        // メッセージを作成
+        PaintDataMessage message = new PaintDataMessage
+        {
+            position = position,
+            playerId = playerId,
+            intensity = intensity,
+            color = color,
+            radius = radius,
+            timestamp = timestamp
+        };
+        
+        // サーバーに送信（サーバーが全クライアントに転送）
+        // INetworkSerializableの場合はWriteValueSafeを使用
+        FastBufferWriter writer = new FastBufferWriter(128, Unity.Collections.Allocator.Temp);
+        writer.WriteValueSafe(message);
+        
+        // サーバーに送信（サーバーが全クライアントに転送）
+        if (NetworkManager.Singleton.IsServer)
+        {
+            // サーバー（ホスト）の場合は直接全クライアントに送信
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessageToAll(
+                nameof(PaintMessageType.PaintData),
+                writer,
+                NetworkDelivery.ReliableSequenced
+            );
+        }
+        else
+        {
+            // クライアントの場合はサーバーに送信
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                "ClientToServer_" + nameof(PaintMessageType.PaintData),
+                NetworkManager.ServerClientId,
+                writer,
+                NetworkDelivery.ReliableSequenced
+            );
+        }
+        
+        writer.Dispose();
+        
+        // 送信者側も即座に適用（受信ハンドラでも処理されるが、即座に反映）
         paintCanvas.PaintAtWithRadius(position, playerId, intensity, color, radius);
-        
     }
     
     /// <summary>
-    /// 差分データを受信して適用（ClientRpc）
+    /// 塗りデータを受信（Custom Messageハンドラ）
     /// </summary>
-    [ClientRpc]
-    private void ApplyPaintDiffClientRpc(PaintDiffData diffData, ClientRpcParams rpcParams = default)
+    private void OnPaintDataReceived(ulong clientId, FastBufferReader reader)
     {
-        // サーバー側では実行しない（サーバーは既に最新の状態を持っている）
-        if (IsServer) return;
+        reader.ReadValueSafe(out PaintDataMessage message);
         
         if (paintCanvas == null)
         {
@@ -236,36 +281,51 @@ public class NetworkPaintCanvas : NetworkBehaviour
             return;
         }
         
-        // 各ピクセルを更新
-        for (int i = 0; i < diffData.pixelCount; i++)
+        // タイムスタンプベースで適用（重複チェックはPaintCanvas側で行う）
+        // ただし、送信者側は既に適用済みなので、タイムスタンプチェックで重複を回避
+        paintCanvas.PaintAtWithRadius(message.position, message.playerId, message.intensity, message.color, message.radius);
+    }
+    
+    /// <summary>
+    /// 差分データを受信（Custom Messageハンドラ）
+    /// </summary>
+    private void OnPaintDiffReceived(ulong clientId, FastBufferReader reader)
+    {
+        reader.ReadValueSafe(out PaintDiffMessage message);
+        
+        if (paintCanvas == null)
         {
-            int x = diffData.xCoords[i];
-            int y = diffData.yCoords[i];
+            Debug.LogWarning("NetworkPaintCanvas: PaintCanvasが設定されていません");
+            return;
+        }
+        
+        // 各ピクセルを更新（タイムスタンプベースで重複チェック）
+        for (int i = 0; i < message.pixelCount; i++)
+        {
+            int x = message.xCoords[i];
+            int y = message.yCoords[i];
             
             // タイムスタンプを比較して適用
             paintCanvas.PaintAtWithTimestamp(
                 x, y,
-                diffData.playerIds[i],
-                diffData.colors[i],
-                diffData.timestamps[i]
+                message.playerIds[i],
+                message.colors[i],
+                message.timestamps[i]
             );
         }
     }
     
     /// <summary>
-    /// サーバー時刻を取得
+    /// サーバー時刻を取得（全プレイヤーで同期）
     /// </summary>
     private float GetServerTime()
     {
-        if (IsServer)
+        // NetworkManager.ServerTimeを使用して全プレイヤーで同期
+        if (NetworkManager.Singleton != null)
         {
-            return Time.time;
-        }
-        else
-        {
-            // クライアントはサーバー時刻を取得
             return (float)NetworkManager.Singleton.ServerTime.Time;
         }
+        return Time.time; // フォールバック
     }
     
     void Start()
@@ -279,7 +339,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
     {
         base.OnNetworkSpawn();
         
-        
         if (paintCanvas == null)
         {
             Debug.LogError("NetworkPaintCanvas: PaintCanvasが設定されていません");
@@ -289,8 +348,8 @@ public class NetworkPaintCanvas : NetworkBehaviour
         // PaintCanvasにタイムスタンプ取得コールバックを設定
         paintCanvas.SetTimestampCallback(GetServerTime);
         
-        // サーバー側で差分検出マネージャーを初期化
-        if (IsServer && diffManager != null)
+        // 全プレイヤーで差分検出マネージャーを初期化
+        if (diffManager != null)
         {
             var settings = paintCanvas.GetSettings();
             if (settings != null)
@@ -303,30 +362,143 @@ public class NetworkPaintCanvas : NetworkBehaviour
             }
         }
         
-        // サーバー側でクライアント接続時に初回同期を送信
-        if (IsServer)
+        // Custom Messageハンドラを登録
+        if (NetworkManager.Singleton != null)
         {
-            StartCoroutine(SendInitialSnapshotDelayed());
+            // クライアント側：サーバーから送られてくるメッセージを受信
+            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+                nameof(PaintMessageType.PaintData),
+                OnPaintDataReceived
+            );
+            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+                nameof(PaintMessageType.PaintDiff),
+                OnPaintDiffReceived
+            );
+            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+                nameof(PaintMessageType.PaintSnapshot),
+                OnPaintSnapshotReceived
+            );
+            NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+                nameof(PaintMessageType.PaintSnapshotRequest),
+                OnPaintSnapshotRequestReceived
+            );
+            
+            // サーバー側：クライアントから送られてくるメッセージを受信して全クライアントに転送
+            if (IsServer)
+            {
+                NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+                    "ClientToServer_" + nameof(PaintMessageType.PaintData),
+                    OnClientPaintDataReceived
+                );
+                NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+                    "ClientToServer_" + nameof(PaintMessageType.PaintDiff),
+                    OnClientPaintDiffReceived
+                );
+                NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+                    "ClientToServer_" + nameof(PaintMessageType.PaintSnapshot),
+                    OnClientPaintSnapshotReceived
+                );
+                NetworkManager.Singleton.CustomMessagingManager.RegisterNamedMessageHandler(
+                    "ClientToServer_" + nameof(PaintMessageType.PaintSnapshotRequest),
+                    OnClientPaintSnapshotRequestReceived
+                );
+            }
+        }
+        
+        // 接続時に初回同期をリクエスト
+        StartCoroutine(RequestInitialSnapshotDelayed());
+    }
+    
+    /// <summary>
+    /// 初回同期を遅延リクエスト（接続確立を待つ）
+    /// </summary>
+    private IEnumerator RequestInitialSnapshotDelayed()
+    {
+        yield return new WaitForSeconds(0.5f); // 接続確立を待つ
+        
+        // 他のプレイヤーにスナップショットをリクエスト
+        RequestSnapshotFromOtherPlayers();
+    }
+    
+    /// <summary>
+    /// 他のプレイヤーにスナップショットをリクエスト
+    /// </summary>
+    private void RequestSnapshotFromOtherPlayers()
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
+        {
+            return;
+        }
+        
+        // 既に塗りがある場合はスナップショットをリクエスト
+        if (paintCanvas != null)
+        {
+            var timestamps = paintCanvas.GetPaintTimestamps();
+            bool hasPaint = false;
+            if (timestamps != null)
+            {
+                for (int x = 0; x < timestamps.GetLength(0) && !hasPaint; x++)
+                {
+                    for (int y = 0; y < timestamps.GetLength(1) && !hasPaint; y++)
+                    {
+                        if (timestamps[x, y] > 0f)
+                        {
+                            hasPaint = true;
+                        }
+                    }
+                }
+            }
+            
+            // 既に塗りがある場合は、自分がスナップショットを送信
+            if (hasPaint)
+            {
+                SendInitialSnapshot();
+            }
+            else
+            {
+                // 他のプレイヤーにスナップショットをリクエスト
+                PaintSnapshotRequestMessage request = new PaintSnapshotRequestMessage
+                {
+                    requesterClientId = NetworkManager.Singleton.LocalClientId
+                };
+                
+                // INetworkSerializableの場合はWriteValueSafeを使用
+                FastBufferWriter writer = new FastBufferWriter(64, Unity.Collections.Allocator.Temp);
+                writer.WriteValueSafe(request);
+                
+                // サーバーに送信（サーバーが全クライアントに転送）
+                if (NetworkManager.Singleton.IsServer)
+                {
+                    // サーバー（ホスト）の場合は直接全クライアントに送信
+                    NetworkManager.Singleton.CustomMessagingManager.SendNamedMessageToAll(
+                        nameof(PaintMessageType.PaintSnapshotRequest),
+                        writer,
+                        NetworkDelivery.ReliableSequenced
+                    );
+                }
+            else
+            {
+                // クライアントの場合はサーバーに送信
+                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                    "ClientToServer_" + nameof(PaintMessageType.PaintSnapshotRequest),
+                    NetworkManager.ServerClientId,
+                    writer,
+                    NetworkDelivery.ReliableSequenced
+                );
+            }
+                
+                writer.Dispose();
+            }
         }
     }
     
     /// <summary>
-    /// 初回同期を遅延送信（接続確立を待つ）
-    /// </summary>
-    private IEnumerator SendInitialSnapshotDelayed()
-    {
-        yield return new WaitForSeconds(0.5f); // 接続確立を待つ
-        
-        SendInitialSnapshot();
-    }
-    
-    /// <summary>
-    /// 初回同期（フルスナップショット）を送信
+    /// 初回同期（フルスナップショット）を送信（Custom Message）
     /// メッセージサイズ制限を回避するため、分割送信を使用
     /// </summary>
     private void SendInitialSnapshot()
     {
-        if (paintCanvas == null) return;
+        if (paintCanvas == null || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient) return;
         
         var settings = paintCanvas.GetSettings();
         if (settings == null) return;
@@ -388,9 +560,61 @@ public class NetworkPaintCanvas : NetworkBehaviour
                 timestampArray[i] = pixel.timestamp;
             }
             
-            // チャンクを送信
-            SendSnapshotChunkClientRpc(width, height, chunkIndex, chunkCount, xCoords, yCoords, colors, playerIdArray, timestampArray);
+            // Custom Messageでチャンクを送信
+            PaintSnapshotMessage snapshotMessage = new PaintSnapshotMessage
+            {
+                width = width,
+                height = height,
+                chunkIndex = chunkIndex,
+                totalChunks = chunkCount,
+                xCoords = xCoords,
+                yCoords = yCoords,
+                colors = colors,
+                playerIds = playerIdArray,
+                timestamps = timestampArray
+            };
+            
+            SendSnapshotMessage(snapshotMessage);
         }
+    }
+    
+    /// <summary>
+    /// スナップショットメッセージを送信（Custom Message）
+    /// </summary>
+    private void SendSnapshotMessage(PaintSnapshotMessage message)
+    {
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
+        {
+            return;
+        }
+        
+        // INetworkSerializableの場合はWriteValueSafeを使用
+        int estimatedSize = (message.xCoords?.Length ?? 0) * 64 + 256; // 余裕を持たせたサイズ
+        FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
+        writer.WriteValueSafe(message);
+        
+        // サーバーに送信（サーバーが全クライアントに転送）
+        if (NetworkManager.Singleton.IsServer)
+        {
+            // サーバー（ホスト）の場合は直接全クライアントに送信
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessageToAll(
+                nameof(PaintMessageType.PaintSnapshot),
+                writer,
+                NetworkDelivery.ReliableSequenced
+            );
+        }
+        else
+        {
+            // クライアントの場合はサーバーに送信
+            NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                "ClientToServer_" + nameof(PaintMessageType.PaintSnapshot),
+                NetworkManager.ServerClientId,
+                writer,
+                NetworkDelivery.ReliableSequenced
+            );
+        }
+        
+        writer.Dispose();
     }
     
     /// <summary>
@@ -437,12 +661,11 @@ public class NetworkPaintCanvas : NetworkBehaviour
     }
     
     /// <summary>
-    /// スナップショットチャンクを受信（ClientRpc）
+    /// スナップショットを受信（Custom Messageハンドラ）
     /// </summary>
-    [ClientRpc]
-    private void SendSnapshotChunkClientRpc(int width, int height, int chunkIndex, int totalChunks, int[] xCoords, int[] yCoords, Color[] colors, int[] playerIds, float[] timestamps, ClientRpcParams rpcParams = default)
+    private void OnPaintSnapshotReceived(ulong clientId, FastBufferReader reader)
     {
-        if (IsServer) return; // サーバー側では実行しない
+        reader.ReadValueSafe(out PaintSnapshotMessage message);
         
         if (paintCanvas == null)
         {
@@ -450,30 +673,30 @@ public class NetworkPaintCanvas : NetworkBehaviour
             return;
         }
         
-        // バッファキー（クライアントIDを使用）
-        int bufferKey = (int)NetworkManager.Singleton.LocalClientId;
+        // バッファキー（送信者のクライアントIDを使用）
+        int bufferKey = (int)clientId;
         
         // バッファを取得または作成
         if (!snapshotBuffers.ContainsKey(bufferKey))
         {
             snapshotBuffers[bufferKey] = new SnapshotChunkBuffer
             {
-                width = width,
-                height = height,
-                totalChunks = totalChunks
+                width = message.width,
+                height = message.height,
+                totalChunks = message.totalChunks
             };
         }
         
         var buffer = snapshotBuffers[bufferKey];
         
         // チャンクを保存
-        buffer.chunks[chunkIndex] = new SnapshotChunkData
+        buffer.chunks[message.chunkIndex] = new SnapshotChunkData
         {
-            xCoords = xCoords,
-            yCoords = yCoords,
-            colors = colors,
-            playerIds = playerIds,
-            timestamps = timestamps
+            xCoords = message.xCoords,
+            yCoords = message.yCoords,
+            colors = message.colors,
+            playerIds = message.playerIds,
+            timestamps = message.timestamps
         };
         
         // 全てのチャンクが揃ったら適用
@@ -483,6 +706,236 @@ public class NetworkPaintCanvas : NetworkBehaviour
             
             // バッファをクリア
             snapshotBuffers.Remove(bufferKey);
+        }
+    }
+    
+    /// <summary>
+    /// スナップショットリクエストを受信（Custom Messageハンドラ）
+    /// </summary>
+    private void OnPaintSnapshotRequestReceived(ulong clientId, FastBufferReader reader)
+    {
+        reader.ReadValueSafe(out PaintSnapshotRequestMessage request);
+        
+        // リクエストを送ったプレイヤーに自分のスナップショットを送信
+        // ただし、自分へのリクエストは無視
+        if (request.requesterClientId != NetworkManager.Singleton.LocalClientId)
+        {
+            // 既に塗りがある場合のみ送信
+            if (paintCanvas != null)
+            {
+                var timestamps = paintCanvas.GetPaintTimestamps();
+                bool hasPaint = false;
+                if (timestamps != null)
+                {
+                    for (int x = 0; x < timestamps.GetLength(0) && !hasPaint; x++)
+                    {
+                        for (int y = 0; y < timestamps.GetLength(1) && !hasPaint; y++)
+                        {
+                            if (timestamps[x, y] > 0f)
+                            {
+                                hasPaint = true;
+                            }
+                        }
+                    }
+                }
+                
+                if (hasPaint)
+                {
+                    SendInitialSnapshotToClient(request.requesterClientId);
+                }
+            }
+        }
+    }
+    
+    /// <summary>
+    /// クライアントからの塗りデータを受信して全クライアントに転送（サーバー側ハンドラ）
+    /// </summary>
+    private void OnClientPaintDataReceived(ulong clientId, FastBufferReader reader)
+    {
+        // クライアントから送られてきたメッセージを全クライアントに転送
+        reader.ReadValueSafe(out PaintDataMessage message);
+        
+        // 全クライアントに転送（送信者も含む）
+        FastBufferWriter writer = new FastBufferWriter(128, Unity.Collections.Allocator.Temp);
+        writer.WriteValueSafe(message);
+        
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessageToAll(
+            nameof(PaintMessageType.PaintData),
+            writer,
+            NetworkDelivery.ReliableSequenced
+        );
+        
+        writer.Dispose();
+    }
+    
+    /// <summary>
+    /// クライアントからの差分データを受信して全クライアントに転送（サーバー側ハンドラ）
+    /// </summary>
+    private void OnClientPaintDiffReceived(ulong clientId, FastBufferReader reader)
+    {
+        // クライアントから送られてきたメッセージを全クライアントに転送
+        reader.ReadValueSafe(out PaintDiffMessage message);
+        
+        // 全クライアントに転送（送信者も含む）
+        int estimatedSize = message.pixelCount * 64 + 256;
+        FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
+        writer.WriteValueSafe(message);
+        
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessageToAll(
+            nameof(PaintMessageType.PaintDiff),
+            writer,
+            NetworkDelivery.ReliableSequenced
+        );
+        
+        writer.Dispose();
+    }
+    
+    /// <summary>
+    /// クライアントからのスナップショットを受信して全クライアントに転送（サーバー側ハンドラ）
+    /// </summary>
+    private void OnClientPaintSnapshotReceived(ulong clientId, FastBufferReader reader)
+    {
+        // クライアントから送られてきたメッセージを全クライアントに転送
+        reader.ReadValueSafe(out PaintSnapshotMessage message);
+        
+        // 全クライアントに転送（送信者も含む）
+        int estimatedSize = (message.xCoords?.Length ?? 0) * 64 + 256;
+        FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
+        writer.WriteValueSafe(message);
+        
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessageToAll(
+            nameof(PaintMessageType.PaintSnapshot),
+            writer,
+            NetworkDelivery.ReliableSequenced
+        );
+        
+        writer.Dispose();
+    }
+    
+    /// <summary>
+    /// クライアントからのスナップショットリクエストを受信して全クライアントに転送（サーバー側ハンドラ）
+    /// </summary>
+    private void OnClientPaintSnapshotRequestReceived(ulong clientId, FastBufferReader reader)
+    {
+        // クライアントから送られてきたメッセージを全クライアントに転送
+        reader.ReadValueSafe(out PaintSnapshotRequestMessage request);
+        
+        // 全クライアントに転送（送信者も含む）
+        FastBufferWriter writer = new FastBufferWriter(64, Unity.Collections.Allocator.Temp);
+        writer.WriteValueSafe(request);
+        
+        NetworkManager.Singleton.CustomMessagingManager.SendNamedMessageToAll(
+            nameof(PaintMessageType.PaintSnapshotRequest),
+            writer,
+            NetworkDelivery.ReliableSequenced
+        );
+        
+        writer.Dispose();
+    }
+    
+    /// <summary>
+    /// 特定のクライアントにスナップショットを送信
+    /// </summary>
+    private void SendInitialSnapshotToClient(ulong targetClientId)
+    {
+        if (paintCanvas == null || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient) return;
+        
+        var settings = paintCanvas.GetSettings();
+        if (settings == null) return;
+        
+        int width = settings.textureWidth;
+        int height = settings.textureHeight;
+        
+        Color[,] colorData = paintCanvas.GetColorData();
+        float[,] timestamps = paintCanvas.GetPaintTimestamps();
+        int[,] playerIds = paintCanvas.GetPaintData();
+        
+        List<SnapshotPixelData> pixelDataList = new List<SnapshotPixelData>();
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                if (timestamps[x, y] > 0f)
+                {
+                    pixelDataList.Add(new SnapshotPixelData
+                    {
+                        x = x,
+                        y = y,
+                        color = colorData[x, y],
+                        playerId = playerIds[x, y],
+                        timestamp = timestamps[x, y]
+                    });
+                }
+            }
+        }
+        
+        int totalPixels = pixelDataList.Count;
+        int pixelsPerChunk = maxPixelsPerMessage;
+        int chunkCount = Mathf.CeilToInt((float)totalPixels / pixelsPerChunk);
+        
+        for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
+        {
+            int startIndex = chunkIndex * pixelsPerChunk;
+            int endIndex = Mathf.Min(startIndex + pixelsPerChunk, totalPixels);
+            int chunkPixelCount = endIndex - startIndex;
+            
+            int[] xCoords = new int[chunkPixelCount];
+            int[] yCoords = new int[chunkPixelCount];
+            Color[] colors = new Color[chunkPixelCount];
+            int[] playerIdArray = new int[chunkPixelCount];
+            float[] timestampArray = new float[chunkPixelCount];
+            
+            for (int i = 0; i < chunkPixelCount; i++)
+            {
+                var pixel = pixelDataList[startIndex + i];
+                xCoords[i] = pixel.x;
+                yCoords[i] = pixel.y;
+                colors[i] = pixel.color;
+                playerIdArray[i] = pixel.playerId;
+                timestampArray[i] = pixel.timestamp;
+            }
+            
+            PaintSnapshotMessage snapshotMessage = new PaintSnapshotMessage
+            {
+                width = width,
+                height = height,
+                chunkIndex = chunkIndex,
+                totalChunks = chunkCount,
+                xCoords = xCoords,
+                yCoords = yCoords,
+                colors = colors,
+                playerIds = playerIdArray,
+                timestamps = timestampArray
+            };
+            
+            // INetworkSerializableの場合はWriteValueSafeを使用
+            int estimatedSize = chunkPixelCount * 64 + 256; // 余裕を持たせたサイズ
+            FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
+            writer.WriteValueSafe(snapshotMessage);
+            
+            // サーバー経由で送信
+            if (NetworkManager.Singleton.IsServer)
+            {
+                // サーバー（ホスト）の場合は直接特定のクライアントに送信
+                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                    nameof(PaintMessageType.PaintSnapshot),
+                    targetClientId,
+                    writer,
+                    NetworkDelivery.ReliableSequenced
+                );
+            }
+            else
+            {
+                // クライアントの場合はサーバー経由で送信（サーバーが転送）
+                NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage(
+                    "ClientToServer_" + nameof(PaintMessageType.PaintSnapshot),
+                    NetworkManager.ServerClientId,
+                    writer,
+                    NetworkDelivery.ReliableSequenced
+                );
+            }
+            
+            writer.Dispose();
         }
     }
     
@@ -525,6 +978,23 @@ public class NetworkPaintCanvas : NetworkBehaviour
     /// </summary>
     public override void OnNetworkDespawn()
     {
+        // Custom Messageハンドラを解除
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.CustomMessagingManager != null)
+        {
+            NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(nameof(PaintMessageType.PaintData));
+            NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(nameof(PaintMessageType.PaintDiff));
+            NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(nameof(PaintMessageType.PaintSnapshot));
+            NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler(nameof(PaintMessageType.PaintSnapshotRequest));
+            
+            if (IsServer)
+            {
+                NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler("ClientToServer_" + nameof(PaintMessageType.PaintData));
+                NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler("ClientToServer_" + nameof(PaintMessageType.PaintDiff));
+                NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler("ClientToServer_" + nameof(PaintMessageType.PaintSnapshot));
+                NetworkManager.Singleton.CustomMessagingManager.UnregisterNamedMessageHandler("ClientToServer_" + nameof(PaintMessageType.PaintSnapshotRequest));
+            }
+        }
+        
         base.OnNetworkDespawn();
     }
 }

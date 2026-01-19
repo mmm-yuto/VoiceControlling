@@ -163,16 +163,7 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     /// </summary>
     private void OnLocalPaintCompleted(Vector2 position, int playerId, float intensity)
     {
-        // クライアント側でのみ実行（自分の塗りのみ送信）
-        // 注意: シーンオブジェクトのため、IsOwnerは常にfalse（サーバーが所有者）になる可能性がある
-        // そのため、IsClientでチェックし、さらにplayerIdで自分の塗りかどうかを確認する
-        if (!IsClient)
-        {
-            return;
-        }
-        
-        // サーバー側（ホスト）では、IsServerとIsClientの両方がtrueになるが、
-        // ホスト側の塗りも送信する必要があるため、この条件は問題ない
+        // 全プレイヤーで実行（ホスト/クライアントの区別なし）
         
         // プレイヤーの塗りのみ送信（playerId > 0）
         // playerId == -1 は敵（CPU）の塗りなので送信しない
@@ -191,6 +182,12 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
             }
         }
         
+        // ネットワーク接続チェック
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
+        {
+            return;
+        }
+        
         // NetworkPaintCanvasが設定されているか確認
         if (networkPaintCanvas == null)
         {
@@ -204,8 +201,8 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         // ブラシの半径を取得
         float brushRadius = GetBrushRadius();
         
-        // サーバーに塗りデータを送信
-        networkPaintCanvas.SendClientPaintServerRpc(position, playerId, intensity, playerColor, brushRadius);
+        // Custom Messageで全プレイヤーに塗りデータを送信
+        networkPaintCanvas.SendPaintData(position, playerId, intensity, playerColor, brushRadius);
     }
     
     /// <summary>
@@ -237,28 +234,18 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         base.OnNetworkSpawn();
         
         // ローカルのPaintBattleGameManagerのplayerIdを設定
-        // 注意: シーンオブジェクトのため、IsOwnerは常にfalse（サーバーが所有者）になる可能性がある
-        // そのため、IsClientでチェックする
-        if (localPaintManager != null)
+        // LocalClientIdベースでプレイヤーIDを割り当て（ホスト/クライアントの区別なし）
+        if (localPaintManager != null && NetworkManager.Singleton != null)
         {
-            // ホスト（サーバー）の場合は1、クライアントの場合は2以降
-            if (IsServer)
-            {
-                localPaintManager.playerId = 1;
-            }
-            else if (IsClient)
-            {
-                // クライアントIDをプレイヤーIDに変換
-                // LocalClientIdは通常1から始まる（0はサーバー）
-                // ただし、ホストもクライアントとして扱われるため、ホストの場合は既に1が設定されている
-                ulong localClientId = NetworkManager.Singleton.LocalClientId;
-                // クライアントID + 1 でプレイヤーIDを生成（ホストは0なので1、最初のクライアントは1なので2）
-                localPaintManager.playerId = (int)localClientId + 1;
-            }
+            // LocalClientIdを使用してプレイヤーIDを生成
+            // ホストはLocalClientId = 0なので、プレイヤーID = 1
+            // クライアントはLocalClientId + 1でプレイヤーIDを生成
+            ulong localClientId = NetworkManager.Singleton.LocalClientId;
+            localPaintManager.playerId = (int)localClientId + 1;
         }
         
-        // ネットワーク接続時にイベントを購読
-        if (IsClient)
+        // ネットワーク接続時にイベントを購読（全プレイヤー）
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsConnectedClient)
         {
             SubscribeToPaintEvents();
         }
