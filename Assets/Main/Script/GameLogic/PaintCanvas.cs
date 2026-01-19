@@ -574,7 +574,8 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
     public void FlushTextureUpdates()
     {
         // Apply()は呼ばず、LateUpdate()で実行される
-        // textureNeedsFlushフラグのみを設定
+        // textureNeedsFlushフラグを設定
+        textureNeedsFlush = true;
     }
     
     /// <summary>

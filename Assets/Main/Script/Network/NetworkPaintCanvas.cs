@@ -218,6 +218,42 @@ public class NetworkPaintCanvas : NetworkBehaviour
         // 更新頻度チェックをスキップして確実に塗りを適用（クライアントからの塗りは即座に反映させる）
         paintCanvas.PaintAtWithRadiusForced(position, playerId, intensity, color, radius);
         
+        // 即座に差分を送信して、ホスト側の画面にも反映させる（ホストが塗った場合と同じ方法）
+        // これにより、クライアントからの塗りが即座にホスト側の画面に表示される
+        SendPaintDiffImmediate();
+    }
+    
+    /// <summary>
+    /// 即座に差分を送信（クライアントからの塗りをホスト側に反映させるため）
+    /// </summary>
+    private void SendPaintDiffImmediate()
+    {
+        if (paintCanvas == null || diffManager == null) return;
+        
+        // 差分を検出
+        var changes = diffManager.DetectChanges(
+            paintCanvas.GetColorData(),
+            paintCanvas.GetPaintTimestamps(),
+            paintCanvas.GetPaintData()
+        );
+        
+        if (changes.Count > 0)
+        {
+            // 大きすぎる場合は分割送信
+            if (changes.Count > maxPixelsPerMessage)
+            {
+                SendPaintDiffSplit(changes);
+            }
+            else
+            {
+                // データをパック
+                PaintDiffData diffData = PackDiffData(changes);
+                
+                // 全クライアント（ホストを含む）に送信
+                // ホスト側でも実行されるように、ClientRpcParamsを指定しない
+                ApplyPaintDiffClientRpc(diffData);
+            }
+        }
     }
     
     /// <summary>
@@ -226,8 +262,10 @@ public class NetworkPaintCanvas : NetworkBehaviour
     [ClientRpc]
     private void ApplyPaintDiffClientRpc(PaintDiffData diffData, ClientRpcParams rpcParams = default)
     {
-        // サーバー側では実行しない（サーバーは既に最新の状態を持っている）
-        if (IsServer) return;
+        // 注意: ホスト側でも実行する必要がある（クライアントからの塗りをホスト側の画面に反映させるため）
+        // ただし、サーバー側のPaintCanvasには既に塗りが適用されているため、
+        // ホスト側でもPaintAtWithTimestampを実行することで、タイムスタンプの整合性を保つ
+        // これにより、ホストが塗った場合と同じように、即座に画面に反映される
         
         if (paintCanvas == null)
         {
