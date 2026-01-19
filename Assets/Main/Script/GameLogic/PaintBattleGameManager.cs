@@ -15,8 +15,12 @@ public class PaintBattleGameManager : MonoBehaviour
     [Tooltip("塗りキャンバス（Inspectorで接続）")]
     public PaintCanvas paintCanvas;
     
+    [Header("Network")]
+    [Tooltip("ネットワーク対応PaintCanvas（オンラインモード時のみ使用）")]
+    [SerializeField] private NetworkPaintCanvas networkPaintCanvas;
+    
     [Header("Game Settings")]
-    [Tooltip("プレイヤーID（Phase 1では1で固定）")]
+    [Tooltip("プレイヤーID（Phase 1では1で固定、オンラインモード時は自動設定）")]
     public int playerId = 1;
     
     [Tooltip("塗り速度の倍率")]
@@ -63,6 +67,18 @@ public class PaintBattleGameManager : MonoBehaviour
         if (singlePlayerModeManager == null)
         {
             singlePlayerModeManager = FindObjectOfType<SinglePlayerModeManager>();
+        }
+        
+        // NetworkPaintCanvasを自動検索（オンラインモード時）
+        if (networkPaintCanvas == null)
+        {
+            networkPaintCanvas = FindObjectOfType<NetworkPaintCanvas>();
+        }
+        
+        // オンラインモード時はプレイヤーIDを設定
+        if (GameModeManager.Instance != null && GameModeManager.Instance.IsOnlineMode && networkPaintCanvas != null)
+        {
+            playerId = networkPaintCanvas.GetLocalPlayerId();
         }
         
         // BattleSettingsからBrushを取得
@@ -209,6 +225,9 @@ public class PaintBattleGameManager : MonoBehaviour
         if (brush == null)
         {
             paintCanvas.PaintAt(position, playerId, intensity, playerColor);
+            
+            // オンラインモード時はネットワーク経由で送信
+            SendPaintCommandToNetwork(position, intensity, playerColor);
             return;
         }
 
@@ -221,11 +240,26 @@ public class PaintBattleGameManager : MonoBehaviour
         {
             // 最初の点はそのまま塗る
             brush.Paint(paintCanvas, position, playerId, playerColor, intensity);
+            
+            // オンラインモード時はネットワーク経由で送信
+            SendPaintCommandToNetwork(position, intensity, playerColor);
         }
 
         // 現在の位置を記録
         lastPaintPosition = position;
         hasLastPosition = true;
+    }
+    
+    /// <summary>
+    /// ネットワーク経由で塗りコマンドを送信（オンラインモード時のみ）
+    /// </summary>
+    private void SendPaintCommandToNetwork(Vector2 position, float intensity, Color color)
+    {
+        // オンラインモード時のみネットワーク送信
+        if (GameModeManager.Instance != null && GameModeManager.Instance.IsOnlineMode && networkPaintCanvas != null)
+        {
+            networkPaintCanvas.SendPaintCommand(position, intensity, color);
+        }
     }
 
     /// <summary>
@@ -266,6 +300,9 @@ public class PaintBattleGameManager : MonoBehaviour
             float t = (float)i / steps;
             Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
             brush.Paint(paintCanvas, interpolatedPos, playerId, playerColor, intensity);
+            
+            // オンラインモード時はネットワーク経由で送信（各点で送信、送信頻度制限はNetworkPaintCanvas側で処理）
+            SendPaintCommandToNetwork(interpolatedPos, intensity, playerColor);
         }
     }
     
