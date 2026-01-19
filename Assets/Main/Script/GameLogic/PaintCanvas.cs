@@ -944,10 +944,12 @@ public class PaintCanvas : MonoBehaviour, IPaintCanvas
             return;
         }
         
-        // 既存のタイムスタンプと比較
-        if (timestamp > paintTimestamp[x, y])
+        // 既存のタイムスタンプと比較（同じか新しい場合に適用）
+        // 注意: ホスト側でも確実に画面を更新するため、タイムスタンプが同じ場合も適用する
+        if (timestamp >= paintTimestamp[x, y])
         {
-            // 新しいタイムスタンプの場合のみ塗りを適用
+            // 新しいタイムスタンプまたは同じタイムスタンプの場合に塗りを適用
+            // これにより、ホスト側でも確実に画面が更新される
             int existingPlayerId = paintData[x, y];
             
             // ピクセル数のキャッシュを更新

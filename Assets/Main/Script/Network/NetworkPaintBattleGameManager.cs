@@ -159,20 +159,16 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     }
     
     /// <summary>
-    /// ローカルプレイヤーの塗りイベントを処理
+    /// PaintBattleGameManagerから塗りリクエストを受け取る（オンラインモード時）
+    /// すべての塗り操作をサーバー経由で統一するため、このメソッドを経由して塗りを送信
     /// </summary>
-    private void OnLocalPaintCompleted(Vector2 position, int playerId, float intensity)
+    public void RequestPaint(Vector2 position, int playerId, float intensity)
     {
         // クライアント側でのみ実行（自分の塗りのみ送信）
-        // 注意: シーンオブジェクトのため、IsOwnerは常にfalse（サーバーが所有者）になる可能性がある
-        // そのため、IsClientでチェックし、さらにplayerIdで自分の塗りかどうかを確認する
         if (!IsClient)
         {
             return;
         }
-        
-        // サーバー側（ホスト）では、IsServerとIsClientの両方がtrueになるが、
-        // ホスト側の塗りも送信する必要があるため、この条件は問題ない
         
         // プレイヤーの塗りのみ送信（playerId > 0）
         // playerId == -1 は敵（CPU）の塗りなので送信しない
@@ -205,6 +201,18 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         
         // サーバーに塗りデータを送信
         networkPaintCanvas.SendClientPaintServerRpc(position, playerId, intensity, playerColor, brushRadius);
+    }
+    
+    /// <summary>
+    /// ローカルプレイヤーの塗りイベントを処理（後方互換用、現在は使用しない）
+    /// 注意: オンラインモード時は、PaintBattleGameManagerが直接RequestPaint()を呼び出すため、
+    /// このメソッドは使用されません。ただし、後方互換性のために残しておきます。
+    /// </summary>
+    private void OnLocalPaintCompleted(Vector2 position, int playerId, float intensity)
+    {
+        // オンラインモード時は、PaintBattleGameManagerが直接RequestPaint()を呼び出すため、
+        // このメソッドは使用されません。ただし、念のため実装を残しておきます。
+        RequestPaint(position, playerId, intensity);
     }
     
     /// <summary>

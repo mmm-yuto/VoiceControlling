@@ -230,6 +230,15 @@ public class PaintBattleGameManager : MonoBehaviour
             return;
         }
 
+        // オンラインモード時は、ローカルで直接PaintCanvasに塗らない
+        // すべての塗り操作をサーバー経由で統一するため、NetworkPaintBattleGameManagerに塗りリクエストを送信
+        if (IsOnlineMode())
+        {
+            RequestPaintToNetwork(position, intensity);
+            return;
+        }
+
+        // オフラインモード時は、従来通りローカルで直接塗る
         Color playerColor = GetPlayerColor();
 
         // ブラシが設定されていない場合は、従来通り1点塗り（後方互換用）
@@ -253,6 +262,96 @@ public class PaintBattleGameManager : MonoBehaviour
         // 現在の位置を記録
         lastPaintPosition = position;
         hasLastPosition = true;
+    }
+    
+    /// <summary>
+    /// オンラインモードかどうかを確認
+    /// </summary>
+    private bool IsOnlineMode()
+    {
+        // GameModeManagerが存在する場合は、その値を使用
+        if (GameModeManager.Instance != null)
+        {
+            return GameModeManager.Instance.IsOnlineMode;
+        }
+        
+        // GameModeManagerが存在しない場合でも、NetworkManagerが動作していればオンラインモードと判断
+        if (NetworkManager.Singleton != null)
+        {
+            // サーバーまたはクライアントとして動作している場合、オンラインモードと判断
+            return NetworkManager.Singleton.IsServer || NetworkManager.Singleton.IsClient;
+        }
+        
+        return false;
+    }
+    
+    /// <summary>
+    /// ネットワーク経由で塗りリクエストを送信（オンラインモード時）
+    /// </summary>
+    private void RequestPaintToNetwork(Vector2 position, float intensity)
+    {
+        // NetworkPaintBattleGameManagerを取得
+        NetworkPaintBattleGameManager networkManager = FindObjectOfType<NetworkPaintBattleGameManager>();
+        if (networkManager == null)
+        {
+            Debug.LogWarning("PaintBattleGameManager: NetworkPaintBattleGameManagerが見つかりません。オンラインモードで塗りを送信できません。");
+            return;
+        }
+        
+        // ブラシが設定されている場合は、線の補間処理も行う
+        if (brush != null && hasLastPosition)
+        {
+            // 前回の位置と現在の位置の間を補間して連続線を描く
+            RequestPaintLineBetween(networkManager, lastPaintPosition, position, intensity);
+        }
+        else
+        {
+            // 最初の点はそのまま塗る
+            networkManager.RequestPaint(position, playerId, intensity);
+        }
+        
+        // 現在の位置を記録（線の補間用）
+        lastPaintPosition = position;
+        hasLastPosition = true;
+    }
+    
+    /// <summary>
+    /// 2点間を補間して連続線を描く（ネットワーク経由）
+    /// </summary>
+    private void RequestPaintLineBetween(NetworkPaintBattleGameManager networkManager, Vector2 startPos, Vector2 endPos, float intensity)
+    {
+        if (brush == null)
+        {
+            return;
+        }
+
+        // ブラシの半径を取得
+        float radius = brush.GetRadius();
+
+        // 距離を計算
+        float distance = Vector2.Distance(startPos, endPos);
+
+        // 距離が短い場合は補間をスキップ（半径の1/4以下）
+        if (distance < radius * 0.25f)
+        {
+            networkManager.RequestPaint(endPos, playerId, intensity);
+            return;
+        }
+
+        // 補間ステップ数を計算（半径の半分ごとに点を打つ）
+        int steps = Mathf.Max(1, Mathf.CeilToInt(distance / (radius * 0.5f)));
+
+        // 最大ステップ数を制限（パフォーマンス対策）
+        const int maxSteps = 50;
+        steps = Mathf.Min(steps, maxSteps);
+
+        // 各ステップで塗りリクエストを送信
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = (float)i / steps;
+            Vector2 interpolatedPos = Vector2.Lerp(startPos, endPos, t);
+            networkManager.RequestPaint(interpolatedPos, playerId, intensity);
+        }
     }
 
     /// <summary>

@@ -213,14 +213,104 @@ public class NetworkPaintCanvas : NetworkBehaviour
             return;
         }
         
+        // 塗りを適用する前の状態を保存（変更されたピクセルを検出するため）
+        Color[,] beforeColorData = null;
+        float[,] beforeTimestamp = null;
+        int[,] beforePlayerId = null;
+        
+        if (diffManager != null)
+        {
+            // 現在の状態をコピー
+            var settings = paintCanvas.GetSettings();
+            if (settings != null)
+            {
+                int width = settings.textureWidth;
+                int height = settings.textureHeight;
+                beforeColorData = new Color[width, height];
+                beforeTimestamp = new float[width, height];
+                beforePlayerId = new int[width, height];
+                
+                Color[,] currentColorData = paintCanvas.GetColorData();
+                float[,] currentTimestamp = paintCanvas.GetPaintTimestamps();
+                int[,] currentPlayerId = paintCanvas.GetPaintData();
+                
+                for (int x = 0; x < width; x++)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        beforeColorData[x, y] = currentColorData[x, y];
+                        beforeTimestamp[x, y] = currentTimestamp[x, y];
+                        beforePlayerId[x, y] = currentPlayerId[x, y];
+                    }
+                }
+            }
+        }
+        
         // サーバー側のPaintCanvasに塗りを適用
-        // これにより、サーバー側の差分検出が変更を検出できる
         // 更新頻度チェックをスキップして確実に塗りを適用（クライアントからの塗りは即座に反映させる）
         paintCanvas.PaintAtWithRadiusForced(position, playerId, intensity, color, radius);
         
-        // 即座に差分を送信して、ホスト側の画面にも反映させる（ホストが塗った場合と同じ方法）
-        // これにより、クライアントからの塗りが即座にホスト側の画面に表示される
-        SendPaintDiffImmediate();
+        // 塗りを適用した後の状態を取得して、変更されたピクセルを検出
+        if (beforeColorData != null && diffManager != null)
+        {
+            Color[,] afterColorData = paintCanvas.GetColorData();
+            float[,] afterTimestamp = paintCanvas.GetPaintTimestamps();
+            int[,] afterPlayerId = paintCanvas.GetPaintData();
+            
+            var settings = paintCanvas.GetSettings();
+            if (settings != null)
+            {
+                int width = settings.textureWidth;
+                int height = settings.textureHeight;
+                
+                // 変更されたピクセルを検出
+                List<PaintDiffManager.PixelChange> changes = new List<PaintDiffManager.PixelChange>();
+                for (int x = 0; x < width; x++)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        // 色が変更された、またはタイムスタンプが新しい場合
+                        if (afterColorData[x, y] != beforeColorData[x, y] || 
+                            afterTimestamp[x, y] > beforeTimestamp[x, y])
+                        {
+                            changes.Add(new PaintDiffManager.PixelChange(
+                                x,
+                                y,
+                                afterColorData[x, y],
+                                afterPlayerId[x, y],
+                                afterTimestamp[x, y]
+                            ));
+                        }
+                    }
+                }
+                
+                // 変更されたピクセルがあれば送信
+                if (changes.Count > 0)
+                {
+                    // 大きすぎる場合は分割送信
+                    if (changes.Count > maxPixelsPerMessage)
+                    {
+                        SendPaintDiffSplit(changes);
+                    }
+                    else
+                    {
+                        // データをパック
+                        PaintDiffData diffData = PackDiffData(changes);
+                        
+                        // 全クライアント（ホストを含む）に送信
+                        ApplyPaintDiffClientRpc(diffData);
+                    }
+                    
+                    // PaintDiffManagerの状態を更新（次回の差分検出のため）
+                    diffManager.DetectChanges(afterColorData, afterTimestamp, afterPlayerId);
+                }
+            }
+        }
+        else
+        {
+            // PaintDiffManagerが利用できない場合は、従来の方法を使用
+            SendPaintDiffImmediate();
+        }
     }
     
     /// <summary>
