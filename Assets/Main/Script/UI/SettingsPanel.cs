@@ -65,13 +65,10 @@ public class SettingsPanel : MonoBehaviour
     [Tooltip("戻るボタン")]
     [SerializeField] private Button backButton;
     
-    [Tooltip("次へボタン（オフライン/オンライン選択画面へ遷移）")]
+    [Tooltip("次へボタン（ゲームセレクト画面へ遷移）")]
     [SerializeField] private Button nextButton;
     
-    [Tooltip("オフライン/オンライン選択パネル")]
-    [SerializeField] private OnlineOfflineSelectionPanel onlineOfflineSelectionPanel;
-    
-    [Tooltip("ゲームセレクト画面への参照（後方互換性のため保持）")]
+    [Tooltip("ゲームセレクト画面への参照")]
     [SerializeField] private GameModeSelectionPanel gameModeSelectionPanel;
     
     [Header("Canvas Actions")]
@@ -138,16 +135,10 @@ public class SettingsPanel : MonoBehaviour
         if (nextButton != null)
         {
             nextButton.onClick.RemoveAllListeners();
-            nextButton.onClick.AddListener(TransitionToOnlineOfflineSelection);
+            nextButton.onClick.AddListener(TransitionToGameModeSelection);
         }
         
-        // OnlineOfflineSelectionPanelの自動検索（未設定の場合）
-        if (onlineOfflineSelectionPanel == null)
-        {
-            onlineOfflineSelectionPanel = FindObjectOfType<OnlineOfflineSelectionPanel>();
-        }
-        
-        // GameModeSelectionPanelの自動検索（未設定の場合、後方互換性のため）
+        // GameModeSelectionPanelの自動検索（未設定の場合）
         if (gameModeSelectionPanel == null)
         {
             gameModeSelectionPanel = FindObjectOfType<GameModeSelectionPanel>();
@@ -517,9 +508,9 @@ public class SettingsPanel : MonoBehaviour
     }
     
     /// <summary>
-    /// オフライン/オンライン選択画面に遷移
+    /// ゲームセレクト画面に遷移
     /// </summary>
-    private void TransitionToOnlineOfflineSelection()
+    private void TransitionToGameModeSelection()
     {
         // 設定画面を非表示（settingsPanelとthis.gameObjectの両方を非表示にする）
         Hide();
@@ -528,21 +519,15 @@ public class SettingsPanel : MonoBehaviour
             gameObject.SetActive(false);
         }
         
-        // オフライン/オンライン選択画面を表示
-        if (onlineOfflineSelectionPanel != null)
+        // ゲームセレクト画面を表示
+        if (gameModeSelectionPanel != null)
         {
-            onlineOfflineSelectionPanel.Show();
-            Debug.Log("SettingsPanel: オフライン/オンライン選択画面に遷移しました");
-        }
-        else if (gameModeSelectionPanel != null)
-        {
-            // 後方互換性: OnlineOfflineSelectionPanelがない場合は直接GameModeSelectionPanelに遷移
             gameModeSelectionPanel.Show();
-            Debug.LogWarning("SettingsPanel: OnlineOfflineSelectionPanelが設定されていません。GameModeSelectionPanelに直接遷移します（後方互換性）");
+            Debug.Log("SettingsPanel: ゲームセレクト画面に遷移しました");
         }
         else
         {
-            Debug.LogWarning("SettingsPanel: OnlineOfflineSelectionPanel または GameModeSelectionPanel が設定されていません");
+            Debug.LogWarning("SettingsPanel: GameModeSelectionPanelが設定されていません");
         }
     }
     

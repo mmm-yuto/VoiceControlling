@@ -9,9 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7695957653675385427}
-  - component: {fileID: 5820543158132182588}
   - component: {fileID: 7656721054046700442}
-  - component: {fileID: 3449673840390234813}
+  - component: {fileID: 1805558938788018075}
   m_Layer: 0
   m_Name: NetworkPaintBattleGameManager
   m_TagString: Untagged
@@ -34,24 +33,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5820543158132182588
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3449423624831646470}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: effa82bc43094994a94fdd7b2cb3316b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PaintBattleGameManager
-  voiceInputHandler: {fileID: 0}
-  paintCanvas: {fileID: 0}
-  playerId: 1
-  paintSpeedMultiplier: 5
-  defaultBrush: {fileID: 11400000, guid: 510f019f83d684f4a8f7d5732b472ae0, type: 2}
-  singlePlayerModeManager: {fileID: 0}
 --- !u!114 &7656721054046700442
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -64,7 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2795210862
+  GlobalObjectIdHash: 1882210516
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -77,7 +58,7 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
---- !u!114 &3449673840390234813
+--- !u!114 &1805558938788018075
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -86,11 +67,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 3449423624831646470}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f8c339951253954899aa9e17776e994, type: 3}
+  m_Script: {fileID: 11500000, guid: 7b72a5d5052a9b841b5fe0ecca8f5f28, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkPaintCanvas
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkPaintBattleGameManager
   ShowTopMostFoldoutHeaderGroup: 1
-  paintCanvas: {fileID: 0}
-  sendInterval: 0.2
-  chunkSize: 500000
-  maxPixelsPerMessage: 30000
+  localPaintManager: {fileID: 0}
+  networkPaintCanvas: {fileID: 0}
+  onlyWorkInOnlineMode: 1
