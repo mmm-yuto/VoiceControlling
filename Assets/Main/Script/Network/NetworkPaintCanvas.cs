@@ -41,11 +41,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
             }
         }
         
-        // [DEBUG] インスタンス参照の確認用ログ
-        if (paintCanvas != null)
-        {
-            Debug.LogWarning($"[DEBUG] NetworkPaintCanvas.Awake - PaintCanvas InstanceID: {paintCanvas.GetInstanceID()}");
-        }
         
         // 差分検出マネージャーを初期化
         diffManager = new PaintDiffManager();
@@ -219,8 +214,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
             return;
         }
         
-        // [DEBUG] インスタンス参照の確認用ログ
-        Debug.LogWarning($"[DEBUG] NetworkPaintCanvas.SendClientPaintServerRpc - IsServer: {IsServer}, PaintCanvas InstanceID: {paintCanvas.GetInstanceID()}, PlayerId: {playerId}, Position: {position}");
         
         // サーバー側のPaintCanvasに塗りを適用
         // これにより、サーバー側の差分検出が変更を検出できる
@@ -277,15 +270,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
     
     void Start()
     {
-        // [DEBUG] インスタンス参照の確認用ログ
-        if (paintCanvas != null)
-        {
-            Debug.LogWarning($"[DEBUG] NetworkPaintCanvas.Start - PaintCanvas InstanceID: {paintCanvas.GetInstanceID()}, IsServer: {IsServer}, IsClient: {IsClient}");
-        }
-        else
-        {
-            Debug.LogWarning("[DEBUG] NetworkPaintCanvas.Start - PaintCanvas is null");
-        }
     }
     
     /// <summary>
@@ -295,15 +279,6 @@ public class NetworkPaintCanvas : NetworkBehaviour
     {
         base.OnNetworkSpawn();
         
-        // [DEBUG] インスタンス参照の確認用ログ
-        if (paintCanvas != null)
-        {
-            Debug.LogWarning($"[DEBUG] NetworkPaintCanvas.OnNetworkSpawn - PaintCanvas InstanceID: {paintCanvas.GetInstanceID()}, IsServer: {IsServer}, IsClient: {IsClient}");
-        }
-        else
-        {
-            Debug.LogWarning("[DEBUG] NetworkPaintCanvas.OnNetworkSpawn - PaintCanvas is null");
-        }
         
         if (paintCanvas == null)
         {

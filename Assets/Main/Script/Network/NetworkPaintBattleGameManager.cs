@@ -163,15 +163,11 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     /// </summary>
     private void OnLocalPaintCompleted(Vector2 position, int playerId, float intensity)
     {
-        // [DEBUG] イベント受信の確認用ログ
-        Debug.LogWarning($"[DEBUG] NetworkPaintBattleGameManager.OnLocalPaintCompleted - Position: {position}, PlayerId: {playerId}, Intensity: {intensity}, IsOwner: {IsOwner}, IsClient: {IsClient}, IsServer: {IsServer}");
-        
         // クライアント側でのみ実行（自分の塗りのみ送信）
         // 注意: シーンオブジェクトのため、IsOwnerは常にfalse（サーバーが所有者）になる可能性がある
         // そのため、IsClientでチェックし、さらにplayerIdで自分の塗りかどうかを確認する
         if (!IsClient)
         {
-            Debug.LogWarning("[DEBUG] NetworkPaintBattleGameManager.OnLocalPaintCompleted - IsClient = false, スキップ");
             return;
         }
         
@@ -182,7 +178,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         // playerId == -1 は敵（CPU）の塗りなので送信しない
         if (playerId <= 0)
         {
-            Debug.LogWarning($"[DEBUG] NetworkPaintBattleGameManager.OnLocalPaintCompleted - PlayerId <= 0 (PlayerId: {playerId}), スキップ");
             return; // 敵の塗りは送信しない
         }
         
@@ -190,10 +185,8 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         if (onlyWorkInOnlineMode)
         {
             bool isOnlineMode = IsOnlineMode();
-            Debug.LogWarning($"[DEBUG] NetworkPaintBattleGameManager.OnLocalPaintCompleted - オンラインモードチェック: IsOnlineMode() = {isOnlineMode}, GameModeManager.Instance = {(GameModeManager.Instance != null ? "存在" : "null")}");
             if (!isOnlineMode)
             {
-                Debug.LogWarning($"[DEBUG] NetworkPaintBattleGameManager.OnLocalPaintCompleted - オンラインモードチェック失敗, スキップ");
                 return;
             }
         }
@@ -211,14 +204,8 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
         // ブラシの半径を取得
         float brushRadius = GetBrushRadius();
         
-        // [DEBUG] ServerRpc呼び出し前の確認用ログ
-        Debug.LogWarning($"[DEBUG] NetworkPaintBattleGameManager.OnLocalPaintCompleted - SendClientPaintServerRpc()を呼び出します - Position: {position}, PlayerId: {playerId}, Color: {playerColor}, Radius: {brushRadius}");
-        
         // サーバーに塗りデータを送信
         networkPaintCanvas.SendClientPaintServerRpc(position, playerId, intensity, playerColor, brushRadius);
-        
-        // [DEBUG] ServerRpc呼び出し後の確認用ログ
-        Debug.LogWarning("[DEBUG] NetworkPaintBattleGameManager.OnLocalPaintCompleted - SendClientPaintServerRpc()呼び出し完了");
     }
     
     /// <summary>
@@ -249,9 +236,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
     {
         base.OnNetworkSpawn();
         
-        // [DEBUG] ネットワーク接続時の確認用ログ
-        Debug.LogWarning($"[DEBUG] NetworkPaintBattleGameManager.OnNetworkSpawn - IsServer: {IsServer}, IsClient: {IsClient}, IsOwner: {IsOwner}, LocalClientId: {(NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId.ToString() : "null")}");
-        
         // ローカルのPaintBattleGameManagerのplayerIdを設定
         // 注意: シーンオブジェクトのため、IsOwnerは常にfalse（サーバーが所有者）になる可能性がある
         // そのため、IsClientでチェックする
@@ -261,7 +245,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
             if (IsServer)
             {
                 localPaintManager.playerId = 1;
-                Debug.LogWarning($"[DEBUG] NetworkPaintBattleGameManager.OnNetworkSpawn - ホスト側: playerId = {localPaintManager.playerId}");
             }
             else if (IsClient)
             {
@@ -271,7 +254,6 @@ public class NetworkPaintBattleGameManager : NetworkBehaviour
                 ulong localClientId = NetworkManager.Singleton.LocalClientId;
                 // クライアントID + 1 でプレイヤーIDを生成（ホストは0なので1、最初のクライアントは1なので2）
                 localPaintManager.playerId = (int)localClientId + 1;
-                Debug.LogWarning($"[DEBUG] NetworkPaintBattleGameManager.OnNetworkSpawn - クライアント側: playerId = {localPaintManager.playerId}, LocalClientId = {localClientId}");
             }
         }
         

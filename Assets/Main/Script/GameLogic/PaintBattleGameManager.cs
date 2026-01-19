@@ -61,11 +61,6 @@ public class PaintBattleGameManager : MonoBehaviour
             }
         }
         
-        // [DEBUG] インスタンス参照の確認用ログ
-        if (paintCanvas != null)
-        {
-            Debug.LogWarning($"[DEBUG] PaintBattleGameManager.Start - PaintCanvas InstanceID: {paintCanvas.GetInstanceID()}");
-        }
         
         if (singlePlayerModeManager == null)
         {
