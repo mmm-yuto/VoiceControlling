@@ -21495,6 +21495,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PaintCanvasManager
       objectReference: {fileID: 0}
+    - target: {fileID: 4654199875277285462, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
+      propertyPath: maxPixelsPerMessage
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 7201252645300911222, guid: 27fdc8bca31925c478b3d1e31ef823e5, type: 3}
       propertyPath: m_LocalPosition.x
       value: -960

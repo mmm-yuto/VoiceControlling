@@ -9,6 +9,11 @@ using System.Collections.Generic;
 /// </summary>
 public class NetworkPaintCanvas : NetworkBehaviour
 {
+    // メッセージサイズ制限定数
+    private const int MAX_MESSAGE_SIZE = 1000; // 安全マージンを含む制限（バイト） - ReliableSequencedの制限は1264バイト
+    private const int BYTES_PER_PIXEL = 8; // 最適化後のサイズ（バイト/ピクセル）：座標ushort×2 + 色インデックスbyte + playerId byte + タイムスタンプushort
+    private const int MESSAGE_OVERHEAD = 100; // メッセージオーバーヘッド（バイト）：pixelCount, baseTimestamp, 配列の長さなど
+    
     [Header("References")]
     [Tooltip("塗りキャンバス（Inspectorで接続）")]
     [SerializeField] private PaintCanvas paintCanvas;
@@ -21,7 +26,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
     [SerializeField] private int chunkSize = 500000; // 500KB（Unity Netcodeの制限は約1MB）
     
     [Tooltip("差分送信の最大ピクセル数（これを超える場合は分割送信）")]
-    [SerializeField] private int maxPixelsPerMessage = 30000; // 約480KB（30000ピクセル × 16バイト）
+    [SerializeField] private int maxPixelsPerMessage = 10; // 最適化後: 10ピクセル × 8バイト = 約80バイト + オーバーヘッド ≈ 200バイト（制限内）
     
     // 差分検出マネージャー
     private PaintDiffManager diffManager;
@@ -103,11 +108,24 @@ public class NetworkPaintCanvas : NetworkBehaviour
     
     /// <summary>
     /// 差分を分割して送信
+    /// メッセージサイズ制限を考慮し、maxPixelsPerMessage以下のピクセル数で分割
+    /// 実際のメッセージサイズはSendPaintDiffMessage()で検証され、必要に応じてさらに分割される
     /// </summary>
     private void SendPaintDiffSplit(List<PaintDiffManager.PixelChange> changes)
     {
         int totalPixels = changes.Count;
-        int pixelsPerChunk = maxPixelsPerMessage;
+        
+        // 動的に最大ピクセル数を計算（メッセージサイズ制限を考慮）
+        int maxAllowedPixels = Mathf.Max(1, (MAX_MESSAGE_SIZE - MESSAGE_OVERHEAD) / BYTES_PER_PIXEL);
+        // ただし、maxPixelsPerMessageがより小さい場合はそれを使用（安全マージン）
+        int pixelsPerChunk = Mathf.Min(maxPixelsPerMessage, maxAllowedPixels);
+        
+        // ピクセル数が制限を超えている場合は警告を出して、さらに小さく分割
+        if (totalPixels > pixelsPerChunk * 100) // 100チャンク以上になる場合は警告
+        {
+            Debug.LogWarning($"NetworkPaintCanvas: 大量のピクセルを送信します。ピクセル数: {totalPixels}、チャンクサイズ: {pixelsPerChunk}、チャンク数: {Mathf.CeilToInt((float)totalPixels / pixelsPerChunk)}");
+        }
+        
         int chunkCount = Mathf.CeilToInt((float)totalPixels / pixelsPerChunk);
         
         // 各チャンクを送信
@@ -127,38 +145,67 @@ public class NetworkPaintCanvas : NetworkBehaviour
             // データをパック
             PaintDiffMessage diffMessage = PackDiffMessage(chunkChanges);
             
-            // Custom Messageで全プレイヤーに送信
+            // Custom Messageで全プレイヤーに送信（サイズ検証が実行される）
             SendPaintDiffMessage(diffMessage);
         }
     }
     
     /// <summary>
     /// 差分データをパック（Custom Message用）
+    /// 最適化版：座標をushort、Colorを色インデックスbyte、playerIdをbyte、タイムスタンプをushort相対値化
+    /// メッセージサイズ制限: MAX_MESSAGE_SIZE = 1000バイト
+    /// 最大ピクセル数（動的計算）: (MAX_MESSAGE_SIZE - MESSAGE_OVERHEAD) / BYTES_PER_PIXEL ≈ 112ピクセル
+    /// ただし、実際にはより小さい値（maxPixelsPerMessage = 10）を使用して安全マージンを確保
     /// </summary>
     private PaintDiffMessage PackDiffMessage(List<PaintDiffManager.PixelChange> changes)
     {
         int count = changes.Count;
-        int[] xCoords = new int[count];
-        int[] yCoords = new int[count];
-        Color[] colors = new Color[count];
-        int[] playerIds = new int[count];
-        float[] timestamps = new float[count];
+        ushort[] xCoords = new ushort[count];
+        ushort[] yCoords = new ushort[count];
+        byte[] colorIndices = new byte[count];
+        byte[] playerIds = new byte[count];
+        ushort[] timestamps = new ushort[count];
+        
+        // 基準タイムスタンプを取得（最初のタイムスタンプまたは現在時刻）
+        float baseTimestamp = count > 0 ? changes[0].timestamp : GetServerTime();
+        if (count > 0)
+        {
+            // 最小のタイムスタンプを基準にする
+            foreach (var change in changes)
+            {
+                if (change.timestamp < baseTimestamp)
+                {
+                    baseTimestamp = change.timestamp;
+                }
+            }
+        }
         
         for (int i = 0; i < count; i++)
         {
-            xCoords[i] = changes[i].x;
-            yCoords[i] = changes[i].y;
-            colors[i] = changes[i].color;
-            playerIds[i] = changes[i].playerId;
-            timestamps[i] = changes[i].timestamp;
+            var change = changes[i];
+            
+            // 座標をushortに変換（範囲チェック）
+            xCoords[i] = (ushort)Mathf.Clamp(change.x, 0, ushort.MaxValue);
+            yCoords[i] = (ushort)Mathf.Clamp(change.y, 0, ushort.MaxValue);
+            
+            // Colorを色インデックスに変換
+            colorIndices[i] = PaintColorIndexHelper.ColorToIndex(change.color);
+            
+            // playerIdをbyteに変換（範囲チェック）
+            playerIds[i] = (byte)Mathf.Clamp(change.playerId, 0, byte.MaxValue);
+            
+            // タイムスタンプを相対値（ushort、ミリ秒単位）に変換
+            float relativeTime = (change.timestamp - baseTimestamp) * 1000f; // ミリ秒単位
+            timestamps[i] = (ushort)Mathf.Clamp(Mathf.RoundToInt(relativeTime), 0, ushort.MaxValue);
         }
         
         return new PaintDiffMessage
         {
             pixelCount = count,
+            baseTimestamp = baseTimestamp,
             xCoords = xCoords,
             yCoords = yCoords,
-            colors = colors,
+            colorIndices = colorIndices,
             playerIds = playerIds,
             timestamps = timestamps
         };
@@ -167,6 +214,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
     /// <summary>
     /// 差分データメッセージを送信（Custom Message）
     /// クライアントはサーバーに送信し、サーバーが全クライアントに転送
+    /// メッセージサイズを検証し、制限を超える場合はさらに分割
     /// </summary>
     private void SendPaintDiffMessage(PaintDiffMessage message)
     {
@@ -176,10 +224,24 @@ public class NetworkPaintCanvas : NetworkBehaviour
         }
         
         // INetworkSerializableの場合はWriteValueSafeを使用
-        // 大きめのサイズを確保（最大ピクセル数 × 16バイト + オーバーヘッド）
-        int estimatedSize = message.pixelCount * 64 + 256; // 余裕を持たせたサイズ
+        // 最適化後: 約8 bytes/ピクセル（座標ushort×2 + 色インデックスbyte + playerId byte + タイムスタンプushort）
+        int estimatedSize = message.pixelCount * BYTES_PER_PIXEL + MESSAGE_OVERHEAD + 256; // 余裕を持たせたサイズ
         FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
         writer.WriteValueSafe(message);
+        
+        // 実際のメッセージサイズを検証
+        int actualSize = (int)writer.Position;
+        if (actualSize > MAX_MESSAGE_SIZE)
+        {
+            // メッセージサイズが制限を超えている場合、さらに小さく分割
+            Debug.LogWarning($"NetworkPaintCanvas: メッセージサイズが制限を超えています。サイズ: {actualSize}バイト、制限: {MAX_MESSAGE_SIZE}バイト、ピクセル数: {message.pixelCount}。さらに分割します。");
+            writer.Dispose();
+            
+            // ピクセル数を半分に減らして再分割
+            int newMaxPixels = Mathf.Max(1, message.pixelCount / 2);
+            SendPaintDiffMessageSplit(message, newMaxPixels);
+            return;
+        }
         
         // サーバーに送信（サーバーが全クライアントに転送）
         if (NetworkManager.Singleton.IsServer)
@@ -203,6 +265,51 @@ public class NetworkPaintCanvas : NetworkBehaviour
         }
         
         writer.Dispose();
+    }
+    
+    /// <summary>
+    /// メッセージをさらに小さく分割して送信（再帰的分割）
+    /// </summary>
+    private void SendPaintDiffMessageSplit(PaintDiffMessage originalMessage, int maxPixelsPerChunk)
+    {
+        // メッセージのピクセルデータをリストに変換
+        List<PaintDiffManager.PixelChange> allChanges = new List<PaintDiffManager.PixelChange>();
+        for (int i = 0; i < originalMessage.pixelCount; i++)
+        {
+            // 色インデックスからColorに変換（一時的に）
+            Color color = PaintColorIndexHelper.IndexToColor(originalMessage.colorIndices[i]);
+            
+            // 相対タイムスタンプを絶対値に変換
+            float absoluteTimestamp = originalMessage.baseTimestamp + (originalMessage.timestamps[i] / 1000f);
+            
+            allChanges.Add(new PaintDiffManager.PixelChange
+            {
+                x = originalMessage.xCoords[i],
+                y = originalMessage.yCoords[i],
+                color = color,
+                playerId = originalMessage.playerIds[i],
+                timestamp = absoluteTimestamp
+            });
+        }
+        
+        // 小さなチャンクに分割して送信
+        int chunkCount = Mathf.CeilToInt((float)originalMessage.pixelCount / maxPixelsPerChunk);
+        for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
+        {
+            int startIndex = chunkIndex * maxPixelsPerChunk;
+            int endIndex = Mathf.Min(startIndex + maxPixelsPerChunk, originalMessage.pixelCount);
+            int chunkPixelCount = endIndex - startIndex;
+            
+            List<PaintDiffManager.PixelChange> chunkChanges = new List<PaintDiffManager.PixelChange>();
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                chunkChanges.Add(allChanges[i]);
+            }
+            
+            // 新しいメッセージを作成して送信
+            PaintDiffMessage chunkMessage = PackDiffMessage(chunkChanges);
+            SendPaintDiffMessage(chunkMessage); // 再帰的に呼び出し（サイズ検証が再度実行される）
+        }
     }
     
     /// <summary>
@@ -288,6 +395,7 @@ public class NetworkPaintCanvas : NetworkBehaviour
     
     /// <summary>
     /// 差分データを受信（Custom Messageハンドラ）
+    /// 最適化版：色インデックスからColorに変換、相対タイムスタンプを絶対値に変換
     /// </summary>
     private void OnPaintDiffReceived(ulong clientId, FastBufferReader reader)
     {
@@ -302,15 +410,25 @@ public class NetworkPaintCanvas : NetworkBehaviour
         // 各ピクセルを更新（タイムスタンプベースで重複チェック）
         for (int i = 0; i < message.pixelCount; i++)
         {
+            // 座標をushortからintに変換（範囲チェック済みなので安全）
             int x = message.xCoords[i];
             int y = message.yCoords[i];
+            
+            // 色インデックスからColorに変換
+            Color color = PaintColorIndexHelper.IndexToColor(message.colorIndices[i]);
+            
+            // playerIdをbyteからintに変換
+            int playerId = message.playerIds[i];
+            
+            // 相対タイムスタンプを絶対値に変換（ミリ秒から秒に戻す）
+            float absoluteTimestamp = message.baseTimestamp + (message.timestamps[i] / 1000f);
             
             // タイムスタンプを比較して適用
             paintCanvas.PaintAtWithTimestamp(
                 x, y,
-                message.playerIds[i],
-                message.colors[i],
-                message.timestamps[i]
+                playerId,
+                color,
+                absoluteTimestamp
             );
         }
     }
@@ -543,21 +661,41 @@ public class NetworkPaintCanvas : NetworkBehaviour
             int endIndex = Mathf.Min(startIndex + pixelsPerChunk, totalPixels);
             int chunkPixelCount = endIndex - startIndex;
             
-            // チャンクデータを作成
-            int[] xCoords = new int[chunkPixelCount];
-            int[] yCoords = new int[chunkPixelCount];
-            Color[] colors = new Color[chunkPixelCount];
-            int[] playerIdArray = new int[chunkPixelCount];
-            float[] timestampArray = new float[chunkPixelCount];
+            // チャンクデータを作成（最適化版）
+            ushort[] xCoords = new ushort[chunkPixelCount];
+            ushort[] yCoords = new ushort[chunkPixelCount];
+            byte[] colorIndices = new byte[chunkPixelCount];
+            byte[] playerIdArray = new byte[chunkPixelCount];
+            ushort[] timestampArray = new ushort[chunkPixelCount];
+            
+            // 基準タイムスタンプを取得（チャンク内の最小タイムスタンプ）
+            float baseTimestamp = chunkPixelCount > 0 ? pixelDataList[startIndex].timestamp : GetServerTime();
+            for (int i = 0; i < chunkPixelCount; i++)
+            {
+                float timestamp = pixelDataList[startIndex + i].timestamp;
+                if (timestamp < baseTimestamp)
+                {
+                    baseTimestamp = timestamp;
+                }
+            }
             
             for (int i = 0; i < chunkPixelCount; i++)
             {
                 var pixel = pixelDataList[startIndex + i];
-                xCoords[i] = pixel.x;
-                yCoords[i] = pixel.y;
-                colors[i] = pixel.color;
-                playerIdArray[i] = pixel.playerId;
-                timestampArray[i] = pixel.timestamp;
+                
+                // 座標をushortに変換
+                xCoords[i] = (ushort)Mathf.Clamp(pixel.x, 0, ushort.MaxValue);
+                yCoords[i] = (ushort)Mathf.Clamp(pixel.y, 0, ushort.MaxValue);
+                
+                // Colorを色インデックスに変換
+                colorIndices[i] = PaintColorIndexHelper.ColorToIndex(pixel.color);
+                
+                // playerIdをbyteに変換
+                playerIdArray[i] = (byte)Mathf.Clamp(pixel.playerId, 0, byte.MaxValue);
+                
+                // タイムスタンプを相対値（ushort、ミリ秒単位）に変換
+                float relativeTime = (pixel.timestamp - baseTimestamp) * 1000f;
+                timestampArray[i] = (ushort)Mathf.Clamp(Mathf.RoundToInt(relativeTime), 0, ushort.MaxValue);
             }
             
             // Custom Messageでチャンクを送信
@@ -567,9 +705,10 @@ public class NetworkPaintCanvas : NetworkBehaviour
                 height = height,
                 chunkIndex = chunkIndex,
                 totalChunks = chunkCount,
+                baseTimestamp = baseTimestamp,
                 xCoords = xCoords,
                 yCoords = yCoords,
-                colors = colors,
+                colorIndices = colorIndices,
                 playerIds = playerIdArray,
                 timestamps = timestampArray
             };
@@ -689,14 +828,38 @@ public class NetworkPaintCanvas : NetworkBehaviour
         
         var buffer = snapshotBuffers[bufferKey];
         
-        // チャンクを保存
+        // チャンクを保存（最適化版：逆変換を適用）
+        // 色インデックスからColorに変換、相対タイムスタンプを絶対値に変換
+        int count = message.xCoords?.Length ?? 0;
+        int[] xCoords = new int[count];
+        int[] yCoords = new int[count];
+        Color[] colors = new Color[count];
+        int[] playerIds = new int[count];
+        float[] timestamps = new float[count];
+        
+        for (int i = 0; i < count; i++)
+        {
+            // 座標をushortからintに変換
+            xCoords[i] = message.xCoords[i];
+            yCoords[i] = message.yCoords[i];
+            
+            // 色インデックスからColorに変換
+            colors[i] = PaintColorIndexHelper.IndexToColor(message.colorIndices[i]);
+            
+            // playerIdをbyteからintに変換
+            playerIds[i] = message.playerIds[i];
+            
+            // 相対タイムスタンプを絶対値に変換（ミリ秒から秒に戻す）
+            timestamps[i] = message.baseTimestamp + (message.timestamps[i] / 1000f);
+        }
+        
         buffer.chunks[message.chunkIndex] = new SnapshotChunkData
         {
-            xCoords = message.xCoords,
-            yCoords = message.yCoords,
-            colors = message.colors,
-            playerIds = message.playerIds,
-            timestamps = message.timestamps
+            xCoords = xCoords,
+            yCoords = yCoords,
+            colors = colors,
+            playerIds = playerIds,
+            timestamps = timestamps
         };
         
         // 全てのチャンクが揃ったら適用
@@ -777,7 +940,8 @@ public class NetworkPaintCanvas : NetworkBehaviour
         reader.ReadValueSafe(out PaintDiffMessage message);
         
         // 全クライアントに転送（送信者も含む）
-        int estimatedSize = message.pixelCount * 64 + 256;
+        // 最適化後: 約8 bytes/ピクセル（座標ushort×2 + 色インデックスbyte + playerId byte + タイムスタンプushort）
+        int estimatedSize = message.pixelCount * 12 + 256; // 余裕を持たせたサイズ
         FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
         writer.WriteValueSafe(message);
         
@@ -799,7 +963,9 @@ public class NetworkPaintCanvas : NetworkBehaviour
         reader.ReadValueSafe(out PaintSnapshotMessage message);
         
         // 全クライアントに転送（送信者も含む）
-        int estimatedSize = (message.xCoords?.Length ?? 0) * 64 + 256;
+        // 最適化後: 約8 bytes/ピクセル
+        int pixelCount = message.xCoords?.Length ?? 0;
+        int estimatedSize = pixelCount * 12 + 256; // 余裕を持たせたサイズ
         FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
         writer.WriteValueSafe(message);
         
@@ -879,20 +1045,41 @@ public class NetworkPaintCanvas : NetworkBehaviour
             int endIndex = Mathf.Min(startIndex + pixelsPerChunk, totalPixels);
             int chunkPixelCount = endIndex - startIndex;
             
-            int[] xCoords = new int[chunkPixelCount];
-            int[] yCoords = new int[chunkPixelCount];
-            Color[] colors = new Color[chunkPixelCount];
-            int[] playerIdArray = new int[chunkPixelCount];
-            float[] timestampArray = new float[chunkPixelCount];
+            // チャンクデータを作成（最適化版）
+            ushort[] xCoords = new ushort[chunkPixelCount];
+            ushort[] yCoords = new ushort[chunkPixelCount];
+            byte[] colorIndices = new byte[chunkPixelCount];
+            byte[] playerIdArray = new byte[chunkPixelCount];
+            ushort[] timestampArray = new ushort[chunkPixelCount];
+            
+            // 基準タイムスタンプを取得（チャンク内の最小タイムスタンプ）
+            float baseTimestamp = chunkPixelCount > 0 ? pixelDataList[startIndex].timestamp : GetServerTime();
+            for (int i = 0; i < chunkPixelCount; i++)
+            {
+                float timestamp = pixelDataList[startIndex + i].timestamp;
+                if (timestamp < baseTimestamp)
+                {
+                    baseTimestamp = timestamp;
+                }
+            }
             
             for (int i = 0; i < chunkPixelCount; i++)
             {
                 var pixel = pixelDataList[startIndex + i];
-                xCoords[i] = pixel.x;
-                yCoords[i] = pixel.y;
-                colors[i] = pixel.color;
-                playerIdArray[i] = pixel.playerId;
-                timestampArray[i] = pixel.timestamp;
+                
+                // 座標をushortに変換
+                xCoords[i] = (ushort)Mathf.Clamp(pixel.x, 0, ushort.MaxValue);
+                yCoords[i] = (ushort)Mathf.Clamp(pixel.y, 0, ushort.MaxValue);
+                
+                // Colorを色インデックスに変換
+                colorIndices[i] = PaintColorIndexHelper.ColorToIndex(pixel.color);
+                
+                // playerIdをbyteに変換
+                playerIdArray[i] = (byte)Mathf.Clamp(pixel.playerId, 0, byte.MaxValue);
+                
+                // タイムスタンプを相対値（ushort、ミリ秒単位）に変換
+                float relativeTime = (pixel.timestamp - baseTimestamp) * 1000f;
+                timestampArray[i] = (ushort)Mathf.Clamp(Mathf.RoundToInt(relativeTime), 0, ushort.MaxValue);
             }
             
             PaintSnapshotMessage snapshotMessage = new PaintSnapshotMessage
@@ -901,15 +1088,17 @@ public class NetworkPaintCanvas : NetworkBehaviour
                 height = height,
                 chunkIndex = chunkIndex,
                 totalChunks = chunkCount,
+                baseTimestamp = baseTimestamp,
                 xCoords = xCoords,
                 yCoords = yCoords,
-                colors = colors,
+                colorIndices = colorIndices,
                 playerIds = playerIdArray,
                 timestamps = timestampArray
             };
             
             // INetworkSerializableの場合はWriteValueSafeを使用
-            int estimatedSize = chunkPixelCount * 64 + 256; // 余裕を持たせたサイズ
+            // 最適化後: 約8 bytes/ピクセル
+            int estimatedSize = chunkPixelCount * 12 + 256; // 余裕を持たせたサイズ
             FastBufferWriter writer = new FastBufferWriter(estimatedSize, Unity.Collections.Allocator.Temp);
             writer.WriteValueSafe(snapshotMessage);
             
